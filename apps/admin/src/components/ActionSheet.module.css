@@ -1,0 +1,12 @@
+.body {
+  display: grid;
+  gap: var(--kd-s-4);
+  margin-top: var(--kd-s-4);
+  padding-bottom: var(--kd-s-2);
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--kd-s-2);
+}

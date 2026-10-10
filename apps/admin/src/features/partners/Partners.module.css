@@ -1,0 +1,94 @@
+.body {
+  padding-bottom: var(--kd-s-5);
+}
+
+.summary {
+  display: grid;
+  gap: 4px;
+  margin-bottom: var(--kd-s-4);
+  padding: var(--kd-s-3) var(--kd-s-4);
+  border-radius: var(--kd-radius-media);
+  background: var(--kd-steam);
+}
+
+.figures {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--kd-s-3);
+}
+
+.figures dt {
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-xs);
+}
+
+.figures dd {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-lg);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.inline {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--kd-s-2);
+}
+
+.inline > button {
+  margin-top: 30px;
+}
+
+.contactRow {
+  margin-top: var(--kd-s-3);
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kd-s-2);
+}
+
+.zoneForm {
+  display: grid;
+  gap: var(--kd-s-3);
+  justify-items: start;
+}
+
+.zoneForm > fieldset {
+  width: 100%;
+}
+
+.docs {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.docs th,
+.docs td {
+  padding: 7px 0;
+  border-top: 1px solid var(--kd-line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.docs thead th {
+  border-top: 0;
+  padding-top: 0;
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-xs);
+  font-weight: 600;
+}
+
+.docs tbody th {
+  font-weight: 600;
+  padding-right: var(--kd-s-3);
+}
+
+.docs tbody th span {
+  display: block;
+  font-weight: 400;
+  font-size: var(--kd-text-xs);
+}

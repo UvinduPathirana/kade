@@ -1,0 +1,118 @@
+.list {
+  display: grid;
+  border: 1.5px solid var(--kd-line);
+  border-radius: var(--kd-radius-media);
+  overflow: hidden;
+}
+
+.item + .item {
+  border-top: 1px solid var(--kd-line);
+}
+
+.head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--kd-s-3);
+  width: 100%;
+  min-height: 52px;
+  padding: var(--kd-s-2) var(--kd-s-3);
+  text-align: left;
+  border-radius: 0;
+}
+
+.head:hover {
+  background: #f8faf8;
+}
+
+.head:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--kd-leaf);
+}
+
+.kind {
+  display: grid;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.file {
+  color: var(--kd-ink-muted);
+  font-weight: 400;
+  font-size: var(--kd-text-xs);
+}
+
+.panel {
+  display: grid;
+  gap: var(--kd-s-3);
+  padding: 0 var(--kd-s-3) var(--kd-s-4);
+}
+
+/* A sheet of paper, slightly off-white, with the fields set like a form */
+.paper {
+  padding: var(--kd-s-4);
+  border-radius: 6px;
+  background: #fbfbf8;
+  border: 1px solid var(--kd-line);
+  box-shadow:
+    0 1px 0 var(--kd-line),
+    0 3px 0 -1px #f0f2ee;
+}
+
+.paperTitle {
+  font-family: var(--kd-font-display);
+  font-weight: 700;
+  margin-bottom: var(--kd-s-2);
+}
+
+.paper dl {
+  display: grid;
+  gap: 4px;
+}
+
+.paper dl > div {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: var(--kd-s-2);
+  font-size: var(--kd-text-xs);
+}
+
+.paper dt {
+  color: var(--kd-ink-muted);
+}
+
+.paper dd {
+  font-weight: 600;
+}
+
+.expiring {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.valid {
+  color: var(--kd-ink-muted);
+}
+
+.reason {
+  color: var(--kd-chilli);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--kd-s-2);
+}
+
+.reject {
+  display: flex;
+  flex: 1;
+  min-width: 220px;
+  gap: var(--kd-s-2);
+}
+
+.reject > :first-child {
+  flex: 1;
+}

@@ -1,0 +1,28 @@
+.contact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--kd-s-2);
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 var(--kd-s-3);
+  border-radius: var(--kd-radius-pill);
+  border: 1.5px solid var(--kd-line);
+  font-weight: 600;
+  font-size: var(--kd-text-xs);
+}
+
+.link:hover {
+  border-color: var(--kd-ink);
+}
+
+.phone {
+  color: var(--kd-ink-muted);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--kd-text-xs);
+}

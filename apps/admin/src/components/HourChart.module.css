@@ -1,0 +1,104 @@
+.figure {
+  display: grid;
+  gap: var(--kd-s-2);
+}
+
+.chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  font-family: var(--kd-font-ui);
+}
+
+.grid {
+  stroke: var(--kd-line);
+  stroke-width: 1;
+}
+
+.axis {
+  fill: var(--kd-ink-muted);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.bar {
+  fill: var(--kd-leaf);
+}
+
+.barNow {
+  fill: var(--kd-leaf-tint);
+  stroke: var(--kd-leaf);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 2;
+}
+
+.tick {
+  stroke: var(--kd-ink);
+  stroke-width: 2;
+}
+
+.caption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-xs);
+}
+
+.keyBar,
+.keyTick,
+.keyNow {
+  display: inline-block;
+  width: 12px;
+  height: 10px;
+  margin-left: var(--kd-s-2);
+  border-radius: 2px;
+  background: var(--kd-leaf);
+}
+
+.keyBar {
+  margin-left: 0;
+}
+
+.keyTick {
+  height: 2px;
+  background: var(--kd-ink);
+}
+
+.keyNow {
+  background: var(--kd-leaf-tint);
+  border: 1.5px dashed var(--kd-leaf);
+}
+
+.details summary {
+  width: fit-content;
+  color: var(--kd-leaf);
+  font-weight: 600;
+  font-size: var(--kd-text-xs);
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.table {
+  margin-top: var(--kd-s-2);
+  border-collapse: collapse;
+  font-size: var(--kd-text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.table th,
+.table td {
+  padding: 3px var(--kd-s-4) 3px 0;
+  text-align: left;
+  border-bottom: 1px solid var(--kd-line);
+}
+
+.table thead th {
+  color: var(--kd-ink-muted);
+  font-weight: 600;
+}
+
+.table tbody th {
+  font-weight: 500;
+}

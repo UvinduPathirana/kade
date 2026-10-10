@@ -1,0 +1,9 @@
+.more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--kd-s-4);
+  padding: var(--kd-s-4) 0 0;
+  color: var(--kd-ink-muted);
+  font-variant-numeric: tabular-nums;
+}

@@ -1,0 +1,48 @@
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--kd-s-3);
+  margin-bottom: var(--kd-s-4);
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--kd-s-3);
+  min-width: 0;
+}
+
+.controls > * {
+  min-width: 140px;
+}
+
+.controls > :first-child {
+  flex: 1 1 280px;
+  max-width: 380px;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: var(--kd-s-4);
+  min-height: 44px;
+}
+
+.clear {
+  color: var(--kd-leaf);
+  font-weight: 600;
+  border-radius: 6px;
+}
+
+.clear:hover {
+  text-decoration: underline;
+}
+
+.count {
+  color: var(--kd-ink-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

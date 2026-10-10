@@ -1,0 +1,58 @@
+/* Codes are what customers type, so they're set in the display face, tracked slightly for legibility */
+.code {
+  font-family: var(--kd-font-display);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.offer {
+  display: block;
+  max-width: 34ch;
+}
+
+.meter {
+  display: grid;
+  gap: 4px;
+  min-width: 130px;
+}
+
+.track {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--kd-steam);
+  overflow: hidden;
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  background: var(--kd-leaf);
+}
+
+.fillAlert {
+  background: var(--kd-chilli);
+}
+
+.summary {
+  display: grid;
+  gap: 4px;
+  padding: var(--kd-s-3) var(--kd-s-4);
+  border-radius: var(--kd-radius-media);
+  background: var(--kd-steam);
+}
+
+.restaurants {
+  max-height: 220px;
+  overflow-y: auto;
+  margin-top: var(--kd-s-2);
+  padding: var(--kd-s-2) var(--kd-s-3);
+  border: 1.5px solid var(--kd-line);
+  border-radius: var(--kd-radius-media);
+}
+
+.previewLine {
+  padding: var(--kd-s-3) var(--kd-s-4);
+  border-radius: var(--kd-radius-media);
+  background: var(--kd-steam);
+}

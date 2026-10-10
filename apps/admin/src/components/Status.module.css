@@ -1,0 +1,44 @@
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.mark {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.live .mark {
+  background: var(--kd-leaf);
+}
+
+.progress .mark {
+  border: 2px solid var(--kd-leaf);
+}
+
+.done {
+  color: var(--kd-ink-muted);
+}
+
+.done .mark {
+  background: #b5beb8;
+}
+
+.alert {
+  color: var(--kd-chilli);
+}
+
+.alert .mark {
+  background: var(--kd-chilli);
+  box-shadow: 0 0 0 3px var(--kd-chilli-tint);
+}
+
+.stopped .mark {
+  border-radius: 2px;
+  background: var(--kd-ink);
+}

@@ -1,0 +1,96 @@
+.body {
+  padding-bottom: var(--kd-s-5);
+}
+
+.summary {
+  display: grid;
+  gap: 4px;
+  margin-bottom: var(--kd-s-4);
+  padding: var(--kd-s-3) var(--kd-s-4);
+  border-radius: var(--kd-radius-media);
+  background: var(--kd-steam);
+}
+
+.summaryLate {
+  background: var(--kd-chilli-tint);
+}
+
+.people {
+  display: grid;
+  gap: var(--kd-s-4);
+}
+
+.people > div {
+  display: grid;
+  gap: 4px;
+}
+
+.role {
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-xs);
+}
+
+.items {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.items th {
+  text-align: left;
+  font-weight: 400;
+  padding: 4px 0;
+}
+
+.items td {
+  text-align: right;
+  padding: 4px 0;
+  white-space: nowrap;
+}
+
+.items tfoot tr:first-child > * {
+  border-top: 1px solid var(--kd-line);
+  padding-top: var(--kd-s-2);
+}
+
+.items tfoot th {
+  color: var(--kd-ink-muted);
+}
+
+.total th,
+.total td {
+  font-weight: 700;
+  color: var(--kd-ink) !important;
+}
+
+.notes {
+  display: grid;
+  gap: var(--kd-s-3);
+  margin-bottom: var(--kd-s-3);
+}
+
+.notes li {
+  padding-left: var(--kd-s-3);
+  border-left: 2px solid var(--kd-line);
+}
+
+.noteForm {
+  display: grid;
+  justify-items: start;
+  gap: var(--kd-s-2);
+}
+
+.noteForm > label {
+  width: 100%;
+  margin-top: 0;
+}
+
+.noteForm strong {
+  font-size: var(--kd-text-sm) !important;
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kd-s-2);
+}

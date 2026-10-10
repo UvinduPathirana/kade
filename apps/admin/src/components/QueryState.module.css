@@ -1,0 +1,43 @@
+.loading {
+  display: grid;
+  gap: var(--kd-s-3);
+  padding: var(--kd-s-6) var(--kd-s-5);
+  color: var(--kd-ink-muted);
+}
+
+.bar {
+  display: block;
+  width: 160px;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--kd-leaf) 0 30%, var(--kd-line) 30%);
+  background-size: 200% 100%;
+  animation: slide 1.1s linear infinite;
+}
+
+@keyframes slide {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar {
+    animation: none;
+  }
+}
+
+.error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--kd-s-3);
+  padding: var(--kd-s-4) var(--kd-s-5);
+  border-radius: var(--kd-radius-panel);
+  background: var(--kd-chilli-tint);
+}
+
+.error strong {
+  color: var(--kd-chilli);
+}

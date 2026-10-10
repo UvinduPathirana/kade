@@ -60,7 +60,8 @@ Also: `--kd-leaf-deep` / `--kd-leaf-tint`, `--kd-chilli-tint`, `--kd-ink-muted`,
 - `src/features/feed/`, `src/features/menu/`: page sections for home and the restaurant page.
 - `src/layout/`: site header, footer, phone tab bar.
 - `src/features/cart/totals.ts`: the one price calculation (subtotal, offer, promo, delivery fee, small-order fee under Rs 500, tip) shared by cart, checkout and the order service.
-- Routes: `/` home, `/restaurant/:id`, `/cart`, `/checkout`, `/orders/:id` (tracking, then rating and receipt), plus planned routes that show a "still being built" page.
+- Routes: `/`, `/welcome`, `/signin`, `/search`, `/browse`, `/category/:id`, `/offers`, `/restaurant/:id` (Kadé Market, id 15, renders as a shop), `/group/:id`, `/cart`, `/checkout`, `/orders`, `/orders/:id` (tracking, then rating and receipt), `/orders/:id/help`, `/help`, `/support`, `/account`, `/plus`, `/gifts`. The address picker is a sheet from the header.
+- Each app's first screen is bundled; every other page loads on first visit (React Router `lazy`).
 
 ## Operations apps
 
@@ -71,6 +72,12 @@ All four apps share the tokens, type and voice. Each has its own job, so each sp
 | `apps/restaurant` (port 5175) | Kitchen tablet, landscape, arm's length, greasy fingers | Big type and 56px+ touch targets, glanceable from a metre away. `AppShell tone="ink"`, so the screen recedes and the orders read. Timers in tabular numbers. | The new-order alert card: what the kitchen must accept now |
 | `apps/rider` (port 5176)      | Phone, one hand, outdoors in Colombo sun                | Map-first, very high contrast, everything thumb-reachable at the bottom. One action per screen, large primary buttons.                                       | "Go online" and the incoming job offer                     |
 | `apps/admin` (port 5177)      | Desktop, operations staff all day                       | Dense and calm: tables, filters, side panels, small type. No turmeric. Chilli only for things needing intervention.                                          | None                                                       |
+
+### Restaurant, rider and admin routes
+
+- **Restaurant** (`apps/restaurant`): `/` live orders board, `/orders/:id` printable ticket, `/menu`, `/hours`, `/promotions`, `/payouts`, `/reviews`, `/settings`, plus `/join` and `/join/status` outside the shell. Mock orders arrive every 40–60 s with a 3-minute accept window.
+- **Rider** (`apps/rider`): `/` go online, the job offer overlay, `/job/pickup`, `/job/dropoff`, `/job/done`, `/earnings`, `/trips`, `/trips/:id`, `/account`, plus `/join`. A persisted job state machine (`features/job/store.ts`) runs offline → online → offer → pickup → drop-off → delivered. Uses its own phone shell instead of `AppShell`, centred in a phone-width column on desktop.
+- **Admin** (`apps/admin`): `/` live dashboard, `/orders`, `/finance`, `/restaurants`, `/riders`, `/customers`, `/zones`, `/promotions`, `/support`, `/content`, `/team`. Data is fixed at a Saturday dinner rush and simulated forward; every mutation writes to the audit log.
 
 ## Rules we agreed
 

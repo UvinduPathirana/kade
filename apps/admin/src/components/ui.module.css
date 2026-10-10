@@ -1,0 +1,240 @@
+/*
+ * Shared building blocks for the ops console. Dense and calm: white working surfaces on the shell's
+ * paper, hairline structure, tabular numbers, chilli only where someone has to step in.
+ */
+
+.surface {
+  background: var(--kd-white);
+  border: 1.5px solid var(--kd-line);
+  border-radius: var(--kd-radius-panel);
+}
+
+.surfacePad {
+  padding: var(--kd-s-4) var(--kd-s-5);
+}
+
+.sectionTitle {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-md);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+
+.muted {
+  color: var(--kd-ink-muted);
+}
+
+.small {
+  font-size: var(--kd-text-xs);
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.strong {
+  font-weight: 600;
+}
+
+.alertText {
+  color: var(--kd-chilli);
+  font-weight: 600;
+}
+
+.goodText {
+  color: var(--kd-leaf);
+  font-weight: 600;
+}
+
+/* Two-line table cell: name on top, id or detail below */
+.cellStack {
+  display: grid;
+  line-height: 1.3;
+}
+
+.cellStack > :last-child:not(:first-child) {
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-xs);
+}
+
+.stack {
+  display: grid;
+  gap: var(--kd-s-5);
+  align-content: start;
+}
+
+.stackTight {
+  display: grid;
+  gap: var(--kd-s-3);
+  align-content: start;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--kd-s-2);
+}
+
+.spread {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--kd-s-3);
+}
+
+/* Quiet in-row action: a text button that reads like a link but is a real button */
+.textButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 0 var(--kd-s-2);
+  margin: 0 calc(var(--kd-s-2) * -1);
+  border-radius: 8px;
+  color: var(--kd-leaf);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.textButton:hover {
+  background: var(--kd-leaf-tint);
+}
+
+.textButton:disabled {
+  color: var(--kd-ink-muted);
+  background: none;
+  cursor: not-allowed;
+}
+
+.textButtonAlert {
+  color: var(--kd-chilli);
+}
+
+.textButtonAlert:hover {
+  background: var(--kd-chilli-tint);
+}
+
+/* Form layouts inside sheets and drawers */
+.fields {
+  display: grid;
+  gap: var(--kd-s-4);
+}
+
+.fieldPair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--kd-s-3);
+}
+
+.fieldTrio {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--kd-s-3);
+}
+
+@media (max-width: 520px) {
+  .fieldPair,
+  .fieldTrio {
+    grid-template-columns: 1fr;
+  }
+}
+
+.fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.legend {
+  padding: 0;
+  margin-bottom: var(--kd-s-2);
+  font-weight: 600;
+}
+
+.hint {
+  margin-top: 4px;
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-xs);
+}
+
+.formError {
+  padding: var(--kd-s-3) var(--kd-s-4);
+  border-radius: var(--kd-radius-media);
+  background: var(--kd-chilli-tint);
+  color: var(--kd-chilli);
+  font-weight: 600;
+}
+
+/* Compact checkbox list (zones, restaurants) */
+.checkGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 2px var(--kd-s-3);
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: var(--kd-s-2);
+  min-height: 36px;
+  cursor: pointer;
+}
+
+.check input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--kd-leaf);
+}
+
+.check input:focus-visible {
+  box-shadow: var(--kd-focus);
+  border-radius: 4px;
+}
+
+/* Native inputs we style ourselves (dates, numbers in tables) */
+.input {
+  width: 100%;
+  height: 44px;
+  padding: 0 var(--kd-s-3);
+  border: 1.5px solid var(--kd-line);
+  border-radius: var(--kd-radius-media);
+  background: var(--kd-white);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--kd-ink);
+}
+
+.label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: var(--kd-s-2);
+}
+
+.thumb {
+  width: 44px;
+  height: 33px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--kd-steam);
+}
+
+.kbd {
+  display: inline-block;
+  min-width: 20px;
+  padding: 0 5px;
+  border: 1px solid var(--kd-line);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+  color: var(--kd-ink-muted);
+  background: var(--kd-white);
+}

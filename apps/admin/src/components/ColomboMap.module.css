@@ -1,0 +1,198 @@
+/* Map-only colours, kept here rather than in the global tokens: they only make sense on a map. */
+.map {
+  --map-land: #eef1ec;
+  --map-sea: #d8e7ec;
+  --map-tile: #ffffff;
+  --map-edge: #d3dbd4;
+
+  display: block;
+  width: 100%;
+  height: auto;
+  font-family: var(--kd-font-ui);
+}
+
+.land {
+  fill: var(--map-land);
+}
+
+.sea {
+  fill: var(--map-sea);
+}
+
+.seaLabel,
+.seaLabelSmall {
+  fill: #8eaab5;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.seaLabelSmall {
+  font-size: 10px;
+  letter-spacing: 0.02em;
+}
+
+.rail {
+  fill: none;
+  stroke: #b9c2bb;
+  stroke-width: 2;
+  stroke-dasharray: 6 5;
+}
+
+.road {
+  fill: none;
+  stroke: var(--map-tile);
+  stroke-width: 6;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 0.6px var(--map-edge));
+}
+
+.roadLabel {
+  fill: #8d978f;
+  font-size: 9.5px;
+  font-weight: 600;
+}
+
+.lake {
+  fill: var(--map-sea);
+  pointer-events: none;
+}
+
+/* ---------- Zone tiles ---------- */
+.tileShape {
+  fill: var(--map-tile);
+  stroke: var(--map-edge);
+  stroke-width: 1.2;
+  transition:
+    fill 0.15s,
+    stroke 0.15s;
+}
+
+.code {
+  fill: var(--kd-ink);
+  font-family: var(--kd-font-display);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.name {
+  fill: var(--kd-ink-muted);
+  font-size: 10.5px;
+  font-weight: 500;
+}
+
+.note {
+  fill: var(--kd-ink);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.closed .tileShape {
+  fill: url(#closedHatch);
+}
+
+.closedFill {
+  fill: #f3f5f2;
+}
+
+.hatch {
+  stroke: #dfe4df;
+  stroke-width: 3;
+}
+
+.closed .code,
+.closed .note {
+  fill: var(--kd-ink-muted);
+}
+
+.alert .tileShape {
+  stroke: var(--kd-chilli);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 3;
+}
+
+.interactive {
+  cursor: pointer;
+  outline: none;
+}
+
+.interactive:hover .tileShape {
+  fill: #f8faf8;
+  stroke: #aab5ad;
+}
+
+.interactive:focus-visible .tileShape {
+  stroke: var(--kd-leaf);
+  stroke-width: 3;
+  stroke-dasharray: none;
+}
+
+.selected .tileShape,
+.selected:hover .tileShape {
+  fill: var(--kd-leaf-tint);
+  stroke: var(--kd-leaf);
+  stroke-width: 2;
+  stroke-dasharray: none;
+}
+
+/* ---------- Dots: same grammar as the Status component ---------- */
+.dot {
+  transition: transform 1.2s var(--kd-ease-out);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot {
+    transition: none;
+  }
+}
+
+.waiting {
+  fill: var(--kd-white);
+  stroke: var(--kd-leaf);
+  stroke-width: 2;
+}
+
+.onTheWay {
+  fill: var(--kd-leaf);
+  stroke: var(--kd-white);
+  stroke-width: 1.2;
+}
+
+.late {
+  fill: var(--kd-chilli);
+  stroke: var(--kd-white);
+  stroke-width: 1.2;
+}
+
+.lateHalo {
+  fill: var(--kd-chilli);
+  opacity: 0.16;
+}
+
+.rider {
+  fill: var(--kd-ink);
+}
+
+/* ---------- Legend ---------- */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kd-s-2) var(--kd-s-5);
+  font-size: var(--kd-text-xs);
+  color: var(--kd-ink-muted);
+}
+
+.legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.legend strong {
+  margin-left: 2px;
+  color: var(--kd-ink);
+  font-variant-numeric: tabular-nums;
+}

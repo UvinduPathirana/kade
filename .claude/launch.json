@@ -4,14 +4,50 @@
     {
       "name": "customer",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--dir", "/Users/uvindup/Documents/food-delivery/apps/customer", "dev"],
+      "runtimeArgs": [
+        "--dir",
+        "/Users/uvindup/Documents/food-delivery/apps/customer",
+        "dev"
+      ],
       "port": 5174
     },
     {
       "name": "prototype",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["/Users/uvindup/Documents/food-delivery/.claude/serve.mjs"],
+      "runtimeArgs": [
+        "/Users/uvindup/Documents/food-delivery/.claude/serve.mjs"
+      ],
       "port": 5173
+    },
+    {
+      "name": "restaurant",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "/Users/uvindup/Documents/food-delivery/apps/restaurant",
+        "dev"
+      ],
+      "port": 5175
+    },
+    {
+      "name": "rider",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "/Users/uvindup/Documents/food-delivery/apps/rider",
+        "dev"
+      ],
+      "port": 5176
+    },
+    {
+      "name": "admin",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "/Users/uvindup/Documents/food-delivery/apps/admin",
+        "dev"
+      ],
+      "port": 5177
     }
   ]
 }

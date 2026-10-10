@@ -1,49 +1,59 @@
+// Pages other than the first screen load on first visit, keeping the initial download small
 import { createBrowserRouter } from "react-router";
 import { RootLayout } from "./RootLayout";
-import { AccountPage } from "@/pages/AccountPage";
-import { BrowsePage } from "@/pages/BrowsePage";
-import { CartPage } from "@/pages/CartPage";
-import { CategoryPage } from "@/pages/CategoryPage";
-import { CheckoutPage } from "@/pages/CheckoutPage";
-import { GiftsPage } from "@/pages/GiftsPage";
-import { GroupOrderPage } from "@/pages/GroupOrderPage";
-import { HelpPage } from "@/pages/HelpPage";
 import { HomePage } from "@/pages/HomePage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
-import { OffersPage } from "@/pages/OffersPage";
-import { OrderHelpPage } from "@/pages/OrderHelpPage";
-import { OrderPage } from "@/pages/OrderPage";
-import { OrdersPage } from "@/pages/OrdersPage";
-import { PlusPage } from "@/pages/PlusPage";
-import { RestaurantPage } from "@/pages/RestaurantPage";
-import { SearchPage } from "@/pages/SearchPage";
-import { SignInPage } from "@/pages/SignInPage";
-import { SupportPage } from "@/pages/SupportPage";
-import { WelcomePage } from "@/pages/WelcomePage";
 
 export const router = createBrowserRouter([
   {
     element: <RootLayout />,
     children: [
       { path: "/", element: <HomePage /> },
-      { path: "/welcome", element: <WelcomePage /> },
-      { path: "/signin", element: <SignInPage /> },
-      { path: "/search", element: <SearchPage /> },
-      { path: "/browse", element: <BrowsePage /> },
-      { path: "/category/:id", element: <CategoryPage /> },
-      { path: "/offers", element: <OffersPage /> },
-      { path: "/restaurant/:id", element: <RestaurantPage /> },
-      { path: "/group/:id", element: <GroupOrderPage /> },
-      { path: "/cart", element: <CartPage /> },
-      { path: "/checkout", element: <CheckoutPage /> },
-      { path: "/orders", element: <OrdersPage /> },
-      { path: "/orders/:id", element: <OrderPage /> },
-      { path: "/orders/:id/help", element: <OrderHelpPage /> },
-      { path: "/help", element: <HelpPage /> },
-      { path: "/support", element: <SupportPage /> },
-      { path: "/account", element: <AccountPage /> },
-      { path: "/plus", element: <PlusPage /> },
-      { path: "/gifts", element: <GiftsPage /> },
+      {
+        path: "/welcome",
+        lazy: async () => ({ Component: (await import("@/pages/WelcomePage")).WelcomePage }),
+      },
+      { path: "/signin", lazy: async () => ({ Component: (await import("@/pages/SignInPage")).SignInPage }) },
+      { path: "/search", lazy: async () => ({ Component: (await import("@/pages/SearchPage")).SearchPage }) },
+      { path: "/browse", lazy: async () => ({ Component: (await import("@/pages/BrowsePage")).BrowsePage }) },
+      {
+        path: "/category/:id",
+        lazy: async () => ({ Component: (await import("@/pages/CategoryPage")).CategoryPage }),
+      },
+      { path: "/offers", lazy: async () => ({ Component: (await import("@/pages/OffersPage")).OffersPage }) },
+      {
+        path: "/restaurant/:id",
+        lazy: async () => ({ Component: (await import("@/pages/RestaurantPage")).RestaurantPage }),
+      },
+      {
+        path: "/group/:id",
+        lazy: async () => ({ Component: (await import("@/pages/GroupOrderPage")).GroupOrderPage }),
+      },
+      { path: "/cart", lazy: async () => ({ Component: (await import("@/pages/CartPage")).CartPage }) },
+      {
+        path: "/checkout",
+        lazy: async () => ({ Component: (await import("@/pages/CheckoutPage")).CheckoutPage }),
+      },
+      { path: "/orders", lazy: async () => ({ Component: (await import("@/pages/OrdersPage")).OrdersPage }) },
+      {
+        path: "/orders/:id",
+        lazy: async () => ({ Component: (await import("@/pages/OrderPage")).OrderPage }),
+      },
+      {
+        path: "/orders/:id/help",
+        lazy: async () => ({ Component: (await import("@/pages/OrderHelpPage")).OrderHelpPage }),
+      },
+      { path: "/help", lazy: async () => ({ Component: (await import("@/pages/HelpPage")).HelpPage }) },
+      {
+        path: "/support",
+        lazy: async () => ({ Component: (await import("@/pages/SupportPage")).SupportPage }),
+      },
+      {
+        path: "/account",
+        lazy: async () => ({ Component: (await import("@/pages/AccountPage")).AccountPage }),
+      },
+      { path: "/plus", lazy: async () => ({ Component: (await import("@/pages/PlusPage")).PlusPage }) },
+      { path: "/gifts", lazy: async () => ({ Component: (await import("@/pages/GiftsPage")).GiftsPage }) },
       { path: "*", element: <NotFoundPage /> },
     ],
   },

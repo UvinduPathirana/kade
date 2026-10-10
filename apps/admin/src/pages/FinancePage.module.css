@@ -1,0 +1,63 @@
+/* The batch summary reads left to right like the payout sum: gross, minus commission, minus refunds, equals payout */
+.batch {
+  display: grid;
+  grid-template-columns: minmax(200px, 260px) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--kd-s-5);
+  padding: var(--kd-s-4) var(--kd-s-5);
+}
+
+.batchFigures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kd-s-2) var(--kd-s-6);
+}
+
+.batchFigures dt {
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-xs);
+}
+
+.batchFigures dd {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.batchNet {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-lg);
+  font-weight: 700 !important;
+  letter-spacing: -0.02em;
+}
+
+.batchAction {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  text-align: right;
+}
+
+.batchSelect {
+  min-width: 0;
+}
+
+@media (max-width: 1100px) {
+  .batch {
+    grid-template-columns: 1fr;
+  }
+
+  .batchAction {
+    justify-items: start;
+    text-align: left;
+  }
+}
+
+.lede {
+  margin: calc(var(--kd-s-2) * -1) 0 var(--kd-s-4);
+}
+
+.switchFilter {
+  min-height: 44px;
+  justify-content: flex-start;
+  flex-direction: row-reverse;
+}

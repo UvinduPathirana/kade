@@ -1,0 +1,87 @@
+.matrixWrap {
+  overflow-x: auto;
+  border: 1.5px solid var(--kd-line);
+  border-radius: var(--kd-radius-panel);
+  background: var(--kd-white);
+}
+
+.matrix {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.caption {
+  padding: var(--kd-s-3) var(--kd-s-4);
+  text-align: left;
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-xs);
+}
+
+.matrix thead th {
+  position: sticky;
+  top: 0;
+  padding: var(--kd-s-3) var(--kd-s-4);
+  background: var(--kd-steam);
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-xs);
+  font-weight: 600;
+  text-align: center;
+}
+
+.matrix thead th:first-child {
+  text-align: left;
+}
+
+.matrix tbody th,
+.matrix tbody td {
+  padding: 6px var(--kd-s-4);
+  border-top: 1px solid var(--kd-line);
+}
+
+.matrix tbody th {
+  text-align: left;
+  font-weight: 500;
+}
+
+.matrix tbody td {
+  text-align: center;
+  width: 110px;
+}
+
+.groupRow th {
+  padding-top: var(--kd-s-4) !important;
+  font-family: var(--kd-font-display);
+  font-weight: 700 !important;
+}
+
+.box {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--kd-leaf);
+  cursor: pointer;
+}
+
+.box:disabled {
+  cursor: not-allowed;
+}
+
+.box:focus-visible {
+  box-shadow: var(--kd-focus);
+  border-radius: 4px;
+}
+
+.saveBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--kd-s-3);
+}
+
+.recordLink {
+  margin: 0;
+  padding: 0;
+  min-height: 0;
+  font-size: var(--kd-text-xs);
+}

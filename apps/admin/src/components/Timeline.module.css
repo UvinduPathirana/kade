@@ -1,0 +1,50 @@
+.timeline {
+  display: grid;
+  position: relative;
+}
+
+.event {
+  position: relative;
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: var(--kd-s-3);
+  padding: 0 0 var(--kd-s-3) 0;
+}
+
+/* Rail and node */
+.event::before {
+  content: "";
+  position: absolute;
+  left: 70px;
+  top: 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--kd-leaf);
+}
+
+.event:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 73px;
+  top: 16px;
+  bottom: 2px;
+  width: 1px;
+  background: var(--kd-line);
+}
+
+.time {
+  color: var(--kd-ink-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.text {
+  display: grid;
+  padding-left: var(--kd-s-4);
+}
+
+.by {
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-xs);
+}
