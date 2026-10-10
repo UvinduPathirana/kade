@@ -1,0 +1,24 @@
+.desc {
+  margin-top: var(--kd-s-2);
+  color: var(--kd-ink-muted);
+  max-width: 60ch;
+}
+
+.price {
+  margin-top: var(--kd-s-2);
+  font-weight: 600;
+  font-size: var(--kd-text-md);
+}
+
+.add,
+.added {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .add {
+    padding: 0 var(--kd-s-4);
+    font-size: var(--kd-text-sm);
+  }
+}

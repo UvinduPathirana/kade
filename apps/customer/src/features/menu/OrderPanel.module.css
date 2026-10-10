@@ -1,0 +1,100 @@
+.panel {
+  position: sticky;
+  top: calc(var(--kd-header-h) + 60px + var(--kd-s-5));
+  margin-top: var(--kd-s-6);
+  max-height: calc(100vh - var(--kd-header-h) - 60px - var(--kd-s-7));
+  display: flex;
+  flex-direction: column;
+  border: 1.5px solid var(--kd-line);
+  border-radius: var(--kd-radius-panel);
+}
+
+.title {
+  padding: var(--kd-s-5) var(--kd-s-5) var(--kd-s-3);
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-lg);
+  letter-spacing: -0.02em;
+}
+
+.body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 var(--kd-s-5);
+}
+
+.foot {
+  padding: var(--kd-s-4) var(--kd-s-5) var(--kd-s-5);
+}
+
+.other {
+  padding-bottom: var(--kd-s-4);
+  color: var(--kd-ink-muted);
+}
+
+.other strong {
+  display: block;
+  color: var(--kd-ink);
+}
+
+/* Quieter than the drawer's empty state: no wash, left aligned */
+.empty {
+  justify-items: start;
+  text-align: left;
+  padding: var(--kd-s-1) 0 var(--kd-s-5);
+  background: none;
+}
+
+/* ---------- Mobile bar ---------- */
+.bar {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .panel {
+    display: none;
+  }
+
+  .bar {
+    display: block;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: var(--kd-z-header);
+    padding: var(--kd-s-3) var(--kd-gutter) calc(var(--kd-s-3) + env(safe-area-inset-bottom));
+    background: linear-gradient(transparent, var(--kd-white) 30%);
+  }
+
+  .bar button {
+    width: 100%;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    gap: var(--kd-s-3);
+    padding: 0 var(--kd-s-5) 0 var(--kd-s-3);
+    background: var(--kd-leaf);
+    color: var(--kd-white);
+    border-radius: var(--kd-radius-pill);
+    font-weight: 600;
+    font-size: var(--kd-text-md);
+  }
+
+  .hasBar {
+    padding-bottom: 96px;
+  }
+}
+
+.barCount {
+  min-width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  background: rgb(255 255 255 / 0.18);
+  border-radius: var(--kd-radius-pill);
+  font-size: var(--kd-text-sm);
+}
+
+.barLabel {
+  flex: 1;
+  text-align: left;
+}

@@ -1,0 +1,17 @@
+.page {
+  padding: var(--kd-s-8) 0;
+}
+
+.page h1 {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-2xl);
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  max-width: 16ch;
+}
+
+.page p {
+  margin: var(--kd-s-3) 0 var(--kd-s-5);
+  color: var(--kd-ink-muted);
+  max-width: 48ch;
+}

@@ -1,0 +1,24 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  height: 40px;
+  padding: 0 var(--kd-s-4);
+  border-radius: var(--kd-radius-pill);
+  background: var(--kd-steam);
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.chip:hover {
+  background: var(--kd-steam-hover);
+}
+
+.chip[aria-pressed="true"] {
+  background: var(--kd-ink);
+  color: var(--kd-white);
+}

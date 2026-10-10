@@ -1,0 +1,71 @@
+/*
+ * Kadé design tokens — the single source of truth for every app.
+ * Fonts are loaded by each app's index.html (Bricolage Grotesque + Instrument Sans).
+ */
+:root {
+  /* Palette: Sri Lankan street food, not delivery-app black and green */
+  --kd-leaf: #1e5b3a; /* banana leaf: primary actions, selection */
+  --kd-leaf-deep: #154530;
+  --kd-leaf-tint: #e4efe8;
+  --kd-turmeric: #f2b705; /* reserved for the one bold surface per page */
+  --kd-turmeric-hover: #f5c11f;
+  --kd-turmeric-deep: #d9a204;
+  --kd-chilli: #c8331e; /* offers, discounts and errors only */
+  --kd-chilli-tint: #fbe9e5;
+  --kd-ink: #10251a; /* leaf ink: text */
+  --kd-ink-muted: #56645b;
+  --kd-line: #dde3de;
+  --kd-steam: #f1f3f0; /* chips, washes, inactive controls */
+  --kd-steam-hover: #e5e9e5;
+  --kd-white: #ffffff;
+  --kd-scrim: rgb(16 37 26 / 0.45);
+
+  /* Type */
+  --kd-font-display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --kd-font-ui: "Instrument Sans", "Helvetica Neue", system-ui, sans-serif;
+
+  /* Scale: 13 / 15 / 17 / 21 / 28 / 40 / hero */
+  --kd-text-xs: 0.8125rem;
+  --kd-text-sm: 0.9375rem;
+  --kd-text-md: 1.0625rem;
+  --kd-text-lg: 1.3125rem;
+  --kd-text-xl: 1.75rem;
+  --kd-text-2xl: 2.5rem;
+  --kd-text-hero: clamp(2.75rem, 1.4rem + 5.2vw, 5.75rem);
+
+  /* Radii follow hierarchy: controls are pills, media is soft, the hero is the roundest surface */
+  --kd-radius-pill: 999px;
+  --kd-radius-media: 14px;
+  --kd-radius-panel: 20px;
+  --kd-radius-hero: 32px;
+
+  /* Spacing (4px base) */
+  --kd-s-1: 4px;
+  --kd-s-2: 8px;
+  --kd-s-3: 12px;
+  --kd-s-4: 16px;
+  --kd-s-5: 24px;
+  --kd-s-6: 32px;
+  --kd-s-7: 48px;
+  --kd-s-8: 64px;
+
+  /* Layout */
+  --kd-page-max: 1320px;
+  --kd-gutter: clamp(16px, 4vw, 40px);
+  --kd-header-h: 72px;
+
+  /* Effects */
+  --kd-focus: 0 0 0 3px var(--kd-white), 0 0 0 5px var(--kd-leaf);
+  --kd-shadow-lift: 0 1px 2px rgb(16 37 26 / 0.12);
+  --kd-shadow-float: 0 16px 32px -16px rgb(16 37 26 / 0.3);
+  --kd-ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --kd-z-header: 30;
+  --kd-z-overlay: 40;
+  --kd-z-modal: 50;
+}
+
+@media (max-width: 640px) {
+  :root {
+    --kd-header-h: 60px;
+  }
+}

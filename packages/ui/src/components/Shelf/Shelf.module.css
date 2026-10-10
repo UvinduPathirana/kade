@@ -1,0 +1,40 @@
+.shelf {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(260px, 1fr);
+  gap: var(--kd-s-5);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  padding-bottom: var(--kd-s-1);
+}
+
+.shelf::-webkit-scrollbar {
+  display: none;
+}
+
+.shelf > * {
+  scroll-snap-align: start;
+}
+
+.arrows {
+  display: inline-flex;
+  gap: var(--kd-s-2);
+}
+
+@media (min-width: 1100px) {
+  .shelf {
+    grid-auto-columns: calc((100% - 3 * var(--kd-s-5)) / 4);
+  }
+}
+
+@media (max-width: 640px) {
+  .shelf {
+    grid-auto-columns: 82%;
+    gap: var(--kd-s-4);
+  }
+
+  .arrows {
+    display: none;
+  }
+}

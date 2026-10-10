@@ -1,0 +1,39 @@
+.bar {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: var(--kd-z-header);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    height: calc(64px + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+    background: var(--kd-white);
+    border-top: 1px solid var(--kd-line);
+  }
+
+  .tab {
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 2px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--kd-ink-muted);
+    border-radius: 0;
+  }
+
+  .tab[aria-current="page"] {
+    color: var(--kd-leaf);
+  }
+
+  /* Leave room so the last content isn't hidden behind the bar */
+  body:has(.bar) {
+    padding-bottom: 72px;
+  }
+}

@@ -1,0 +1,95 @@
+.nav {
+  position: sticky;
+  top: var(--kd-header-h);
+  z-index: 20;
+  margin-top: var(--kd-s-6);
+  background: var(--kd-white);
+  border-bottom: 1px solid var(--kd-line);
+}
+
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--kd-s-4);
+  height: 60px;
+}
+
+.links {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: var(--kd-s-1);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.links::-webkit-scrollbar {
+  display: none;
+}
+
+.links a {
+  flex: none;
+  padding: 8px 14px;
+  border-radius: var(--kd-radius-pill);
+  font-weight: 600;
+  color: var(--kd-ink-muted);
+  white-space: nowrap;
+}
+
+.links a:hover {
+  color: var(--kd-ink);
+  background: var(--kd-steam);
+}
+
+.links a[aria-current="true"] {
+  color: var(--kd-white);
+  background: var(--kd-ink);
+}
+
+.search {
+  flex: none;
+  width: 260px;
+  height: 40px;
+}
+
+/* On narrow screens the search collapses to an icon and expands over the links while focused */
+@media (max-width: 900px) {
+  .search {
+    width: 44px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .search input {
+    position: absolute;
+    width: 1px;
+    opacity: 0;
+  }
+
+  .search:focus-within,
+  .search:has(input:not(:placeholder-shown)) {
+    position: absolute;
+    left: var(--kd-gutter);
+    right: var(--kd-gutter);
+    z-index: 2;
+    width: auto;
+    padding: 0 var(--kd-s-4);
+    justify-content: flex-start;
+  }
+
+  .search:focus-within input,
+  .search:has(input:not(:placeholder-shown)) input {
+    position: static;
+    width: auto;
+    opacity: 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .search:focus-within,
+  .search:has(input:not(:placeholder-shown)) {
+    left: 0;
+    right: 0;
+  }
+}

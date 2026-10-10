@@ -1,0 +1,250 @@
+.hero {
+  padding-top: var(--kd-s-3);
+}
+
+.band {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--kd-s-6);
+  min-height: 420px;
+  padding: var(--kd-s-8) clamp(24px, 5vw, 72px);
+  background: var(--kd-turmeric);
+  border-radius: var(--kd-radius-hero);
+  overflow: hidden;
+}
+
+.copy {
+  position: relative;
+  z-index: 1;
+}
+
+/* Delivery/Pickup lives in the header on wide screens */
+.mode {
+  display: none;
+}
+
+/* ---------- Rotating headline ---------- */
+.title {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-hero);
+  font-weight: 800;
+  line-height: 0.92;
+  letter-spacing: -0.045em;
+  font-variation-settings: "opsz" 96;
+}
+
+.line {
+  display: block;
+  overflow: hidden;
+  padding-bottom: 0.06em;
+}
+
+.line > span {
+  display: inline-block;
+}
+
+.eta {
+  font-weight: 500;
+  letter-spacing: -0.035em;
+}
+
+.title.leaving .line > span {
+  animation: wordOut 0.32s var(--kd-ease-out) forwards;
+}
+
+.title.entering .line > span {
+  animation: wordIn 0.5s var(--kd-ease-out) both;
+}
+
+.title.entering .eta > span {
+  animation-delay: 0.06s;
+}
+
+@keyframes wordOut {
+  to {
+    transform: translateY(-105%);
+    opacity: 0;
+  }
+}
+
+@keyframes wordIn {
+  from {
+    transform: translateY(105%);
+    opacity: 0;
+  }
+}
+
+/* ---------- Search ---------- */
+.search {
+  display: flex;
+  align-items: center;
+  gap: var(--kd-s-2);
+  margin-top: var(--kd-s-6);
+  max-width: 560px;
+  height: 64px;
+  padding: 0 8px 0 var(--kd-s-5);
+  background: var(--kd-white);
+  border-radius: var(--kd-radius-pill);
+  box-shadow: 0 2px 0 var(--kd-turmeric-deep);
+}
+
+.search:focus-within {
+  box-shadow: 0 0 0 3px var(--kd-ink);
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: none;
+  background: none;
+  font-size: var(--kd-text-md);
+}
+
+.search input::placeholder {
+  color: var(--kd-ink-muted);
+}
+
+.submitIcon {
+  display: none;
+}
+
+.tries {
+  margin-top: var(--kd-s-4);
+}
+
+.tries button {
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: rgb(16 37 26 / 0.35);
+  border-radius: 4px;
+}
+
+.tries button:hover {
+  text-decoration-color: currentColor;
+}
+
+/* ---------- Plate ---------- */
+.plate {
+  justify-self: center;
+  position: relative;
+  width: min(100%, 400px);
+  aspect-ratio: 1;
+}
+
+.plate img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 14px solid var(--kd-white);
+  box-shadow: 0 30px 50px -20px rgb(16 37 26 / 0.45);
+}
+
+.plate.leaving img {
+  animation: plateOut 0.32s ease-in forwards;
+}
+
+.plate.entering img {
+  animation: plateIn 0.6s var(--kd-ease-out) both;
+}
+
+@keyframes plateOut {
+  to {
+    transform: rotate(40deg) scale(0.9);
+    opacity: 0;
+  }
+}
+
+@keyframes plateIn {
+  from {
+    transform: rotate(-60deg) scale(0.9);
+    opacity: 0;
+  }
+}
+
+.ticket {
+  position: absolute;
+  left: -8px;
+  bottom: 12%;
+  display: grid;
+  gap: 2px;
+  padding: var(--kd-s-3) var(--kd-s-4);
+  background: var(--kd-white);
+  border-radius: var(--kd-radius-media);
+  box-shadow: 0 12px 24px -12px rgb(16 37 26 / 0.4);
+  font-size: var(--kd-text-xs);
+  color: var(--kd-ink-muted);
+}
+
+.ticket strong {
+  color: var(--kd-ink);
+  font-size: var(--kd-text-sm);
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 860px) {
+  .band {
+    grid-template-columns: 1fr;
+    min-height: 0;
+    padding-block: var(--kd-s-7) var(--kd-s-6);
+  }
+
+  .mode {
+    display: inline-flex;
+    margin-bottom: var(--kd-s-5);
+  }
+
+  .plate {
+    position: absolute;
+    right: -70px;
+    top: -50px;
+    width: 220px;
+    opacity: 0.95;
+  }
+
+  .plate img {
+    border-width: 8px;
+  }
+
+  .ticket {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .band {
+    border-radius: var(--kd-radius-panel);
+    padding: var(--kd-s-6) var(--kd-s-5) var(--kd-s-5);
+  }
+
+  .plate {
+    width: 170px;
+    right: -50px;
+    top: -40px;
+  }
+
+  .search {
+    height: 56px;
+    margin-top: var(--kd-s-5);
+    padding-left: var(--kd-s-4);
+  }
+
+  .submit {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+  }
+
+  .submitText {
+    display: none;
+  }
+
+  .submitIcon {
+    display: block;
+  }
+}

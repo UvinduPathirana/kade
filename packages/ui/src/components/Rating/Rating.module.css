@@ -1,0 +1,35 @@
+.rating {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 700;
+  border-radius: var(--kd-radius-pill);
+  background: var(--kd-steam);
+  font-variant-numeric: tabular-nums;
+}
+
+.sm {
+  font-size: var(--kd-text-xs);
+  padding: 2px 8px;
+}
+
+.md {
+  font-size: var(--kd-text-sm);
+  padding: 2px 10px;
+}
+
+.star {
+  fill: var(--kd-turmeric-deep);
+  stroke: none;
+}
+
+.starOff {
+  fill: var(--kd-line);
+  stroke: none;
+}
+
+.stars {
+  display: inline-flex;
+  gap: 2px;
+}

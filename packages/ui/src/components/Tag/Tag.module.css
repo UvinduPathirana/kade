@@ -1,0 +1,45 @@
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: var(--kd-radius-pill);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.sm {
+  font-size: var(--kd-text-xs);
+  padding: 1px 8px;
+}
+
+.md {
+  font-size: var(--kd-text-sm);
+  padding: 6px 14px 6px 10px;
+}
+
+.neutral {
+  background: var(--kd-steam);
+  color: var(--kd-ink-muted);
+}
+
+.veg,
+.positive {
+  background: var(--kd-leaf-tint);
+  color: var(--kd-leaf);
+}
+
+.hot,
+.offerSoft {
+  background: var(--kd-chilli-tint);
+  color: var(--kd-chilli);
+}
+
+.offer {
+  background: var(--kd-chilli);
+  color: var(--kd-white);
+  font-weight: 700;
+}
+
+.offer.sm {
+  padding: 4px 10px;
+}

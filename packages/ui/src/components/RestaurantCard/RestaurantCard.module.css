@@ -1,0 +1,92 @@
+.card {
+  position: relative;
+}
+
+.media {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border-radius: var(--kd-radius-media);
+  overflow: hidden;
+  background: var(--kd-steam);
+}
+
+.media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s var(--kd-ease-out);
+}
+
+.card:hover .media img {
+  transform: scale(1.03);
+}
+
+/* Stretch the name link over the whole card */
+.link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: var(--kd-radius-media);
+}
+
+.link:focus-visible {
+  box-shadow: none;
+}
+
+.link:focus-visible::after {
+  box-shadow: var(--kd-focus);
+}
+
+.offer {
+  position: absolute;
+  left: var(--kd-s-3);
+  top: var(--kd-s-3);
+}
+
+.closed {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgb(16 37 26 / 0.55);
+  color: var(--kd-white);
+  font-weight: 600;
+}
+
+/* Sits above the stretched link so it stays clickable */
+.save {
+  position: absolute;
+  right: var(--kd-s-3);
+  top: var(--kd-s-3);
+  z-index: 2;
+}
+
+.body {
+  padding-top: var(--kd-s-3);
+}
+
+.title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--kd-s-3);
+}
+
+.name {
+  font-size: var(--kd-text-md);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--kd-s-3);
+  color: var(--kd-ink-muted);
+}
+
+.eta {
+  color: var(--kd-ink);
+  font-weight: 600;
+}

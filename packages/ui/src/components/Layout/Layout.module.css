@@ -1,0 +1,76 @@
+.container {
+  width: min(100% - 2 * var(--kd-gutter), var(--kd-page-max));
+  margin-inline: auto;
+}
+
+.wordmark {
+  font-family: var(--kd-font-display);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--kd-leaf);
+}
+
+.wordmark-md {
+  font-size: 1.75rem;
+}
+
+.wordmark-lg {
+  font-size: 2.25rem;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--kd-s-4);
+  margin-bottom: var(--kd-s-4);
+}
+
+.sectionTitle {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-xl);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+
+.sectionDescription {
+  color: var(--kd-ink-muted);
+  margin-top: 2px;
+}
+
+.sectionActions {
+  display: flex;
+  align-items: center;
+  gap: var(--kd-s-2);
+  flex: none;
+}
+
+.empty {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: var(--kd-s-7) var(--kd-s-5);
+  text-align: center;
+  background: var(--kd-steam);
+  border-radius: var(--kd-radius-panel);
+}
+
+.empty strong {
+  font-size: var(--kd-text-md);
+}
+
+.empty p {
+  color: var(--kd-ink-muted);
+  margin-bottom: var(--kd-s-3);
+  max-width: 48ch;
+}
+
+.textLink {
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1.5px;
+  white-space: nowrap;
+}

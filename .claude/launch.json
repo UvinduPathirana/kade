@@ -2,7 +2,13 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "kade-static",
+      "name": "customer",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "/Users/uvindup/Documents/food-delivery/apps/customer", "dev"],
+      "port": 5174
+    },
+    {
+      "name": "prototype",
       "runtimeExecutable": "node",
       "runtimeArgs": ["/Users/uvindup/Documents/food-delivery/.claude/serve.mjs"],
       "port": 5173

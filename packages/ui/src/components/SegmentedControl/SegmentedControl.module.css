@@ -1,0 +1,65 @@
+.track {
+  display: inline-flex;
+  padding: 4px;
+  background: var(--kd-steam);
+}
+
+.option {
+  color: var(--kd-ink-muted);
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.option[aria-pressed="true"] {
+  background: var(--kd-white);
+  color: var(--kd-ink);
+  box-shadow: var(--kd-shadow-lift);
+}
+
+.onColor {
+  background: rgb(255 255 255 / 0.5);
+}
+
+/* pill */
+.pill {
+  border-radius: var(--kd-radius-pill);
+}
+
+.pill .option {
+  padding: 7px 16px;
+  border-radius: var(--kd-radius-pill);
+}
+
+.pill .option strong {
+  font-weight: 600;
+}
+
+/* card */
+.card {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 4px;
+  border-radius: var(--kd-radius-media);
+}
+
+.card .option {
+  display: grid;
+  gap: 1px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  text-align: left;
+}
+
+.card .option strong {
+  font-size: var(--kd-text-sm);
+}
+
+.card .option span {
+  font-size: var(--kd-text-xs);
+}
+
+.card .option[aria-pressed="true"] strong {
+  color: var(--kd-ink);
+}
