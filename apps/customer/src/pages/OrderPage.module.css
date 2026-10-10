@@ -1,0 +1,155 @@
+.page {
+  padding: var(--kd-s-5) 0 var(--kd-s-8);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 440px) minmax(0, 1fr);
+  gap: var(--kd-s-6);
+  align-items: start;
+}
+
+.side {
+  display: grid;
+  gap: var(--kd-s-4);
+}
+
+/* ---------- Status band (turmeric) ---------- */
+.band {
+  padding: var(--kd-s-6);
+  background: var(--kd-turmeric);
+  border-radius: var(--kd-radius-hero);
+}
+
+.bandQuiet {
+  background: var(--kd-steam);
+}
+
+.orderId {
+  font-weight: 600;
+  font-size: var(--kd-text-sm);
+}
+
+.headline {
+  margin-top: var(--kd-s-3);
+  font-family: var(--kd-font-display);
+  font-size: clamp(2rem, 1.4rem + 2vw, 3rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  font-variation-settings: "opsz" 96;
+  text-wrap: balance;
+}
+
+.detail {
+  margin-top: var(--kd-s-3);
+  max-width: 44ch;
+}
+
+.progress {
+  padding: 0 var(--kd-s-1);
+}
+
+.note {
+  padding: var(--kd-s-3) var(--kd-s-4);
+  background: var(--kd-steam);
+  border-radius: var(--kd-radius-media);
+  color: var(--kd-ink-muted);
+}
+
+.note strong {
+  color: var(--kd-ink);
+}
+
+.error {
+  color: var(--kd-chilli);
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kd-s-2);
+}
+
+.details summary {
+  cursor: pointer;
+  padding: var(--kd-s-3) 0;
+  font-weight: 600;
+  border-radius: var(--kd-radius-media);
+}
+
+/* ---------- Map ---------- */
+.mapWrap {
+  position: sticky;
+  top: calc(var(--kd-header-h) + var(--kd-s-4));
+  height: min(640px, calc(100vh - var(--kd-header-h) - var(--kd-s-7)));
+}
+
+.mapWrap > figure {
+  height: 100%;
+}
+
+.mapNote {
+  position: absolute;
+  left: var(--kd-s-4);
+  top: var(--kd-s-4);
+  padding: 6px 14px;
+  background: var(--kd-white);
+  border-radius: var(--kd-radius-pill);
+  font-weight: 600;
+  box-shadow: var(--kd-shadow-lift);
+}
+
+/* ---------- Delivered ---------- */
+.doneLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 440px);
+  gap: var(--kd-s-6);
+  align-items: start;
+  margin-top: var(--kd-s-5);
+}
+
+.missing {
+  margin-top: var(--kd-s-7);
+}
+
+@media (max-width: 900px) {
+  .layout,
+  .doneLayout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--kd-s-4);
+  }
+
+  /* Band, then map, then everything else */
+  .side {
+    display: contents;
+  }
+
+  .band {
+    order: -2;
+  }
+
+  .mapWrap {
+    order: -1;
+    position: relative;
+    top: 0;
+    height: auto;
+    aspect-ratio: 4 / 3;
+  }
+}
+
+@media (max-width: 640px) {
+  .band {
+    padding: var(--kd-s-5);
+    border-radius: var(--kd-radius-panel);
+  }
+}
+
+@media print {
+  .band,
+  .mapWrap,
+  .actions {
+    display: none;
+  }
+}

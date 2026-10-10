@@ -1,0 +1,123 @@
+/* Map-only colours, kept here rather than in the global tokens: they only make sense on a map. */
+.map {
+  --map-land: #eef1ec;
+  --map-sea: #d8e7ec;
+  --map-road: #ffffff;
+  --map-edge: #d6ddd6;
+  --map-park: #dde9df;
+
+  position: relative;
+  border-radius: var(--kd-radius-panel);
+  overflow: hidden;
+  background: var(--map-land);
+}
+
+.map svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.land {
+  fill: var(--map-land);
+}
+
+.sea {
+  fill: var(--map-sea);
+}
+
+.seaLabel {
+  fill: #9bb5bf;
+  font: 600 13px var(--kd-font-ui);
+  letter-spacing: 0.08em;
+}
+
+.rail {
+  fill: none;
+  stroke: #b9c2bb;
+  stroke-width: 3;
+  stroke-dasharray: 8 6;
+}
+
+.park {
+  fill: var(--map-park);
+}
+
+.block {
+  fill: #e4e8e3;
+}
+
+.roads path {
+  fill: none;
+  stroke: var(--map-road);
+  stroke-width: 14;
+  stroke-linecap: round;
+  paint-order: stroke;
+  filter: drop-shadow(0 0 0.6px var(--map-edge));
+}
+
+.roads .lane {
+  stroke-width: 8;
+}
+
+.roadLabel {
+  fill: var(--kd-ink-muted);
+  font: 600 12px var(--kd-font-ui);
+}
+
+.route {
+  fill: none;
+  stroke: var(--kd-leaf);
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 2 10;
+  opacity: 0.6;
+}
+
+.routeDone {
+  fill: none;
+  stroke: var(--kd-leaf);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke-dasharray 1s linear;
+}
+
+.pinStore {
+  fill: var(--kd-ink);
+  stroke: var(--kd-white);
+  stroke-width: 3;
+}
+
+.pinHome {
+  fill: var(--kd-white);
+  stroke: var(--kd-ink);
+  stroke-width: 2.5;
+}
+
+.pinIconLight {
+  color: var(--kd-white);
+}
+
+/* Moves smoothly between the once-a-second position updates */
+.rider {
+  transition: transform 1s linear;
+}
+
+.riderHalo {
+  fill: rgb(30 91 58 / 0.18);
+}
+
+.riderDot {
+  fill: var(--kd-leaf);
+  stroke: var(--kd-white);
+  stroke-width: 3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rider,
+  .routeDone {
+    transition: none;
+  }
+}

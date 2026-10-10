@@ -89,6 +89,12 @@ export function CartContents({ showRestaurant = true }: { showRestaurant?: boole
             </dd>
           </div>
         )}
+        {t.smallOrderFee > 0 && (
+          <div>
+            <dt>Small order fee</dt>
+            <dd>{formatRs(t.smallOrderFee)}</dd>
+          </div>
+        )}
         {t.saving > 0 && (
           <div className={styles.saving}>
             <dt>Offer: {restaurant.discountPercent}% off</dt>

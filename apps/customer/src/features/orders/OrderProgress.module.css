@@ -1,0 +1,37 @@
+.steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.steps li {
+  font-size: var(--kd-text-xs);
+  color: var(--kd-ink-muted);
+}
+
+.steps li::before {
+  content: "";
+  display: block;
+  height: 4px;
+  margin-bottom: 6px;
+  border-radius: var(--kd-radius-pill);
+  background: rgb(30 91 58 / 0.18);
+}
+
+.done::before {
+  background: var(--kd-leaf) !important;
+}
+
+.now {
+  color: var(--kd-ink) !important;
+  font-weight: 600;
+}
+
+.now::before {
+  background: linear-gradient(
+    90deg,
+    var(--kd-leaf) var(--fill, 50%),
+    rgb(30 91 58 / 0.18) var(--fill, 50%)
+  ) !important;
+  transition: background 1s linear;
+}

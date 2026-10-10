@@ -114,4 +114,9 @@
   .cartLabel {
     display: none;
   }
+
+  /* Checkout's header is only the wordmark, so keep it */
+  .wordmarkAlways {
+    display: inline;
+  }
 }

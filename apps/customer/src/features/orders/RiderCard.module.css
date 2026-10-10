@@ -1,0 +1,109 @@
+.card {
+  container-type: inline-size;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--kd-s-4);
+  padding: var(--kd-s-4);
+  border: 1.5px solid var(--kd-line);
+  border-radius: var(--kd-radius-panel);
+}
+
+.avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--kd-leaf);
+  color: var(--kd-white);
+  font-family: var(--kd-font-display);
+  font-weight: 700;
+  font-size: var(--kd-text-lg);
+}
+
+.avatar[data-pending] {
+  background: var(--kd-steam);
+  color: var(--kd-ink-muted);
+}
+
+.text {
+  display: grid;
+  min-width: 0;
+}
+
+.text strong {
+  display: flex;
+  align-items: center;
+  gap: var(--kd-s-2);
+  font-size: var(--kd-text-md);
+}
+
+.text span {
+  color: var(--kd-ink-muted);
+}
+
+.actions {
+  display: flex;
+  gap: var(--kd-s-2);
+}
+
+/* ---------- Chat ---------- */
+.chatNote {
+  margin-top: var(--kd-s-1);
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-xs);
+}
+
+.thread {
+  display: grid;
+  gap: var(--kd-s-2);
+  margin-top: var(--kd-s-4);
+  min-height: 160px;
+  align-content: end;
+}
+
+.thread li {
+  max-width: 80%;
+  padding: var(--kd-s-2) var(--kd-s-3);
+  border-radius: 16px;
+}
+
+.theirs {
+  justify-self: start;
+  background: var(--kd-steam);
+  border-bottom-left-radius: 4px;
+}
+
+.mine {
+  justify-self: end;
+  background: var(--kd-leaf);
+  color: var(--kd-white);
+  border-bottom-right-radius: 4px;
+}
+
+.quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kd-s-2);
+  margin-top: var(--kd-s-4);
+}
+
+.compose {
+  flex: 1;
+}
+
+/* The card sits in a narrow column on desktop and full width on phones: wrap on its own width */
+@container (max-width: 460px) {
+  .text {
+    grid-column: 2 / -1;
+  }
+
+  .actions {
+    grid-column: 1 / -1;
+  }
+
+  .actions > * {
+    flex: 1;
+  }
+}

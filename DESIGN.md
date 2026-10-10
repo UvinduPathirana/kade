@@ -45,15 +45,20 @@ Also: `--kd-leaf-deep` / `--kd-leaf-tint`, `--kd-chilli-tint`, `--kd-ink-muted`,
 
 ## Customer app (`apps/customer`)
 
-- `src/api/`: `catalog.ts` is the only thing pages call for data. Today it serves `mock/catalogue.ts`; later it calls the catalogue and menu microservices. `queries.ts` wraps each call in TanStack Query.
+- `src/api/`: `catalog.ts` and `orders.ts` are the only things pages call for data. Today they serve mock data (orders persist in localStorage); later they call the catalogue, menu and order microservices. `queries.ts` wraps each call in TanStack Query; live order status polls every second, standing in for the order service's status stream.
+- `src/api/orderStatus.ts`: the order's status is derived from time since it was placed (accepted at 20 s, cooking at 30 s, picked up at 60 s, delivered at 100 s) so the demo moves on its own. Customers can cancel only before the kitchen accepts.
+- `src/api/promos.ts`: demo codes `KADE100` (Rs 100 off Rs 1,000+) and `FIRSTKOTTU` (15% off at Galle Road Kottu House, up to Rs 500). The order service re-checks codes and recomputes totals; it never trusts the client's numbers.
 - `src/features/cart/`: Zustand store saved to localStorage (`kade.cart.v2`) with the cart, a snapshot of its restaurant, and Delivery/Pickup mode. One restaurant per cart; `add()` returns `false` when the cart holds another restaurant's dishes, and the page asks "Start a new order?". `totals.ts` is the pure price calculation.
 - `src/features/feed/`, `src/features/menu/`: page sections for home and the restaurant page.
 - `src/layout/`: site header, footer, phone tab bar.
-- Routes: `/` home, `/restaurant/:id`, plus planned routes that show a "still being built" page.
+- `src/features/cart/totals.ts`: the one price calculation (subtotal, offer, promo, delivery fee, small-order fee under Rs 500, tip) shared by cart, checkout and the order service.
+- Routes: `/` home, `/restaurant/:id`, `/cart`, `/checkout`, `/orders/:id` (tracking, then rating and receipt), plus planned routes that show a "still being built" page.
 
 ## Rules we agreed
 
-- One turmeric surface per page: the search band on home, the "Add to order" button in item options. Everything else stays calm.
+- One turmeric surface per page: the search band on home, "Add to order" in item options, "Place order" at checkout, the status band on tracking and delivered. Everything else stays calm.
+- Status is written as a sentence in the hero's voice: "Nimal is 7 minutes away.", "Delivered at 7:41 pm. Enjoy your cheese kottu."
+- The delivery map is an illustration (Galle Road, the coastal railway, the sea) until the rider app sends real positions. Its colours live in `DeliveryMap.module.css`, not the global tokens.
 - Time-first: every place shows its delivery time before its delivery fee.
 - Motion: only the hero rotation runs on its own. It is turned off under `prefers-reduced-motion` and pauses while the hero has focus. Other motion answers an action (sheet opening, a heart popping, the added line flashing).
 - Below 860px, Delivery/Pickup moves into the hero. Below 640px, a bottom tab bar appears (Home, Browse, Orders, Account).

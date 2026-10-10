@@ -1,0 +1,39 @@
+.meta {
+  display: grid;
+  gap: var(--kd-s-2);
+  padding-bottom: var(--kd-s-4);
+  margin-bottom: var(--kd-s-4);
+  border-bottom: 1px solid var(--kd-line);
+}
+
+.meta div {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: var(--kd-s-3);
+}
+
+.meta dt {
+  color: var(--kd-ink-muted);
+}
+
+.meta dd {
+  margin: 0;
+  font-weight: 500;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kd-s-2);
+  margin-top: var(--kd-s-5);
+}
+
+@media print {
+  .actions {
+    display: none;
+  }
+
+  .receipt {
+    border: 0;
+  }
+}

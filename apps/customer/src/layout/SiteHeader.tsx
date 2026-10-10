@@ -2,6 +2,7 @@ import { Container, Icon, IconButton, SearchField, SegmentedControl, Wordmark, c
 import { useEffect, useState } from "react";
 import { modeOptions } from "@/features/cart/mode";
 import { useCart, useCartTotals } from "@/features/cart/store";
+import { useOpenCart } from "@/features/cart/useOpenCart";
 import styles from "./SiteHeader.module.css";
 
 export interface SiteHeaderProps {
@@ -11,16 +12,19 @@ export interface SiteHeaderProps {
   withSearch?: boolean;
   /** Reveal the compact search (home does once the hero search scrolls away). */
   showSearch?: boolean;
+  /** Checkout: just the wordmark, so nothing pulls people away from paying. */
+  minimal?: boolean;
 }
 
 export function SiteHeader({
   showModeToggle = false,
   withSearch = false,
   showSearch = false,
+  minimal = false,
 }: SiteHeaderProps) {
   const mode = useCart((s) => s.mode);
   const setMode = useCart((s) => s.setMode);
-  const openCart = useCart((s) => s.setDrawerOpen);
+  const openCart = useOpenCart();
   const { count } = useCartTotals();
   const [scrolled, setScrolled] = useState(false);
 
@@ -34,40 +38,46 @@ export function SiteHeader({
   return (
     <header className={cx(styles.header, scrolled && styles.scrolled)}>
       <Container className={styles.row}>
-        <Wordmark className={styles.wordmark} />
+        <Wordmark className={cx(styles.wordmark, minimal && styles.wordmarkAlways)} />
+        {minimal ? null : (
+          <>
+            <button className={styles.address} type="button" aria-haspopup="dialog">
+              <Icon name="pin" />
+              <span>42 Galle Rd, Colombo 03</span>
+              <Icon name="chevronDown" size={16} />
+            </button>
 
-        <button className={styles.address} type="button" aria-haspopup="dialog">
-          <Icon name="pin" />
-          <span>42 Galle Rd, Colombo 03</span>
-          <Icon name="chevronDown" size={16} />
-        </button>
+            {showModeToggle && (
+              <SegmentedControl
+                className={styles.mode}
+                label="Order type"
+                options={modeOptions}
+                value={mode}
+                onChange={setMode}
+              />
+            )}
 
-        {showModeToggle && (
-          <SegmentedControl
-            className={styles.mode}
-            label="Order type"
-            options={modeOptions}
-            value={mode}
-            onChange={setMode}
-          />
+            {withSearch && (
+              <div
+                className={cx(styles.search, showSearch && styles.searchVisible)}
+                aria-hidden={!showSearch}
+              >
+                <SearchField label="Search dishes, restaurants or shops" tabIndex={showSearch ? 0 : -1} />
+              </div>
+            )}
+
+            <div className={styles.actions}>
+              <IconButton icon="user" label="Account" href="/account" className={styles.account} />
+              <button className={styles.cart} type="button" onClick={openCart}>
+                <Icon name="bag" />
+                <span className={styles.cartLabel}>Cart</span>
+                <span className={styles.count} aria-label={`${count} ${count === 1 ? "item" : "items"}`}>
+                  {count}
+                </span>
+              </button>
+            </div>
+          </>
         )}
-
-        {withSearch && (
-          <div className={cx(styles.search, showSearch && styles.searchVisible)} aria-hidden={!showSearch}>
-            <SearchField label="Search dishes, restaurants or shops" tabIndex={showSearch ? 0 : -1} />
-          </div>
-        )}
-
-        <div className={styles.actions}>
-          <IconButton icon="user" label="Account" href="/account" className={styles.account} />
-          <button className={styles.cart} type="button" aria-haspopup="dialog" onClick={() => openCart(true)}>
-            <Icon name="bag" />
-            <span className={styles.cartLabel}>Cart</span>
-            <span className={styles.count} aria-label={`${count} ${count === 1 ? "item" : "items"}`}>
-              {count}
-            </span>
-          </button>
-        </div>
       </Container>
     </header>
   );

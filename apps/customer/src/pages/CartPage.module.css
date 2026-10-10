@@ -1,0 +1,35 @@
+.page {
+  max-width: 760px;
+  padding: var(--kd-s-6) 0 var(--kd-s-8);
+}
+
+.title {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-2xl);
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  margin-bottom: var(--kd-s-5);
+}
+
+.checkout {
+  margin-top: var(--kd-s-6);
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding-top: var(--kd-s-5);
+  }
+
+  .title {
+    font-size: var(--kd-text-xl);
+  }
+
+  /* Checkout stays in reach above the home indicator */
+  .checkout {
+    position: sticky;
+    bottom: 0;
+    margin-inline: calc(-1 * var(--kd-gutter));
+    padding: var(--kd-s-3) var(--kd-gutter) calc(var(--kd-s-3) + env(safe-area-inset-bottom));
+    background: linear-gradient(transparent, var(--kd-white) 30%);
+  }
+}

@@ -1,0 +1,34 @@
+.panel {
+  padding: var(--kd-s-5);
+  border-radius: var(--kd-radius-panel);
+}
+
+.outline {
+  border: 1.5px solid var(--kd-line);
+}
+
+.wash {
+  background: var(--kd-steam);
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--kd-s-3);
+  margin-bottom: var(--kd-s-4);
+}
+
+.title {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-lg);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+@media (max-width: 640px) {
+  .panel {
+    padding: var(--kd-s-4);
+  }
+}

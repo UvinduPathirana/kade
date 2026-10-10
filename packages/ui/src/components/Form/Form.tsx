@@ -107,3 +107,56 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
     </label>
   );
 });
+
+/* ---------- TextField: labelled input with hint, error and an optional trailing action ---------- */
+
+export interface TextFieldProps extends InputHTMLAttributes<HTMLInputElement> {
+  label: string;
+  /** Hide the label visually (it is still read out). */
+  hideLabel?: boolean;
+  hint?: ReactNode;
+  /** Says what went wrong and how to fix it. Turns the field chilli and is announced. */
+  error?: string;
+  /** Text before the value, e.g. "Rs". */
+  prefix?: string;
+  /** A button or link placed inside the field's end, e.g. "Apply". */
+  action?: ReactNode;
+}
+
+export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(function TextField(
+  { label, hideLabel, hint, error, prefix, action, className, id, ...rest },
+  ref,
+) {
+  const autoId = useId();
+  const inputId = id ?? autoId;
+  const hintId = `${inputId}-hint`;
+  const errorId = `${inputId}-error`;
+  return (
+    <div className={cx(styles.textField, className)} data-state={error ? "error" : undefined}>
+      <label htmlFor={inputId} className={cx(styles.textLabel, hideLabel && "kd-visually-hidden")}>
+        {label}
+      </label>
+      <div className={styles.textControl}>
+        {prefix && <span className={styles.prefix}>{prefix}</span>}
+        <input
+          ref={ref}
+          id={inputId}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={[hint && hintId, error && errorId].filter(Boolean).join(" ") || undefined}
+          {...rest}
+        />
+        {action}
+      </div>
+      {hint && !error && (
+        <p id={hintId} className={styles.textHint}>
+          {hint}
+        </p>
+      )}
+      {error && (
+        <p id={errorId} className={styles.error} role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+});

@@ -39,6 +39,8 @@ interface CartState {
   setQty: (key: string, qty: number) => void;
   setMode: (mode: OrderMode) => void;
   setDrawerOpen: (open: boolean) => void;
+  /** Replace the whole cart, e.g. "Order again" from a past order. */
+  replaceWith: (restaurant: CartRestaurant, lines: CartLine[]) => void;
   clear: () => void;
 }
 
@@ -94,6 +96,7 @@ export const useCart = create<CartState>()(
       },
       setMode: (mode) => set({ mode }),
       setDrawerOpen: (drawerOpen) => set({ drawerOpen }),
+      replaceWith: (restaurant, lines) => set({ restaurant, lines, lastAdded: null }),
       clear: () => set({ restaurant: null, lines: [] }),
     }),
     {

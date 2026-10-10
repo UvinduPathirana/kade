@@ -1,31 +1,38 @@
 import { Button } from "@kade/ui";
+import { legProgress, orderStatus } from "@/api/orderStatus";
+import { useActiveOrder } from "@/api/queries";
+import { OrderProgress } from "@/features/orders/OrderProgress";
+import { statusCopy } from "@/features/orders/statusCopy";
+import { useNow } from "@/lib/useNow";
 import styles from "./Banners.module.css";
 
-const steps = ["Confirmed", "Cooked", "On the way", "Delivered"];
+/** Shown while one of your orders is on its way. Hidden otherwise. */
+export function LiveOrderBanner() {
+  const { data: order } = useActiveOrder();
+  const now = useNow(1000, !!order);
+  if (!order) return null;
+  const status = orderStatus(order, now);
+  const { headline, detail } = statusCopy(order, status, now);
+  const initial = order.rider?.name[0] ?? order.restaurant.name[0];
 
-/** Shown while an order is in progress. Mock: Nimal is on the way. Live data comes from the order service. */
-export function LiveOrderBanner({ current = 2 }: { current?: number }) {
   return (
     <section className={styles.live} aria-label="Order in progress">
       <div className={styles.rider} aria-hidden="true">
-        N
+        {initial}
       </div>
       <div>
-        <strong className={styles.liveTitle}>Nimal is on the way with your kottu</strong>
-        <p className={styles.liveText}>From Galle Road Kottu House. Arriving around 7:42 pm.</p>
-        <ol className={styles.steps}>
-          {steps.map((s, i) => (
-            <li
-              key={s}
-              className={i < current ? styles.done : i === current ? styles.now : undefined}
-              aria-current={i === current ? "step" : undefined}
-            >
-              {s}
-            </li>
-          ))}
-        </ol>
+        <strong className={styles.liveTitle}>{headline}</strong>
+        <p className={styles.liveText}>{detail}</p>
+        {status !== "scheduled" && (
+          <OrderProgress
+            mode={order.mode}
+            status={status}
+            progress={legProgress(order, now)}
+            className={styles.steps}
+          />
+        )}
       </div>
-      <Button href="/orders/live" className={styles.track}>
+      <Button href={`/orders/${order.id}`} className={styles.track}>
         Track order
       </Button>
     </section>

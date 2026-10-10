@@ -83,3 +83,105 @@ export interface Review {
   stars: number;
   text: string;
 }
+
+// ---------- Orders ----------
+
+export type PaymentMethod =
+  { type: "card"; brand: string; last4: string } | { type: "cash"; payingWith?: number };
+
+export interface SavedAddress {
+  id: string;
+  label: string;
+  line: string;
+}
+
+export interface OrderLine {
+  key: string;
+  itemId: string;
+  name: string;
+  unitPrice: number;
+  qty: number;
+  choices: string[];
+  note: string;
+}
+
+export interface OrderRestaurant {
+  id: number;
+  name: string;
+  imageId: string;
+  eta: [number, number];
+  deliveryFee: number;
+  discountPercent?: number;
+  area: string;
+}
+
+export interface Rider {
+  name: string;
+  rating: number;
+  vehicle: string;
+  plate: string;
+  /** Masked number that forwards to the rider, so neither side sees the other's phone. */
+  maskedPhone: string;
+}
+
+export interface OrderTotals {
+  subtotal: number;
+  saving: number;
+  deliveryFee: number;
+  smallOrderFee: number;
+  promoDiscount: number;
+  tip: number;
+  total: number;
+}
+
+export interface OrderRating {
+  riderStars?: number;
+  riderTags: string[];
+  /** itemId → liked or not */
+  dishes: Record<string, "up" | "down">;
+  comment: string;
+  ratedAt: number;
+}
+
+/** Delivery: placed → accepted → preparing → pickedUp → delivered. Pickup: … preparing → ready → collected. */
+export type OrderStatus =
+  | "scheduled"
+  | "placed"
+  | "accepted"
+  | "preparing"
+  | "pickedUp"
+  | "delivered"
+  | "ready"
+  | "collected"
+  | "cancelled";
+
+export interface Order {
+  id: string;
+  placedAt: number;
+  mode: OrderMode;
+  restaurant: OrderRestaurant;
+  lines: OrderLine[];
+  address?: SavedAddress;
+  riderNote: string;
+  /** Present for scheduled orders: when it should arrive / be ready. */
+  scheduledFor?: number;
+  payment: PaymentMethod;
+  promoCode?: string;
+  totals: OrderTotals;
+  rider?: Rider;
+  cancelledAt?: number;
+  collectedAt?: number;
+  rating?: OrderRating;
+}
+
+export interface PlaceOrderInput {
+  mode: OrderMode;
+  restaurant: OrderRestaurant;
+  lines: OrderLine[];
+  address?: SavedAddress;
+  riderNote: string;
+  scheduledFor?: number;
+  payment: PaymentMethod;
+  promoCode?: string;
+  tip: number;
+}

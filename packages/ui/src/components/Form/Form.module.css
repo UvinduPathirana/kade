@@ -183,3 +183,49 @@
 .search input::placeholder {
   color: var(--kd-ink-muted);
 }
+
+/* ---------- TextField ---------- */
+.textLabel {
+  display: block;
+  font-weight: 600;
+  margin-bottom: var(--kd-s-2);
+}
+
+.textControl {
+  display: flex;
+  align-items: center;
+  gap: var(--kd-s-2);
+  min-height: 48px;
+  padding: 4px 4px 4px var(--kd-s-4);
+  border: 1.5px solid var(--kd-line);
+  border-radius: var(--kd-radius-media);
+  background: var(--kd-white);
+}
+
+.textControl:focus-within {
+  border-color: var(--kd-ink);
+}
+
+.textField[data-state="error"] .textControl {
+  border-color: var(--kd-chilli);
+}
+
+.textControl input {
+  flex: 1;
+  min-width: 0;
+  height: 38px;
+  border: 0;
+  outline: none;
+  background: none;
+}
+
+.prefix {
+  color: var(--kd-ink-muted);
+  font-weight: 600;
+}
+
+.textHint {
+  margin-top: var(--kd-s-2);
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-xs);
+}

@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import type { Restaurant } from "@/api/types";
 import { CartContents, CheckoutButton } from "@/features/cart/CartContents";
 import { useCart, useCartTotals } from "@/features/cart/store";
+import { useOpenCart } from "@/features/cart/useOpenCart";
 import styles from "./OrderPanel.module.css";
 
 /** Sticky "Your order" panel beside the menu on wide screens. */
@@ -55,7 +56,7 @@ export function OrderPanel({ restaurant }: { restaurant: Restaurant }) {
 /** Bottom "View order" bar on narrow screens, shown once this restaurant's dishes are in the cart. */
 export function OrderBar({ restaurant }: { restaurant: Restaurant }) {
   const cartRestaurant = useCart((s) => s.restaurant);
-  const openCart = useCart((s) => s.setDrawerOpen);
+  const openCart = useOpenCart();
   const { count, total } = useCartTotals();
   const visible = count > 0 && cartRestaurant?.id === restaurant.id;
 
@@ -67,7 +68,7 @@ export function OrderBar({ restaurant }: { restaurant: Restaurant }) {
   if (!visible) return null;
   return (
     <div className={styles.bar}>
-      <button type="button" onClick={() => openCart(true)}>
+      <button type="button" onClick={openCart}>
         <span className={styles.barCount}>{count}</span>
         <span className={styles.barLabel}>View order</span>
         <span>{formatRs(total)}</span>

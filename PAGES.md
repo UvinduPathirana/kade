@@ -11,7 +11,7 @@ placed → accepted by restaurant → preparing → ready → picked up → deli
 
 **Turmeric surface per product:**
 
-- Customer: search band (home), "Add to order" button (restaurant item options)
+- Customer: search band (home), "Add to order" (item options), "Place order" (checkout), status band (tracking and delivered)
 - Restaurant: new-order alert
 - Rider: "Go online" button and new-job card
 - Admin: none
@@ -23,10 +23,10 @@ placed → accepted by restaurant → preparing → ready → picked up → deli
 - [x] Home feed: `/`
 - [x] Restaurant page (`/restaurant/:id`): menu sections with sticky menu bar, info, popular items, reviews
 - [x] Item options: size, spice level, add-ons, notes, quantity
-- [ ] Cart (full page on mobile, drawer on desktop) with "people also added"
-- [ ] Checkout: delivery or pickup, now or scheduled, card or cash on delivery, promo code, tip
-- [ ] Live tracking: map, status steps, call or chat with the rider, cancel window
-- [ ] Delivered + rating: food and rider rating, tip, receipt
+- [x] Cart (`/cart` on phones, drawer on wider screens) with "people also added"
+- [x] Checkout (`/checkout`): delivery or pickup, now or scheduled, card or cash on delivery, promo code, tip
+- [x] Live tracking (`/orders/:id`): map, status steps, call or chat with the rider, cancel window
+- [x] Delivered + rating (`/orders/:id` once delivered): food and rider rating, tip, receipt
 
 ### Phase 2: rest of the customer side
 
