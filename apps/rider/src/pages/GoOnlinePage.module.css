@@ -1,0 +1,13 @@
+.searching {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: var(--kd-s-2);
+  vertical-align: 0.1em;
+  border-radius: 50%;
+  background: var(--kd-leaf);
+}
+
+.offline {
+  border: 2px solid var(--kd-ink);
+}

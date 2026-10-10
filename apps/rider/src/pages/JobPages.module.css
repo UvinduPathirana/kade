@@ -1,0 +1,290 @@
+/* Pickup, drop-off and delivered: sized for a phone on a mount, read in a glance. */
+
+.orderNumber {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-2xl);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+
+.waitBox {
+  display: flex;
+  gap: var(--kd-s-3);
+  padding: var(--kd-s-4);
+  border-radius: var(--kd-radius-media);
+  background: var(--kd-steam);
+  box-shadow: inset 4px 0 0 var(--kd-ink);
+}
+
+.waitBox > svg {
+  flex: none;
+}
+
+.waitDone {
+  margin-top: var(--kd-s-3);
+}
+
+.sealedNote {
+  display: flex;
+  gap: var(--kd-s-2);
+  align-items: flex-start;
+  font-weight: 600;
+}
+
+.sealedNote svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.checklist {
+  display: grid;
+  gap: var(--kd-s-2);
+}
+
+/* Big checkbox rows: the whole row is the target */
+.checkItem {
+  min-height: 64px;
+  padding: var(--kd-s-3) var(--kd-s-4);
+  border: 2px solid var(--kd-line);
+  border-radius: var(--kd-radius-media);
+}
+
+.checkItem:has(input:checked) {
+  border-color: var(--kd-leaf);
+  background: var(--kd-leaf-tint);
+}
+
+.checkItem:has(input:disabled) {
+  opacity: 0.55;
+}
+
+.sealedChoice {
+  border-style: dashed;
+}
+
+.itemText {
+  display: grid;
+  line-height: 1.3;
+}
+
+.itemText strong {
+  font-size: var(--kd-text-md);
+}
+
+.itemText span {
+  color: var(--kd-ink-muted);
+}
+
+/* ---------- Drop-off ---------- */
+.note {
+  display: flex;
+  gap: var(--kd-s-2);
+  align-items: flex-start;
+  margin: 0;
+  padding: var(--kd-s-3);
+  border-radius: var(--kd-radius-media);
+  background: var(--kd-steam);
+  font-size: var(--kd-text-md);
+  font-weight: 600;
+}
+
+.note svg {
+  flex: none;
+  margin-top: 3px;
+}
+
+.cashLine {
+  display: flex;
+  align-items: center;
+  gap: var(--kd-s-2);
+  font-size: var(--kd-text-md);
+  font-weight: 700;
+}
+
+.replies {
+  display: grid;
+  gap: var(--kd-s-2);
+  margin-top: var(--kd-s-4);
+}
+
+.reply {
+  width: 100%;
+  min-height: 56px;
+  padding: var(--kd-s-3) var(--kd-s-4);
+  border-radius: var(--kd-radius-media);
+  background: var(--kd-steam);
+  font-size: var(--kd-text-md);
+  font-weight: 600;
+  text-align: left;
+}
+
+.reply:hover {
+  background: var(--kd-steam-hover);
+}
+
+.reply:focus-visible {
+  border-radius: var(--kd-radius-media);
+}
+
+.cashBox {
+  display: grid;
+  gap: var(--kd-s-3);
+  padding: var(--kd-s-4);
+  border-radius: var(--kd-radius-panel);
+  border: 3px solid var(--kd-ink);
+}
+
+.cashDone {
+  border-color: var(--kd-leaf);
+  background: var(--kd-leaf-tint);
+}
+
+.cashDue {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-2xl);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.paysWith {
+  font-size: var(--kd-text-md);
+  font-weight: 600;
+}
+
+.changeCalc {
+  display: grid;
+  gap: var(--kd-s-3);
+}
+
+.noteChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kd-s-2);
+}
+
+.noteChips button {
+  min-height: 44px;
+}
+
+.change {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-lg);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.collectedRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--kd-s-3);
+}
+
+.collectedText {
+  display: flex;
+  align-items: center;
+  gap: var(--kd-s-2);
+  font-size: var(--kd-text-md);
+  font-weight: 700;
+  color: var(--kd-leaf-deep);
+}
+
+.proofBody {
+  display: grid;
+  gap: var(--kd-s-3);
+  padding-top: var(--kd-s-4);
+}
+
+.codeField input {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-xl);
+  font-weight: 700;
+  letter-spacing: 0.4em;
+}
+
+.photo {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--kd-radius-media);
+}
+
+.photo img {
+  width: 100%;
+  max-height: 260px;
+  object-fit: cover;
+}
+
+.photo figcaption {
+  position: absolute;
+  left: var(--kd-s-2);
+  bottom: var(--kd-s-2);
+  display: flex;
+  align-items: center;
+  gap: var(--kd-s-1);
+  padding: var(--kd-s-1) var(--kd-s-3);
+  border-radius: var(--kd-radius-pill);
+  background: var(--kd-ink);
+  color: var(--kd-white);
+  font-weight: 600;
+}
+
+.cameraButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--kd-s-2);
+  height: 56px;
+  border-radius: var(--kd-radius-pill);
+  background: var(--kd-steam);
+  font-size: var(--kd-text-md);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cameraButton:hover {
+  background: var(--kd-steam-hover);
+}
+
+/* The input is visually hidden, so show its focus on the label */
+input:focus-visible + .cameraButton,
+.proofBody:has(input[type="file"]:focus-visible) .cameraButton {
+  box-shadow: var(--kd-focus);
+}
+
+/* ---------- Delivered ---------- */
+.doneHead {
+  display: grid;
+  gap: var(--kd-s-2);
+}
+
+.doneIcon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--kd-leaf);
+  color: var(--kd-white);
+}
+
+.earned {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-2xl);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.rateRow {
+  display: flex;
+  gap: var(--kd-s-2);
+}
+
+.rateRow button {
+  min-height: 48px;
+  padding: 0 var(--kd-s-4);
+}

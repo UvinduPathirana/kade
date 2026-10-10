@@ -1,0 +1,256 @@
+/* The offer covers the whole phone: turmeric, ink type, the earnings inside a draining ring. */
+.offer {
+  position: absolute;
+  inset: 0;
+  z-index: var(--kd-z-modal);
+  display: flex;
+  flex-direction: column;
+  gap: var(--kd-s-4);
+  padding: var(--kd-s-4) var(--kd-s-4) calc(var(--kd-s-4) + env(safe-area-inset-bottom));
+  overflow-y: auto;
+  background: var(--kd-turmeric);
+  color: var(--kd-ink);
+  animation: rise 0.28s var(--kd-ease-out);
+}
+
+@keyframes rise {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.title {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-xl);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  border-radius: 6px;
+}
+
+.title:focus-visible {
+  box-shadow: 0 0 0 3px var(--kd-ink);
+}
+
+.orderNo {
+  font-weight: 700;
+}
+
+/* ---------- Dial ---------- */
+.dial {
+  position: relative;
+  width: min(220px, 58vw);
+  aspect-ratio: 1;
+  margin: 0 auto;
+}
+
+.ring {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.track {
+  fill: none;
+  stroke: var(--kd-turmeric-deep);
+  stroke-width: 12;
+}
+
+.remaining {
+  fill: none;
+  stroke: var(--kd-ink);
+  stroke-width: 12;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.25s linear;
+}
+
+.dialText {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--kd-s-1);
+}
+
+.earn {
+  font-family: var(--kd-font-display);
+  font-size: 2.75rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.left {
+  font-size: var(--kd-text-md);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.payParts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--kd-s-1) var(--kd-s-4);
+  font-size: var(--kd-text-sm);
+}
+
+/* ---------- Cash and stops ---------- */
+.cash,
+.card {
+  display: flex;
+  align-items: center;
+  gap: var(--kd-s-3);
+  padding: var(--kd-s-3) var(--kd-s-4);
+  border-radius: var(--kd-radius-media);
+  font-size: var(--kd-text-md);
+  font-weight: 600;
+}
+
+.cash {
+  background: var(--kd-ink);
+  color: var(--kd-white);
+}
+
+.cash strong {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-lg);
+}
+
+.card {
+  border: 2px solid var(--kd-ink);
+}
+
+.stops {
+  position: relative;
+  display: grid;
+  gap: var(--kd-s-4);
+}
+
+/* The line joining pickup to drop-off: these two stops are a sequence */
+.stops::before {
+  content: "";
+  position: absolute;
+  left: 15px;
+  top: 30px;
+  bottom: 30px;
+  border-left: 3px solid var(--kd-ink);
+}
+
+.stops li {
+  display: flex;
+  gap: var(--kd-s-3);
+  align-items: flex-start;
+}
+
+.stopIcon {
+  position: relative;
+  flex: none;
+  box-sizing: content-box;
+  padding: 6px;
+  border-radius: 50%;
+  background: var(--kd-ink);
+  color: var(--kd-turmeric);
+}
+
+.stopText {
+  display: grid;
+  font-size: var(--kd-text-md);
+  line-height: 1.3;
+}
+
+.stopText strong {
+  font-size: var(--kd-text-lg);
+  font-family: var(--kd-font-display);
+  letter-spacing: -0.02em;
+}
+
+.totals {
+  font-weight: 600;
+}
+
+/* ---------- Actions ---------- */
+.actions {
+  margin-top: auto;
+}
+
+.buttons {
+  display: flex;
+  gap: var(--kd-s-3);
+}
+
+.buttons > * {
+  height: 64px;
+}
+
+.accept {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-lg);
+  font-weight: 700;
+}
+
+.outlineInk {
+  flex: none;
+  border: 2px solid var(--kd-ink);
+  color: var(--kd-ink);
+}
+
+.outlineInk:not(:disabled):hover {
+  background: var(--kd-turmeric-hover);
+}
+
+.decline {
+  display: grid;
+  gap: var(--kd-s-3);
+}
+
+.reasons {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.reasons legend {
+  margin-bottom: var(--kd-s-2);
+  font-weight: 700;
+}
+
+.reasonChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kd-s-2);
+}
+
+.reasonChip {
+  min-height: 44px;
+  background: var(--kd-white);
+  color: var(--kd-ink);
+}
+
+.reasonChip[aria-pressed="true"] {
+  background: var(--kd-ink);
+  color: var(--kd-white);
+}
+
+.offer :focus-visible {
+  box-shadow:
+    0 0 0 3px var(--kd-turmeric),
+    0 0 0 6px var(--kd-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .offer {
+    animation: none;
+  }
+
+  .remaining {
+    transition: none;
+  }
+}

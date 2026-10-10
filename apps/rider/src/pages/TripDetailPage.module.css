@@ -1,0 +1,47 @@
+.map {
+  height: 240px;
+  border-radius: var(--kd-radius-panel);
+  overflow: hidden;
+  display: flex;
+}
+
+.timeline {
+  position: relative;
+  display: grid;
+  gap: var(--kd-s-3);
+}
+
+.timeline::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 10px;
+  bottom: 10px;
+  border-left: 2px solid var(--kd-line);
+}
+
+.timeline li {
+  display: grid;
+  grid-template-columns: 12px 1fr auto;
+  align-items: center;
+  gap: var(--kd-s-3);
+}
+
+.dot {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--kd-leaf);
+}
+
+.total {
+  font-weight: 700;
+  font-size: var(--kd-text-md);
+}
+
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kd-s-2);
+}

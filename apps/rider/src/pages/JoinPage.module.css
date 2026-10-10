@@ -1,0 +1,304 @@
+.top {
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: 56px;
+  padding: 0 var(--kd-s-4);
+  border-bottom: 1px solid var(--kd-line);
+}
+
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: var(--kd-s-2);
+}
+
+.wordmark {
+  font-family: var(--kd-font-display);
+  font-weight: 800;
+  font-size: 1.5rem;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--kd-leaf);
+}
+
+.product {
+  font-weight: 700;
+}
+
+.main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.main > :first-child {
+  flex: 1;
+}
+
+.intro {
+  display: grid;
+  gap: var(--kd-s-2);
+}
+
+.introTitle {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-2xl);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--kd-leaf);
+}
+
+/* Numbered steps: sign-up really is a sequence */
+.steps {
+  display: flex;
+  align-items: center;
+  gap: var(--kd-s-2);
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: var(--kd-s-2);
+  font-weight: 700;
+}
+
+.step:not(:last-child)::after {
+  content: "";
+  width: 12px;
+  height: 2px;
+  background: var(--kd-line);
+}
+
+.stepNum {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--kd-line);
+  font-size: var(--kd-text-xs);
+  font-weight: 800;
+  color: var(--kd-ink-muted);
+}
+
+.stepNow .stepNum {
+  border-color: var(--kd-ink);
+  background: var(--kd-ink);
+  color: var(--kd-white);
+}
+
+.stepDone .stepNum,
+.lessonDone .stepNum,
+.stageDone .stepNum {
+  border-color: var(--kd-leaf);
+  background: var(--kd-leaf);
+  color: var(--kd-white);
+}
+
+.fields {
+  display: grid;
+  gap: var(--kd-s-4);
+}
+
+/* Vehicle cards: radio inputs underneath, the card is the target */
+.vehicles {
+  display: grid;
+  gap: var(--kd-s-3);
+}
+
+.vehicle {
+  display: grid;
+  grid-template-columns: 28px 1fr 22px;
+  gap: var(--kd-s-3);
+  align-items: start;
+  padding: var(--kd-s-4);
+  border: 2px solid var(--kd-line);
+  border-radius: var(--kd-radius-media);
+  cursor: pointer;
+}
+
+.vehicle:hover {
+  border-color: var(--kd-ink-muted);
+}
+
+.vehicle:has(input:focus-visible) {
+  box-shadow: var(--kd-focus);
+}
+
+.vehicleOn,
+.vehicleOn:hover {
+  border-color: var(--kd-leaf);
+  background: var(--kd-leaf-tint);
+}
+
+.vehicleText {
+  display: grid;
+  gap: 2px;
+  line-height: 1.35;
+}
+
+.vehicleText strong {
+  font-size: var(--kd-text-md);
+}
+
+.needs {
+  font-size: var(--kd-text-sm);
+  color: var(--kd-ink-muted);
+}
+
+.radioMark {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--kd-ink-muted);
+}
+
+.vehicleOn .radioMark {
+  border: 7px solid var(--kd-leaf);
+}
+
+.uploads {
+  display: grid;
+  gap: var(--kd-s-2);
+}
+
+.upload {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--kd-s-2) var(--kd-s-3);
+  padding: var(--kd-s-3) var(--kd-s-4);
+  border: 2px dashed var(--kd-line);
+  border-radius: var(--kd-radius-media);
+}
+
+.uploadDone {
+  border-style: solid;
+  border-color: var(--kd-leaf);
+}
+
+.uploadText {
+  display: grid;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.uploadText span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.uploadButton {
+  grid-column: 1 / -1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--kd-s-2);
+  min-height: 48px;
+  border-radius: var(--kd-radius-pill);
+  background: var(--kd-steam);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.uploadButton:hover {
+  background: var(--kd-steam-hover);
+}
+
+.upload:has(input:focus-visible) .uploadButton {
+  box-shadow: var(--kd-focus);
+}
+
+.lessons {
+  display: grid;
+  gap: var(--kd-s-2);
+}
+
+.lesson {
+  border: 2px solid var(--kd-line);
+  border-radius: var(--kd-radius-media);
+}
+
+.lessonDone {
+  border-color: var(--kd-leaf);
+}
+
+.lessonHead {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: center;
+  gap: var(--kd-s-3);
+  width: 100%;
+  min-height: 64px;
+  padding: var(--kd-s-2) var(--kd-s-4);
+  text-align: left;
+}
+
+.lessonHead:focus-visible {
+  border-radius: var(--kd-radius-media);
+}
+
+.lessonTitle {
+  display: grid;
+  line-height: 1.3;
+}
+
+.lessonBody {
+  display: grid;
+  gap: var(--kd-s-4);
+  padding: 0 var(--kd-s-4) var(--kd-s-4);
+}
+
+.lessonBody ul {
+  display: grid;
+  gap: var(--kd-s-2);
+  padding-left: var(--kd-s-5);
+  list-style: disc;
+  font-size: var(--kd-text-md);
+}
+
+.statusHead {
+  display: grid;
+  gap: var(--kd-s-3);
+  justify-items: start;
+}
+
+.fixBox {
+  display: grid;
+  gap: var(--kd-s-1);
+  width: 100%;
+  padding: var(--kd-s-4);
+  border-radius: var(--kd-radius-media);
+  font-size: var(--kd-text-md);
+}
+
+.statusHead .uploads,
+.statusHead > a,
+.statusHead > button {
+  width: 100%;
+}
+
+.stages {
+  display: grid;
+  gap: var(--kd-s-3);
+}
+
+.stage {
+  display: flex;
+  align-items: center;
+  gap: var(--kd-s-3);
+  font-weight: 600;
+}
+
+.startOver {
+  justify-self: start;
+  min-height: 44px;
+  font-weight: 600;
+  text-decoration: underline;
+}

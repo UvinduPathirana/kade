@@ -1,0 +1,128 @@
+.summary {
+  display: grid;
+  gap: var(--kd-s-5);
+  padding-top: var(--kd-s-4);
+}
+
+.stats {
+  grid-template-columns: 1fr 1fr;
+}
+
+.progress {
+  height: 10px;
+  border-radius: var(--kd-radius-pill);
+  background: var(--kd-steam);
+  box-shadow: inset 0 0 0 1px var(--kd-line);
+  overflow: hidden;
+}
+
+.progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--kd-leaf);
+}
+
+.quests {
+  display: grid;
+  gap: var(--kd-s-3);
+}
+
+.quest {
+  display: grid;
+  gap: var(--kd-s-2);
+  padding: var(--kd-s-4);
+  border: 2px solid var(--kd-line);
+  border-radius: var(--kd-radius-media);
+}
+
+.questHead {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--kd-s-3);
+  font-size: var(--kd-text-md);
+}
+
+.questMeta {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.cashCard {
+  display: grid;
+  gap: var(--kd-s-3);
+  padding: var(--kd-s-4);
+  border-radius: var(--kd-radius-panel);
+  background: var(--kd-steam);
+}
+
+.cashFigure {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-2xl);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.cashMath {
+  display: grid;
+  gap: var(--kd-s-1);
+}
+
+.cashMath div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--kd-s-3);
+}
+
+.cashMath dd {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.limitLine {
+  display: flex;
+  gap: var(--kd-s-2);
+  align-items: flex-start;
+  font-weight: 700;
+}
+
+.limitLine svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--kd-chilli);
+}
+
+.subTitle {
+  font-size: var(--kd-text-md);
+  font-weight: 700;
+}
+
+.steps {
+  display: grid;
+  gap: var(--kd-s-3);
+  padding-left: var(--kd-s-5);
+  list-style: decimal;
+}
+
+.reference {
+  font-size: var(--kd-text-md);
+  letter-spacing: 0.02em;
+}
+
+.copy {
+  display: flex;
+  margin-top: var(--kd-s-2);
+}
+
+.point {
+  display: grid;
+  gap: 2px;
+  padding: var(--kd-s-3) 0;
+  border-bottom: 1px solid var(--kd-line);
+}
+
+.payoutText {
+  display: grid;
+}

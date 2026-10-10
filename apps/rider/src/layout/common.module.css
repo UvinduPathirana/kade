@@ -1,0 +1,172 @@
+/* Shared pieces for the rider's pages: big actions, figures and headings sized for a mounted phone. */
+
+/* The main action of a screen: 64px, full width */
+.action {
+  height: 64px;
+  font-size: var(--kd-text-lg);
+}
+
+/* Go online: the screen's one bold surface */
+.goOnline {
+  height: 76px;
+  font-size: var(--kd-text-xl);
+  font-weight: 800;
+}
+
+.heading {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-xl);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.subheading {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-lg);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.lead {
+  font-size: var(--kd-text-md);
+  color: var(--kd-ink-muted);
+}
+
+.figures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--kd-s-2);
+  margin: 0;
+}
+
+.figure {
+  display: grid;
+  gap: 2px;
+  padding: var(--kd-s-3);
+  border-radius: var(--kd-radius-media);
+  background: var(--kd-steam);
+  color: inherit;
+}
+
+a.figure:hover {
+  background: var(--kd-steam-hover);
+}
+
+.figureLabel {
+  font-size: var(--kd-text-sm);
+  font-weight: 600;
+  color: var(--kd-ink-muted);
+}
+
+.figureValue {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-lg);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.figureNote {
+  font-size: var(--kd-text-xs);
+  font-weight: 600;
+}
+
+.warn {
+  background: #fdf3d0;
+  box-shadow: inset 0 0 0 2px var(--kd-turmeric-deep);
+}
+
+.danger {
+  background: var(--kd-chilli-tint);
+  box-shadow: inset 0 0 0 2px var(--kd-chilli);
+}
+
+.row {
+  display: flex;
+  gap: var(--kd-s-3);
+}
+
+.row > * {
+  flex: 1;
+}
+
+.page {
+  display: grid;
+  gap: var(--kd-s-5);
+  padding: var(--kd-s-4) var(--kd-s-4) var(--kd-s-6);
+  align-content: start;
+}
+
+.section {
+  display: grid;
+  gap: var(--kd-s-3);
+}
+
+.sectionTitle {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-lg);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.muted {
+  color: var(--kd-ink-muted);
+}
+
+.list {
+  display: grid;
+  border-top: 1px solid var(--kd-line);
+}
+
+.listRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--kd-s-3);
+  min-height: 56px;
+  padding: var(--kd-s-2) 0;
+  border-bottom: 1px solid var(--kd-line);
+}
+
+.amount {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.sticky {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: grid;
+  gap: var(--kd-s-2);
+  padding: var(--kd-s-3) var(--kd-s-4) var(--kd-s-4);
+  background: var(--kd-white);
+  border-top: 1px solid var(--kd-line);
+}
+
+.hint {
+  font-size: var(--kd-text-sm);
+  font-weight: 600;
+  color: var(--kd-ink-muted);
+  text-align: center;
+}
+
+.error {
+  font-weight: 600;
+  color: var(--kd-chilli);
+}
+
+/* Keeps a secondary button its natural width inside .row (declared after .row so it wins) */
+.fixed {
+  flex: none;
+}
+
+.fieldset {
+  display: grid;
+  gap: var(--kd-s-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}

@@ -1,0 +1,33 @@
+.backdrop {
+  min-height: 100dvh;
+  background: var(--kd-steam);
+}
+
+.phone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 430px;
+  height: 100dvh;
+  margin: 0 auto;
+  background: var(--kd-white);
+  overflow: hidden;
+}
+
+/* Wider screens: a phone standing on the desk */
+@media (min-width: 640px) {
+  .backdrop {
+    display: grid;
+    place-items: center;
+    padding: var(--kd-s-5) 0;
+  }
+
+  .phone {
+    height: min(900px, calc(100dvh - 48px));
+    border-radius: var(--kd-radius-hero);
+    box-shadow:
+      0 0 0 1px var(--kd-line),
+      var(--kd-shadow-float);
+  }
+}

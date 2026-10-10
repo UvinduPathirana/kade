@@ -1,0 +1,208 @@
+/*
+ * Map-only colours, kept here rather than in the global tokens. Tuned darker and more saturated than
+ * the customer map: this one is read on a handlebar mount in direct sun.
+ */
+.map {
+  --map-land: #e6eae3;
+  --map-sea: #b5d3df;
+  --map-road: #ffffff;
+  --map-edge: #8c998f;
+  --map-park: #cfe0d2;
+  --map-block: #d9ded7;
+
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--map-land);
+}
+
+.map svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.land {
+  fill: var(--map-land);
+}
+
+.sea {
+  fill: var(--map-sea);
+}
+
+.seaLabel {
+  fill: #4d7584;
+  font: 600 13px var(--kd-font-ui);
+  letter-spacing: 0.06em;
+}
+
+.rail {
+  fill: none;
+  stroke: #7d8a80;
+  stroke-width: 3;
+  stroke-dasharray: 9 6;
+}
+
+.park {
+  fill: var(--map-park);
+}
+
+.block {
+  fill: var(--map-block);
+}
+
+.roads path {
+  fill: none;
+  stroke: var(--map-road);
+  stroke-width: 12;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 1px var(--map-edge));
+}
+
+.roads .major {
+  stroke-width: 18;
+}
+
+.roadLabel {
+  fill: var(--kd-ink-muted);
+  font: 700 12px var(--kd-font-ui);
+  text-anchor: middle;
+}
+
+.areaLabel {
+  fill: var(--kd-ink);
+  font: 700 14px var(--kd-font-ui);
+  paint-order: stroke;
+  stroke: var(--map-land);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+
+/* Demand zones: leaf, stronger where it's busier. Words carry the level too, never colour alone. */
+.zoneWarm {
+  fill: rgb(30 91 58 / 0.16);
+  stroke: rgb(30 91 58 / 0.55);
+  stroke-width: 2;
+  stroke-dasharray: 6 5;
+}
+
+.zoneHot {
+  fill: rgb(30 91 58 / 0.3);
+  stroke: var(--kd-leaf);
+  stroke-width: 2.5;
+}
+
+.zoneLabel {
+  fill: var(--kd-leaf-deep);
+  font: 700 12px var(--kd-font-ui);
+  paint-order: stroke;
+  stroke: var(--map-land);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+
+/* Route: white casing under a heavy ink line; the ridden part turns leaf */
+.routeCasing {
+  fill: none;
+  stroke: var(--kd-white);
+  stroke-width: 13;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.route {
+  fill: none;
+  stroke: var(--kd-ink);
+  stroke-width: 7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.routeDone {
+  fill: none;
+  stroke: var(--kd-leaf);
+  stroke-width: 7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke-dasharray 1s linear;
+}
+
+.routeFaint {
+  fill: none;
+  stroke: var(--kd-ink-muted);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 2 9;
+}
+
+.pinStore {
+  fill: var(--kd-ink);
+  stroke: var(--kd-white);
+  stroke-width: 4;
+}
+
+.pinHome {
+  fill: var(--kd-white);
+  stroke: var(--kd-ink);
+  stroke-width: 3.5;
+}
+
+.iconLight {
+  color: var(--kd-white);
+}
+
+/* Moves smoothly between the once-a-second position updates */
+.rider {
+  transition: transform 1s linear;
+}
+
+.halo {
+  fill: rgb(30 91 58 / 0.2);
+}
+
+.riderDot {
+  fill: var(--kd-leaf);
+  stroke: var(--kd-white);
+  stroke-width: 4;
+}
+
+.riderMuted {
+  fill: var(--kd-ink-muted);
+}
+
+/* "Looking for orders": one slow ring, the only motion that runs on its own */
+.pulse {
+  fill: none;
+  stroke: var(--kd-leaf);
+  stroke-width: 3;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pulse 2.4s var(--kd-ease-out) infinite;
+}
+
+@keyframes pulse {
+  from {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  to {
+    transform: scale(3.2);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rider,
+  .routeDone {
+    transition: none;
+  }
+
+  .pulse {
+    animation: none;
+    opacity: 0.5;
+    transform: scale(1.6);
+  }
+}

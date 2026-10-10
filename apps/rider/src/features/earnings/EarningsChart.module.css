@@ -1,0 +1,130 @@
+.chart {
+  display: grid;
+  gap: var(--kd-s-2);
+}
+
+.caption {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 var(--kd-s-3);
+  min-height: 2.2em;
+}
+
+.capLabel {
+  font-weight: 600;
+  color: var(--kd-ink-muted);
+}
+
+.capValue {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-lg);
+  font-variant-numeric: tabular-nums;
+}
+
+.plot {
+  position: relative;
+  height: 150px;
+  border-bottom: 2px solid var(--kd-ink);
+}
+
+/* Recessive gridline with its value */
+.grid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed var(--kd-line);
+}
+
+.grid span {
+  position: absolute;
+  right: 0;
+  bottom: 2px;
+  font-size: var(--kd-text-xs);
+  color: var(--kd-ink-muted);
+}
+
+.bars {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+}
+
+/* The hit area is the full column, bigger than the bar */
+.barHit {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  min-width: 0;
+  border-radius: 6px 6px 0 0;
+}
+
+.barHit:focus-visible {
+  border-radius: 6px;
+}
+
+.bar {
+  width: min(100%, 28px);
+  border-radius: 4px 4px 0 0;
+  background: var(--kd-leaf);
+  opacity: 0.55;
+}
+
+.selected .bar {
+  opacity: 1;
+}
+
+.empty {
+  height: 2px;
+  background: var(--kd-line);
+  opacity: 1;
+}
+
+.axis {
+  display: flex;
+  gap: 2px;
+}
+
+.axis span {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-size: var(--kd-text-xs);
+  font-weight: 600;
+  color: var(--kd-ink-muted);
+}
+
+.axis .axisSelected {
+  color: var(--kd-ink);
+  font-weight: 800;
+}
+
+.tableToggle summary {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.table th,
+.table td {
+  padding: var(--kd-s-2) 0;
+  border-bottom: 1px solid var(--kd-line);
+  text-align: right;
+}
+
+.table th:first-child {
+  text-align: left;
+  font-weight: 600;
+}
