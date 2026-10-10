@@ -82,8 +82,8 @@ function Tracking({ order, status, now }: { order: Order; status: OrderStatus; n
           {status === "cancelled" ? (
             <Button href="/">Find something else</Button>
           ) : (
-            <Button variant="outline" href="/help">
-              Get help
+            <Button variant="outline" href={`/support?order=${order.id}`}>
+              Chat with support
             </Button>
           )}
         </div>
@@ -161,7 +161,7 @@ export function OrderPage() {
               className={styles.missing}
               title="We can't find this order"
               description="It may have been placed on another device, or the link is mistyped."
-              action={<Button href="/">Back to restaurants</Button>}
+              action={<Button href="/orders">See your orders</Button>}
             />
           ) : null}
         </Container>

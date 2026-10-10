@@ -1,0 +1,78 @@
+.band {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--kd-s-5);
+  margin-top: var(--kd-s-3);
+  min-height: 240px;
+  padding: var(--kd-s-6) clamp(24px, 5vw, 64px);
+  background: var(--kd-turmeric);
+  border-radius: var(--kd-radius-hero);
+  overflow: hidden;
+}
+
+.copy {
+  position: relative;
+  z-index: 1;
+}
+
+.back {
+  margin-bottom: var(--kd-s-4);
+}
+
+.title {
+  font-family: var(--kd-font-display);
+  font-size: clamp(2.5rem, 1.5rem + 4vw, 4.75rem);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 0.95;
+  font-variation-settings: "opsz" 96;
+}
+
+.description {
+  margin-top: var(--kd-s-3);
+  font-size: var(--kd-text-md);
+  max-width: 44ch;
+}
+
+/* Half a plate, cut by the band's edge: related to the home hero, quieter than it */
+.plate {
+  width: 260px;
+  margin: calc(-1 * var(--kd-s-8)) calc(-1 * clamp(24px, 5vw, 64px)) calc(-1 * var(--kd-s-8)) 0;
+}
+
+.plate img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 12px solid var(--kd-white);
+  transform: translateX(30%);
+}
+
+@media (max-width: 640px) {
+  .band {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+    padding: var(--kd-s-5);
+    border-radius: var(--kd-radius-panel);
+  }
+
+  .plate {
+    position: absolute;
+    right: -40px;
+    top: -30px;
+    width: 140px;
+    margin: 0;
+  }
+
+  .plate img {
+    border-width: 6px;
+    transform: none;
+  }
+
+  .copy {
+    padding-right: 72px;
+  }
+}

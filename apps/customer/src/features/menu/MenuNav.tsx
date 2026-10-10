@@ -8,10 +8,20 @@ export interface MenuNavProps {
   active?: string;
   query: string;
   onQueryChange: (q: string) => void;
+  /** "Menu sections" on restaurants, "Aisles" in shops. */
+  label?: string;
+  searchLabel?: string;
 }
 
 /** Sticky section links + menu search. The active link follows the scroll position. */
-export function MenuNav({ sections, active, query, onQueryChange }: MenuNavProps) {
+export function MenuNav({
+  sections,
+  active,
+  query,
+  onQueryChange,
+  label = "Menu sections",
+  searchLabel = "Search the menu",
+}: MenuNavProps) {
   const listRef = useRef<HTMLDivElement>(null);
   const reduceMotion = useReducedMotion();
 
@@ -27,7 +37,7 @@ export function MenuNav({ sections, active, query, onQueryChange }: MenuNavProps
   }, [active, reduceMotion]);
 
   return (
-    <nav className={styles.nav} aria-label="Menu sections">
+    <nav className={styles.nav} aria-label={label}>
       <Container className={styles.row}>
         <div ref={listRef} className={styles.links}>
           {sections.map((s) => (
@@ -43,7 +53,7 @@ export function MenuNav({ sections, active, query, onQueryChange }: MenuNavProps
         </div>
         <SearchField
           className={styles.search}
-          label="Search the menu"
+          label={searchLabel}
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
         />

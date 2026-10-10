@@ -1,5 +1,8 @@
 import { Container, Icon, IconButton, SearchField, SegmentedControl, Wordmark, cx } from "@kade/ui";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
+import { useSession } from "@/features/account/session";
+import { useAddress } from "@/features/address/store";
 import { modeOptions } from "@/features/cart/mode";
 import { useCart, useCartTotals } from "@/features/cart/store";
 import { useOpenCart } from "@/features/cart/useOpenCart";
@@ -26,7 +29,12 @@ export function SiteHeader({
   const setMode = useCart((s) => s.setMode);
   const openCart = useOpenCart();
   const { count } = useCartTotals();
+  const address = useAddress((s) => s.current);
+  const openPicker = useAddress((s) => s.setPickerOpen);
+  const signedIn = useSession((s) => !!s.user);
+  const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 4);
@@ -41,9 +49,15 @@ export function SiteHeader({
         <Wordmark className={cx(styles.wordmark, minimal && styles.wordmarkAlways)} />
         {minimal ? null : (
           <>
-            <button className={styles.address} type="button" aria-haspopup="dialog">
+            <button
+              className={styles.address}
+              type="button"
+              aria-haspopup="dialog"
+              aria-label={`${address.line}, delivering to ${address.label}. Change address`}
+              onClick={() => openPicker(true)}
+            >
               <Icon name="pin" />
-              <span>42 Galle Rd, Colombo 03</span>
+              <span>{address.line}</span>
               <Icon name="chevronDown" size={16} />
             </button>
 
@@ -58,16 +72,32 @@ export function SiteHeader({
             )}
 
             {withSearch && (
-              <div
+              <form
+                role="search"
                 className={cx(styles.search, showSearch && styles.searchVisible)}
                 aria-hidden={!showSearch}
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (query.trim()) navigate(`/search?q=${encodeURIComponent(query.trim())}`);
+                }}
               >
-                <SearchField label="Search dishes, restaurants or shops" tabIndex={showSearch ? 0 : -1} />
-              </div>
+                <SearchField
+                  label="Search dishes, restaurants or shops"
+                  tabIndex={showSearch ? 0 : -1}
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+              </form>
             )}
 
             <div className={styles.actions}>
-              <IconButton icon="user" label="Account" href="/account" className={styles.account} />
+              {!withSearch && <IconButton icon="search" label="Search" href="/search" />}
+              <IconButton
+                icon="user"
+                label={signedIn ? "Account" : "Sign in"}
+                href={signedIn ? "/account" : "/signin"}
+                className={styles.account}
+              />
               <button className={styles.cart} type="button" onClick={openCart}>
                 <Icon name="bag" />
                 <span className={styles.cartLabel}>Cart</span>

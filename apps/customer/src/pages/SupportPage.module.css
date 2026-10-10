@@ -1,0 +1,238 @@
+.main {
+  min-height: calc(100dvh - var(--kd-header-h));
+  display: flex;
+  flex-direction: column;
+}
+
+.page {
+  flex: 1;
+  max-width: 760px;
+  padding: var(--kd-s-4) 0 var(--kd-s-5);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--kd-s-3);
+  padding-bottom: var(--kd-s-4);
+  border-bottom: 1px solid var(--kd-line);
+}
+
+.head > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.avatar {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--kd-leaf);
+  color: var(--kd-white);
+  font-family: var(--kd-font-display);
+  font-weight: 700;
+  font-size: var(--kd-text-lg);
+}
+
+.title {
+  font-size: var(--kd-text-md);
+  font-weight: 700;
+}
+
+.sub {
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-sm);
+}
+
+/* ---------- Conversation ---------- */
+.log {
+  display: grid;
+  gap: var(--kd-s-3);
+  padding-top: var(--kd-s-5);
+}
+
+.message {
+  max-width: min(78%, 520px);
+  padding: var(--kd-s-3) var(--kd-s-4);
+  border-radius: var(--kd-radius-panel);
+}
+
+.message p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.theirs {
+  justify-self: start;
+  background: var(--kd-steam);
+  border-bottom-left-radius: 6px;
+}
+
+.mine {
+  justify-self: end;
+  background: var(--kd-leaf);
+  color: var(--kd-white);
+  border-bottom-right-radius: 6px;
+}
+
+.time {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--kd-text-xs);
+  opacity: 0.72;
+}
+
+.orderCard {
+  display: flex;
+  align-items: center;
+  gap: var(--kd-s-2);
+  margin-bottom: var(--kd-s-2);
+  padding: var(--kd-s-2) var(--kd-s-3);
+  background: rgb(255 255 255 / 0.14);
+  border-radius: var(--kd-radius-media);
+}
+
+.theirs .orderCard {
+  background: var(--kd-white);
+}
+
+.orderCard > span {
+  display: grid;
+  font-size: var(--kd-text-sm);
+}
+
+.typing {
+  padding-block: var(--kd-s-4);
+}
+
+.dots {
+  display: inline-flex;
+  gap: 5px;
+}
+
+.dots span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--kd-ink-muted);
+  animation: blink 1.2s infinite;
+}
+
+.dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes blink {
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+  }
+  30% {
+    opacity: 1;
+  }
+}
+
+.failed {
+  justify-self: end;
+  color: var(--kd-chilli);
+  font-weight: 600;
+  font-size: var(--kd-text-sm);
+}
+
+.topics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kd-s-2);
+  margin-top: var(--kd-s-5);
+}
+
+/* ---------- Composer ---------- */
+.composer {
+  position: sticky;
+  bottom: 0;
+  background: var(--kd-white);
+  border-top: 1px solid var(--kd-line);
+  padding: var(--kd-s-3) 0 calc(var(--kd-s-3) + env(safe-area-inset-bottom));
+}
+
+.composerRow {
+  max-width: 760px;
+  display: grid;
+  gap: var(--kd-s-2);
+}
+
+.attached {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--kd-s-2);
+  padding-left: var(--kd-s-3);
+  background: var(--kd-leaf-tint);
+  color: var(--kd-leaf);
+  border-radius: var(--kd-radius-pill);
+  font-size: var(--kd-text-sm);
+  font-weight: 600;
+}
+
+.inputRow {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--kd-s-2);
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  max-height: 160px;
+  padding: 10px var(--kd-s-4);
+  border: 1.5px solid var(--kd-line);
+  border-radius: 22px;
+  resize: none;
+  field-sizing: content;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--kd-ink);
+}
+
+/* ---------- Attach sheet ---------- */
+.pick {
+  margin-top: var(--kd-s-3);
+}
+
+.pick button {
+  display: grid;
+  width: 100%;
+  min-height: 60px;
+  padding: var(--kd-s-3) var(--kd-s-2);
+  border-bottom: 1px solid var(--kd-line);
+  text-align: left;
+}
+
+.pick button:hover {
+  background: var(--kd-steam);
+}
+
+.pick button:focus-visible {
+  border-radius: var(--kd-radius-media);
+}
+
+.pick span {
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-sm);
+}
+
+.noOrders {
+  margin-top: var(--kd-s-3);
+  color: var(--kd-ink-muted);
+}

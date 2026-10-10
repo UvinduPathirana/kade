@@ -52,7 +52,6 @@ export function HomePage() {
   const { data: categories = [] } = useCategories();
   const { data: restaurants = [], isError, refetch } = useRestaurants();
   const mode = useCart((s) => s.mode);
-  const [category, setCategory] = useState("all");
   const [active, setActive] = useState<Set<FilterId>>(new Set());
   const [heroSearchVisible, setHeroSearchVisible] = useState(true);
   const onSearchVisibleChange = useCallback((v: boolean) => setHeroSearchVisible(v), []);
@@ -66,7 +65,7 @@ export function HomePage() {
     };
   }, [restaurants]);
 
-  const results = useMemo(() => applyFilters(restaurants, category, active), [restaurants, category, active]);
+  const results = useMemo(() => applyFilters(restaurants, "all", active), [restaurants, active]);
 
   const toggleFilter = (id: FilterId) =>
     setActive((prev) => {
@@ -76,10 +75,7 @@ export function HomePage() {
       return next;
     });
 
-  const clearFilters = () => {
-    setActive(new Set());
-    setCategory("all");
-  };
+  const clearFilters = () => setActive(new Set());
 
   return (
     <>
@@ -87,7 +83,7 @@ export function HomePage() {
       <main id="main">
         <Container>
           <Hero onSearchVisibleChange={onSearchVisibleChange} />
-          <CategoryRow categories={categories} value={category} onChange={setCategory} />
+          <CategoryRow categories={categories} />
           <FilterBar active={active} onToggle={toggleFilter} />
           <LiveOrderBanner />
 
@@ -137,7 +133,7 @@ export function HomePage() {
                 ) : (
                   <EmptyState
                     title="Nothing matches all of these filters"
-                    description="Remove a filter or pick another category to see more places."
+                    description="Remove a filter to see more places, or pick a category above."
                     action={<Chip onClick={clearFilters}>Clear filters</Chip>}
                   />
                 )}

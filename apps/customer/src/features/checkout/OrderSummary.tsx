@@ -66,6 +66,12 @@ export function OrderSummary({ lines, totals: t, discountPercent, promoCode, del
             <dd>{formatRs(t.tip)}</dd>
           </div>
         )}
+        {(t.credit ?? 0) > 0 && (
+          <div className={styles.saving}>
+            <dt>Kadé credit</dt>
+            <dd>− {formatRs(t.credit ?? 0)}</dd>
+          </div>
+        )}
         <div className={styles.total}>
           <dt>Total</dt>
           <dd>{formatRs(t.total)}</dd>

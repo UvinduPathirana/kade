@@ -1,0 +1,61 @@
+.label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: var(--kd-s-2);
+}
+
+.field {
+  position: relative;
+  max-width: 380px;
+}
+
+/* The real input covers the cells so taps and long-press paste land on it */
+.input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  border: 0;
+  font-size: 16px;
+  cursor: text;
+}
+
+.cells {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--kd-s-2);
+}
+
+.cell {
+  display: grid;
+  place-items: center;
+  height: 60px;
+  border: 1.5px solid var(--kd-line);
+  border-radius: var(--kd-radius-media);
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.field:focus-within .active {
+  border-color: var(--kd-ink);
+  box-shadow: 0 0 0 1.5px var(--kd-ink);
+}
+
+.wrap[data-state="error"] .cell {
+  border-color: var(--kd-chilli);
+}
+
+.error {
+  margin-top: var(--kd-s-2);
+  color: var(--kd-chilli);
+  font-weight: 600;
+  max-width: 46ch;
+}
+
+@media (max-width: 640px) {
+  .cell {
+    height: 52px;
+  }
+}

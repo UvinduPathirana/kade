@@ -16,18 +16,3 @@ export function NotFoundPage() {
     </>
   );
 }
-
-/** Routes that are planned but not designed yet (see PAGES.md). */
-export function NotBuiltYetPage() {
-  useDocumentTitle("Coming soon");
-  return (
-    <>
-      <SiteHeader />
-      <Container className={styles.page}>
-        <h1>This page is still being built</h1>
-        <p>It's on the plan for the next phase. Your cart is saved, so nothing is lost.</p>
-        <Button href="/">Back to restaurants</Button>
-      </Container>
-    </>
-  );
-}

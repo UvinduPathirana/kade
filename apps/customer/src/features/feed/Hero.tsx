@@ -1,5 +1,6 @@
 import { Button, Icon, SegmentedControl, cx } from "@kade/ui";
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router";
 import { modeOptions } from "@/features/cart/mode";
 import { useCart } from "@/features/cart/store";
 import { imageUrl, photos } from "@/lib/images";
@@ -52,6 +53,7 @@ export interface HeroProps {
 /** The turmeric band: the page's one bold surface and its one piece of ambient motion. */
 export function Hero({ onSearchVisibleChange }: HeroProps) {
   const reduceMotion = useReducedMotion();
+  const navigate = useNavigate();
   const mode = useCart((s) => s.mode);
   const setMode = useCart((s) => s.setMode);
   const [index, setIndex] = useState(0);
@@ -139,7 +141,8 @@ export function Hero({ onSearchVisibleChange }: HeroProps) {
             className={styles.search}
             onSubmit={(e) => {
               e.preventDefault();
-              // Search results page comes in Phase 2
+              if (query.trim()) navigate(`/search?q=${encodeURIComponent(query.trim())}`);
+              else inputRef.current?.focus();
             }}
           >
             <Icon name="search" />

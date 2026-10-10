@@ -61,7 +61,13 @@ function HoursPopover({ restaurant: r }: { restaurant: Restaurant }) {
   );
 }
 
-export function StoreHeader({ restaurant: r }: { restaurant: Restaurant }) {
+export function StoreHeader({
+  restaurant: r,
+  onStartGroup,
+}: {
+  restaurant: Restaurant;
+  onStartGroup: () => void;
+}) {
   const mode = useCart((s) => s.mode);
   const setMode = useCart((s) => s.setMode);
   const saved = useFavourites((s) => s.ids.includes(r.id));
@@ -134,7 +140,7 @@ export function StoreHeader({ restaurant: r }: { restaurant: Restaurant }) {
         />
 
         <div className={styles.more}>
-          <Button href="#group-order" variant="outline" size="sm" icon="users">
+          <Button variant="outline" size="sm" icon="users" aria-haspopup="dialog" onClick={onStartGroup}>
             Start a group order
           </Button>
           <HoursPopover restaurant={r} />

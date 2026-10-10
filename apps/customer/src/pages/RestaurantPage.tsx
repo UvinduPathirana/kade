@@ -1,28 +1,21 @@
 import { Button, Chip, ConfirmDialog, Container, EmptyState, SectionHeader } from "@kade/ui";
 import { useMemo, useState } from "react";
-import { useParams } from "react-router";
+import { useParams, useSearchParams } from "react-router";
 import { NotFoundError } from "@/api/catalog";
 import { useMenu, useRestaurant, useReviews } from "@/api/queries";
 import type { MenuItem, Restaurant } from "@/api/types";
-import { useCart, type CartRestaurant, type NewLine } from "@/features/cart/store";
+import { cartSnapshot as snapshot, useCart, type NewLine } from "@/features/cart/store";
+import { StartGroupSheet } from "@/features/group/StartGroupSheet";
 import { ItemOptionsSheet, type AddResult } from "@/features/menu/ItemOptionsSheet";
 import { MenuItemRow, PopularCard, ReviewCard } from "@/features/menu/MenuItems";
 import { MenuNav } from "@/features/menu/MenuNav";
 import { OrderBar, OrderPanel } from "@/features/menu/OrderPanel";
 import { StoreHeader } from "@/features/menu/StoreHeader";
 import { useScrollSpy } from "@/features/menu/useScrollSpy";
+import { ShopView } from "@/features/shop/ShopView";
 import { SiteHeader } from "@/layout/SiteHeader";
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
 import styles from "./RestaurantPage.module.css";
-
-const snapshot = (r: Restaurant): CartRestaurant => ({
-  id: r.id,
-  name: r.name,
-  imageId: r.imageId,
-  eta: r.eta,
-  deliveryFee: r.deliveryFee,
-  discountPercent: r.discountPercent,
-});
 
 function RestaurantNotFound() {
   useDocumentTitle("Restaurant not found");
@@ -47,6 +40,10 @@ function RestaurantView({ restaurant }: { restaurant: Restaurant }) {
   const [query, setQuery] = useState("");
   const [openItem, setOpenItem] = useState<MenuItem | null>(null);
   const [pending, setPending] = useState<{ line: NewLine; from: string } | null>(null);
+  const [groupOpen, setGroupOpen] = useState(false);
+  // Search results link straight to a dish: /restaurant/1?item=1-0-1 opens its options
+  const [params, setParams] = useSearchParams();
+  const linkedId = params.get("item");
 
   const q = query.trim().toLowerCase();
   const filteredSections = useMemo(
@@ -84,18 +81,34 @@ function RestaurantView({ restaurant }: { restaurant: Restaurant }) {
     return m;
   }, [lines, cartRestaurantId, restaurant.id]);
 
+  const closeItem = () => {
+    setOpenItem(null);
+    if (linkedId)
+      setParams(
+        (p) => {
+          p.delete("item");
+          return p;
+        },
+        { replace: true },
+      );
+  };
+
   const onAdd = (line: NewLine): AddResult => {
     if (addToCart(snapshot(restaurant), line)) return "added";
-    setOpenItem(null);
+    closeItem();
     setPending({ line, from: otherRestaurantName ?? "another restaurant" });
     return "conflict";
   };
 
   if (!menu) return null;
 
+  const linked = linkedId
+    ? (menu.sections.flatMap((s) => s.items).find((it) => it.id === linkedId && !it.soldOut) ?? null)
+    : null;
+
   return (
     <>
-      <StoreHeader restaurant={restaurant} />
+      <StoreHeader restaurant={restaurant} onStartGroup={() => setGroupOpen(true)} />
       <MenuNav sections={navSections} active={active} query={query} onQueryChange={setQuery} />
 
       <Container className={styles.body}>
@@ -168,11 +181,13 @@ function RestaurantView({ restaurant }: { restaurant: Restaurant }) {
       <OrderBar restaurant={restaurant} />
 
       <ItemOptionsSheet
-        item={openItem}
+        item={openItem ?? linked}
         optionGroups={menu.optionGroups}
-        onClose={() => setOpenItem(null)}
+        onClose={closeItem}
         onAdd={onAdd}
       />
+
+      <StartGroupSheet restaurant={restaurant} open={groupOpen} onOpenChange={setGroupOpen} />
 
       <ConfirmDialog
         open={pending !== null}
@@ -195,7 +210,9 @@ export function RestaurantPage() {
     <>
       <SiteHeader />
       <main id="main">
-        {restaurant ? (
+        {restaurant?.categoryId === "grocery" ? (
+          <ShopView restaurant={restaurant} />
+        ) : restaurant ? (
           <RestaurantView restaurant={restaurant} />
         ) : error instanceof NotFoundError || Number.isNaN(id) ? (
           <RestaurantNotFound />

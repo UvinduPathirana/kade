@@ -1,0 +1,166 @@
+/* Map-only colours, kept here (like DeliveryMap) rather than in the global tokens. */
+.wrap {
+  --map-land: #eef1ec;
+  --map-sea: #d8e7ec;
+  --map-road: #ffffff;
+  --map-edge: #d6ddd6;
+  --map-park: #dde9df;
+}
+
+.viewport {
+  position: relative;
+  height: 260px;
+  overflow: hidden;
+  border-radius: var(--kd-radius-media);
+  background: var(--map-land);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.viewport:focus-visible {
+  border-radius: var(--kd-radius-media);
+}
+
+.dragging {
+  cursor: grabbing;
+}
+
+.map {
+  position: absolute;
+  max-width: none;
+  transition:
+    left 0.45s var(--kd-ease-out),
+    top 0.45s var(--kd-ease-out);
+}
+
+/* Follows the finger exactly while dragging */
+.dragging .map {
+  transition: none;
+}
+
+.land {
+  fill: var(--map-land);
+}
+
+.sea {
+  fill: var(--map-sea);
+}
+
+.lake {
+  fill: var(--map-sea);
+}
+
+.rail {
+  fill: none;
+  stroke: #b9c2bb;
+  stroke-width: 3;
+  stroke-dasharray: 8 6;
+}
+
+.park {
+  fill: var(--map-park);
+}
+
+.blocks rect {
+  fill: #e4e8e3;
+}
+
+.roads path {
+  fill: none;
+  stroke: var(--map-road);
+  stroke-width: 14;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 0.6px var(--map-edge));
+}
+
+.minor {
+  fill: none;
+  stroke: var(--map-road);
+  stroke-width: 7;
+  stroke-linecap: round;
+}
+
+.labels text {
+  fill: var(--kd-ink-muted);
+  font: 600 15px var(--kd-font-ui);
+}
+
+.roadLabels text {
+  fill: var(--kd-ink-muted);
+  font: 600 12px var(--kd-font-ui);
+}
+
+.seaLabel {
+  fill: #9bb5bf;
+  font: 600 16px var(--kd-font-ui);
+  letter-spacing: 0.08em;
+}
+
+/* ---------- The pin: the address picker's one bold mark ---------- */
+.pin {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  pointer-events: none;
+}
+
+.drop {
+  position: absolute;
+  left: -17px;
+  top: -44px;
+  width: 34px;
+  height: 34px;
+  background: var(--kd-turmeric);
+  border: 3px solid var(--kd-ink);
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  transition: transform 0.18s var(--kd-ease-out);
+}
+
+.drop::after {
+  content: "";
+  position: absolute;
+  inset: 9px;
+  border-radius: 50%;
+  background: var(--kd-ink);
+}
+
+.shadow {
+  position: absolute;
+  left: -7px;
+  top: -3px;
+  width: 14px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgb(16 37 26 / 0.35);
+  transition: transform 0.18s var(--kd-ease-out);
+}
+
+/* The pin lifts while the map moves under it, then drops into place */
+.dragging .drop {
+  transform: translateY(-10px) rotate(-45deg);
+}
+
+.dragging .shadow {
+  transform: scale(0.7);
+}
+
+.invalid .drop {
+  background: var(--kd-chilli-tint);
+  border-color: var(--kd-chilli);
+}
+
+.invalid .drop::after {
+  background: var(--kd-chilli);
+}
+
+.hint {
+  margin-top: var(--kd-s-2);
+  font-weight: 600;
+}
+
+.invalid .hint {
+  color: var(--kd-chilli);
+}

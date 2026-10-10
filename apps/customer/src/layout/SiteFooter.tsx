@@ -1,21 +1,38 @@
 import { Container, Link, Wordmark } from "@kade/ui";
-import { useState } from "react";
+import { languages, usePreferences } from "@/features/account/preferences";
+import { PARTNER_LINKS } from "@/lib/partnerLinks";
 import styles from "./SiteFooter.module.css";
 
-const columns = [
-  { title: "Work with us", links: ["Add your restaurant", "Deliver with Kadé", "Kadé for business"] },
-  { title: "Ordering", links: ["Gift cards", "Kadé Plus", "Cities we deliver to"] },
-  { title: "Help", links: ["Get help with an order", "Privacy", "Terms"] },
-];
-
-const languages = [
-  { code: "en", label: "English" },
-  { code: "si", label: "සිංහල" },
-  { code: "ta", label: "தமிழ்" },
+const columns: { title: string; links: { label: string; href: string }[] }[] = [
+  {
+    title: "Work with us",
+    links: [
+      { label: "Add your restaurant", href: PARTNER_LINKS.restaurant },
+      { label: "Deliver with Kadé", href: PARTNER_LINKS.rider },
+      { label: "Refer a friend", href: "/gifts#refer" },
+    ],
+  },
+  {
+    title: "Ordering",
+    links: [
+      { label: "Gift cards", href: "/gifts" },
+      { label: "Kadé Plus", href: "/plus" },
+      { label: "Where we deliver", href: "/welcome#areas" },
+    ],
+  },
+  {
+    title: "Help",
+    links: [
+      { label: "Get help with an order", href: "/help" },
+      { label: "Chat with support", href: "/support" },
+      { label: "Privacy and terms", href: "/help#privacy" },
+    ],
+  },
 ];
 
 export function SiteFooter() {
-  const [lang, setLang] = useState("en");
+  const lang = usePreferences((s) => s.language);
+  const setLang = usePreferences((s) => s.setLanguage);
   return (
     <footer className={styles.footer}>
       <Container>
@@ -29,8 +46,8 @@ export function SiteFooter() {
               <h3>{c.title}</h3>
               <ul>
                 {c.links.map((l) => (
-                  <li key={l}>
-                    <Link href="#">{l}</Link>
+                  <li key={l.label}>
+                    <Link href={l.href}>{l.label}</Link>
                   </li>
                 ))}
               </ul>
@@ -42,11 +59,11 @@ export function SiteFooter() {
           <div className={styles.lang} role="group" aria-label="Language">
             {languages.map((l) => (
               <button
-                key={l.code}
+                key={l.value}
                 type="button"
-                lang={l.code}
-                aria-pressed={lang === l.code}
-                onClick={() => setLang(l.code)}
+                lang={l.value}
+                aria-pressed={lang === l.value}
+                onClick={() => setLang(l.value)}
               >
                 {l.label}
               </button>

@@ -1,33 +1,26 @@
-import { Chip } from "@kade/ui";
+import { Chip, Link } from "@kade/ui";
 import type { Category } from "@/api/types";
 import { imageUrl } from "@/lib/images";
 import { filters, type FilterId } from "./filters";
 import styles from "./FeedControls.module.css";
 
-export function CategoryRow({
-  categories,
-  value,
-  onChange,
-}: {
-  categories: Category[];
-  value: string;
-  onChange: (id: string) => void;
-}) {
+/** Each category opens its own page, so it can be shared and the back button works as expected. */
+export function CategoryRow({ categories, current }: { categories: Category[]; current?: string }) {
   return (
     <nav className={styles.categories} aria-label="Categories">
-      {categories.map((c) => (
-        <button
-          key={c.id}
-          type="button"
-          className={styles.category}
-          aria-pressed={value === c.id}
-          // Tapping the selected category again goes back to All
-          onClick={() => onChange(value === c.id && c.id !== "all" ? "all" : c.id)}
-        >
-          <img src={imageUrl(c.imageId, 160, 160)} alt="" loading="lazy" />
-          {c.label}
-        </button>
-      ))}
+      {categories
+        .filter((c) => c.id !== "all")
+        .map((c) => (
+          <Link
+            key={c.id}
+            href={`/category/${c.id}`}
+            className={styles.category}
+            aria-current={current === c.id ? "page" : undefined}
+          >
+            <img src={imageUrl(c.imageId, 160, 160)} alt="" loading="lazy" />
+            {c.label}
+          </Link>
+        ))}
     </nav>
   );
 }

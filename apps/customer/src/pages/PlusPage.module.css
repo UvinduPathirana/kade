@@ -1,0 +1,172 @@
+.page {
+  padding: var(--kd-s-6) 0 var(--kd-s-7);
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 460px);
+  gap: var(--kd-s-7);
+  align-items: center;
+}
+
+.title {
+  font-family: var(--kd-font-display);
+  font-size: clamp(2.5rem, 1.4rem + 4vw, 4.5rem);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 0.95;
+  font-variation-settings: "opsz" 96;
+  max-width: 12ch;
+  text-wrap: balance;
+}
+
+.lead {
+  margin-top: var(--kd-s-4);
+  max-width: 44ch;
+  font-size: var(--kd-text-md);
+  color: var(--kd-ink-muted);
+}
+
+/* ---------- Membership card (turmeric) ---------- */
+.card {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: var(--kd-s-4);
+  min-height: 320px;
+  padding: var(--kd-s-5);
+  background: var(--kd-turmeric);
+  border-radius: var(--kd-radius-hero);
+  box-shadow: 0 30px 50px -28px rgb(16 37 26 / 0.45);
+}
+
+.cardName {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-2xl);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 1;
+}
+
+.cardBody {
+  align-self: center;
+}
+
+.cardHolder {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.plans {
+  width: 100%;
+}
+
+.cardNote {
+  margin-top: var(--kd-s-2);
+  font-size: var(--kd-text-xs);
+}
+
+.cardAction > * {
+  width: 100%;
+}
+
+.cancel {
+  border-color: var(--kd-ink);
+}
+
+/* ---------- Sections ---------- */
+.section {
+  margin-top: var(--kd-s-8);
+}
+
+.heading {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-xl);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  margin-bottom: var(--kd-s-5);
+}
+
+.benefits {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--kd-s-5);
+}
+
+.benefits h3 {
+  margin-top: var(--kd-s-2);
+  font-size: var(--kd-text-md);
+}
+
+.benefits p {
+  color: var(--kd-ink-muted);
+}
+
+.faq {
+  max-width: 720px;
+}
+
+.faq details {
+  border-bottom: 1px solid var(--kd-line);
+}
+
+.faq summary {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 600;
+  border-radius: var(--kd-radius-media);
+}
+
+.faq p {
+  padding-bottom: var(--kd-s-4);
+  color: var(--kd-ink-muted);
+  max-width: 64ch;
+}
+
+/* ---------- Join sheet ---------- */
+.sheetText {
+  margin-top: var(--kd-s-3);
+}
+
+.fieldset {
+  margin: var(--kd-s-5) 0 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.legend {
+  font-weight: 700;
+  padding: 0;
+}
+
+.error {
+  margin-top: var(--kd-s-3);
+  color: var(--kd-chilli);
+  font-weight: 600;
+}
+
+@media (max-width: 960px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--kd-s-5);
+  }
+
+  .benefits {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .card {
+    min-height: 0;
+    border-radius: var(--kd-radius-panel);
+  }
+
+  .benefits {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

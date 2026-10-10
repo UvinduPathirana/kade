@@ -44,11 +44,11 @@
   outline-color: var(--kd-line);
 }
 
-.category[aria-pressed="true"] {
+.category[aria-current="page"] {
   color: var(--kd-leaf);
 }
 
-.category[aria-pressed="true"] img {
+.category[aria-current="page"] img {
   outline-color: var(--kd-leaf);
 }
 

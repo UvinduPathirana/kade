@@ -1,0 +1,27 @@
+.lead {
+  margin-top: var(--kd-s-2);
+  color: var(--kd-ink-muted);
+}
+
+.fields {
+  display: grid;
+  gap: var(--kd-s-5);
+  margin-top: var(--kd-s-5);
+}
+
+.label {
+  font-weight: 600;
+  margin-bottom: var(--kd-s-2);
+}
+
+.scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.hint {
+  margin-top: var(--kd-s-2);
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-xs);
+}

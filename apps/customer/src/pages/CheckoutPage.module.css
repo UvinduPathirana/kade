@@ -126,6 +126,52 @@
   gap: var(--kd-s-3);
 }
 
+.credit {
+  margin-top: var(--kd-s-4);
+  padding-top: var(--kd-s-4);
+  border-top: 1px solid var(--kd-line);
+}
+
+.group {
+  display: flex;
+  gap: var(--kd-s-2);
+  margin-bottom: var(--kd-s-4);
+  padding: var(--kd-s-3) var(--kd-s-4);
+  background: var(--kd-steam);
+  border-radius: var(--kd-radius-media);
+  font-weight: 600;
+}
+
+.group svg {
+  flex: none;
+}
+
+.declined {
+  margin-top: var(--kd-s-4);
+  padding: var(--kd-s-4);
+  background: var(--kd-chilli-tint);
+  border-radius: var(--kd-radius-media);
+}
+
+.declined:focus-visible {
+  border-radius: var(--kd-radius-media);
+}
+
+.declined strong {
+  color: var(--kd-chilli);
+}
+
+.declined p {
+  margin-top: var(--kd-s-1);
+}
+
+.recover {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kd-s-2);
+  margin-top: var(--kd-s-3);
+}
+
 .promoWarn {
   flex-basis: 100%;
   color: var(--kd-chilli);

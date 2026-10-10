@@ -38,3 +38,18 @@ export function validatePromo(raw: string, subtotal: number, restaurantId: numbe
     };
   return { ok: true, code, label: rule.label, discount: rule.discount(subtotal) };
 }
+
+/** Codes anyone can use right now, for the offers page. */
+export function listPromos(): Promise<{ code: string; label: string; detail: string }[]> {
+  return Promise.resolve(
+    rules.map((r) => ({
+      code: r.code,
+      label: r.label,
+      detail: r.restaurantName
+        ? `At ${r.restaurantName}`
+        : r.minSubtotal
+          ? `On orders of ${formatRs(r.minSubtotal)} or more`
+          : "On any order",
+    })),
+  );
+}

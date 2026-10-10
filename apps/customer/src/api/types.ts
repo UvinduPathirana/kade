@@ -46,6 +46,8 @@ export interface MenuItem {
   /** 1 = most ordered. */
   popularRank?: number;
   soldOut?: boolean;
+  /** Shop products: pack size or weight, e.g. "1 kg", "400 ml". */
+  unit?: string;
 }
 
 export interface MenuSection {
@@ -93,6 +95,12 @@ export interface SavedAddress {
   id: string;
   label: string;
   line: string;
+  /** Neighbourhood, e.g. "Kollupitiya". */
+  area?: string;
+  /** Standing note for the rider, e.g. "Blue gate, ring twice". */
+  note?: string;
+  /** Pin on the illustrated map (map units). */
+  pin?: { x: number; y: number };
 }
 
 export interface OrderLine {
@@ -131,6 +139,8 @@ export interface OrderTotals {
   smallOrderFee: number;
   promoDiscount: number;
   tip: number;
+  /** Kadé credit taken off the total. */
+  credit?: number;
   total: number;
 }
 
@@ -172,6 +182,11 @@ export interface Order {
   cancelledAt?: number;
   collectedAt?: number;
   rating?: OrderRating;
+  /** Shop orders: what to do when a product is out of stock. */
+  substitution?: Substitution;
+  /** Set when the order came from a group order. */
+  groupId?: string;
+  issue?: OrderIssue;
 }
 
 export interface PlaceOrderInput {
@@ -184,4 +199,183 @@ export interface PlaceOrderInput {
   payment: PaymentMethod;
   promoCode?: string;
   tip: number;
+  /** Take the customer's Kadé credit off the total. */
+  useCredit?: boolean;
+  substitution?: Substitution;
+  groupId?: string;
+}
+
+export type Substitution = "similar" | "refund";
+
+// ---------- Help with an order ----------
+
+export type IssueKind = "missing" | "wrong" | "spilled" | "late" | "neverArrived" | "charged";
+
+export type IssueResolution = "credit" | "card" | "review";
+
+export interface IssueInput {
+  kind: IssueKind;
+  /** Affected lines and how many of each. */
+  lines: { key: string; qty: number }[];
+  note: string;
+  photoName?: string;
+  resolution: IssueResolution;
+}
+
+export interface OrderIssue extends IssueInput {
+  /** What the order service worked out is owed back. */
+  amount: number;
+  reportedAt: number;
+}
+
+// ---------- Places and addresses ----------
+
+export interface Place {
+  id: string;
+  name: string;
+  /** Second line, e.g. "Kollupitiya, Colombo 03". */
+  detail: string;
+  area: string;
+  /** Inside the delivery zone (Colombo 01–15 and Dehiwala). */
+  inZone: boolean;
+  /** Position on the illustrated map; only for places in the zone. */
+  pin?: { x: number; y: number };
+}
+
+// ---------- Account ----------
+
+export interface User {
+  name: string;
+  /** National format without the leading 0, e.g. "771234567". */
+  phone: string;
+  email?: string;
+}
+
+export interface SignInResult {
+  user: User;
+  /** First time this number has signed in: ask for a name. */
+  isNew: boolean;
+}
+
+export type CardBrand = "Visa" | "Mastercard" | "Amex";
+
+export interface SavedCard {
+  id: string;
+  brand: CardBrand;
+  last4: string;
+  /** "MM/YY" */
+  expiry: string;
+}
+
+export interface NewCardInput {
+  number: string;
+  expiry: string;
+  cvc: string;
+  name: string;
+}
+
+export interface CreditEntry {
+  id: string;
+  at: number;
+  /** Positive when added, negative when spent. */
+  amount: number;
+  label: string;
+}
+
+export interface CreditAccount {
+  balance: number;
+  history: CreditEntry[];
+}
+
+export type PlusPlan = "monthly" | "yearly";
+
+export interface PlusMembership {
+  status: "none" | "member" | "cancelled";
+  plan?: PlusPlan;
+  joinedAt?: number;
+  /** End of the free month. */
+  trialEndsAt?: number;
+  /** Benefits last until here after cancelling. */
+  endsAt?: number;
+  cardLabel?: string;
+}
+
+// ---------- Search ----------
+
+export interface DishResult {
+  item: MenuItem;
+  restaurant: Restaurant;
+}
+
+export interface SearchResults {
+  query: string;
+  dishes: DishResult[];
+  restaurants: Restaurant[];
+}
+
+// ---------- Group orders ----------
+
+export interface GroupMember {
+  name: string;
+  /** Milliseconds after the group was created that this person joined. */
+  joinsAfter: number;
+  lines: OrderLine[];
+}
+
+export interface GroupOrder {
+  id: string;
+  restaurantId: number;
+  restaurantName: string;
+  hostName: string;
+  createdAt: number;
+  closesAt: number;
+  /** Spending limit per person, if the host set one. */
+  limit?: number;
+  /** Everyone except the host; the host's dishes are their cart. */
+  members: GroupMember[];
+  /** Set once the host places the order. */
+  orderId?: string;
+}
+
+// ---------- Gifts and referrals ----------
+
+export interface GiftCardInput {
+  amount: number;
+  to: string;
+  contact: string;
+  message: string;
+  /** ISO date, "2026-10-12". */
+  sendOn: string;
+  cardId: string;
+}
+
+export interface GiftCard extends GiftCardInput {
+  id: string;
+  boughtAt: number;
+  cardLabel: string;
+}
+
+export interface ReferredFriend {
+  name: string;
+  status: "invited" | "joined" | "ordered";
+  /** When they reached that status. */
+  at: number;
+}
+
+export interface Referral {
+  code: string;
+  /** Rupees each side gets. */
+  reward: number;
+  friends: ReferredFriend[];
+}
+
+// ---------- Support chat ----------
+
+export interface ChatMessage {
+  id: string;
+  from: "you" | "agent";
+  text: string;
+  at: number;
+  /** An order attached to the message. */
+  order?: { id: string; restaurant: string; total: number };
 }

@@ -69,8 +69,8 @@ export function Receipt({ order }: { order: Order }) {
         <Button variant="secondary" icon="printer" onClick={() => window.print()}>
           Print receipt
         </Button>
-        <Button variant="outline" href="/help">
-          Get help with this order
+        <Button variant="outline" href={`/orders/${order.id}/help`}>
+          {order.issue ? "See your help request" : "Get help with this order"}
         </Button>
       </div>
     </Panel>

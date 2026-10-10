@@ -1,0 +1,293 @@
+.page {
+  padding: var(--kd-s-5) 0 var(--kd-s-7);
+}
+
+.title {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-2xl);
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+}
+
+.heading {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-xl);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+
+.muted {
+  color: var(--kd-ink-muted);
+  margin-top: var(--kd-s-1);
+}
+
+/* ---------- Gift card ---------- */
+.gift {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 420px);
+  gap: var(--kd-s-7);
+  align-items: start;
+  margin-top: var(--kd-s-6);
+}
+
+.form {
+  display: grid;
+  gap: var(--kd-s-5);
+}
+
+.fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.legend {
+  padding: 0;
+  margin-bottom: var(--kd-s-2);
+  font-weight: 600;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kd-s-2);
+}
+
+.other {
+  margin-top: var(--kd-s-3);
+  max-width: 220px;
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--kd-s-4);
+}
+
+.message {
+  margin-top: 0;
+}
+
+.message strong {
+  font-size: var(--kd-text-sm);
+}
+
+.count {
+  margin-top: calc(-1 * var(--kd-s-4));
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-xs);
+  text-align: right;
+}
+
+.date {
+  margin-top: var(--kd-s-3);
+  max-width: 240px;
+}
+
+.pay {
+  max-width: 320px;
+}
+
+.error {
+  margin-top: var(--kd-s-2);
+  color: var(--kd-chilli);
+  font-weight: 600;
+}
+
+.serverError {
+  padding: var(--kd-s-3) var(--kd-s-4);
+  background: var(--kd-chilli-tint);
+  color: var(--kd-chilli);
+  border-radius: var(--kd-radius-media);
+  font-weight: 600;
+}
+
+.previewCol {
+  position: sticky;
+  top: calc(var(--kd-header-h) + var(--kd-s-4));
+  display: grid;
+  gap: var(--kd-s-5);
+}
+
+/* The card itself, at the proportions of a real one */
+.card {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  aspect-ratio: 1.586;
+  padding: var(--kd-s-5);
+  background: var(--kd-turmeric);
+  border-radius: var(--kd-radius-panel);
+  box-shadow: 0 30px 50px -28px rgb(16 37 26 / 0.5);
+  overflow: hidden;
+}
+
+.cardBrand {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-xl);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.cardAmount {
+  align-self: center;
+  font-family: var(--kd-font-display);
+  font-size: clamp(2.25rem, 1.6rem + 2.4vw, 3.5rem);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.cardText {
+  display: grid;
+  gap: 2px;
+  font-size: var(--kd-text-sm);
+}
+
+.cardMessage {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.sent h3 {
+  font-size: var(--kd-text-sm);
+  font-weight: 700;
+  margin-bottom: var(--kd-s-2);
+}
+
+.sent li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--kd-s-3);
+  padding: var(--kd-s-2) 0;
+  border-bottom: 1px solid var(--kd-line);
+}
+
+.sent li span:last-child {
+  color: var(--kd-ink-muted);
+  text-align: right;
+}
+
+/* ---------- Refer ---------- */
+.refer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 420px);
+  gap: var(--kd-s-7);
+  margin-top: var(--kd-s-8);
+  padding-top: var(--kd-s-7);
+  border-top: 1px solid var(--kd-line);
+  scroll-margin-top: calc(var(--kd-header-h) + var(--kd-s-2));
+}
+
+.how {
+  display: grid;
+  gap: var(--kd-s-4);
+  margin-top: var(--kd-s-5);
+  max-width: 48ch;
+}
+
+.how li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--kd-s-3);
+}
+
+.how span {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--kd-ink);
+  color: var(--kd-white);
+  font-weight: 700;
+  transform: translateY(-2px);
+}
+
+.referSide {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: var(--kd-s-3);
+}
+
+.code {
+  display: grid;
+  justify-items: start;
+  gap: var(--kd-s-1);
+  width: 100%;
+  padding: var(--kd-s-5);
+  border: 1.5px dashed var(--kd-ink);
+  border-radius: var(--kd-radius-panel);
+}
+
+.codeLabel {
+  color: var(--kd-ink-muted);
+  font-weight: 600;
+}
+
+.code strong {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-2xl);
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.codeActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kd-s-2);
+  margin-top: var(--kd-s-3);
+}
+
+.friendsTitle {
+  margin-top: var(--kd-s-4);
+  font-size: var(--kd-text-sm);
+  font-weight: 700;
+}
+
+.friends {
+  width: 100%;
+}
+
+.friends li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--kd-s-2);
+  padding: var(--kd-s-3) 0;
+  border-bottom: 1px solid var(--kd-line);
+}
+
+@media (max-width: 960px) {
+  .gift,
+  .refer {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--kd-s-5);
+  }
+
+  /* Preview first, so people see what they're making */
+  .previewCol {
+    position: static;
+    order: -1;
+    max-width: 420px;
+  }
+}
+
+@media (max-width: 640px) {
+  .title {
+    font-size: var(--kd-text-xl);
+  }
+
+  .pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

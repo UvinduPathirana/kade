@@ -381,6 +381,10 @@ const I = (
   ...extra,
 });
 
+/** A shop product: priced per pack or weight, no options. */
+const G = (name: string, price: number, unit: string, description: string, extra: Partial<ItemSeed> = {}) =>
+  I(name, price, description, undefined, { unit, ...extra });
+
 const menuTemplates: Record<string, Array<[string, ItemSeed[]]>> = {
   kottu: [
     [
@@ -510,6 +514,13 @@ const menuTemplates: Record<string, Array<[string, ItemSeed[]]>> = {
           options: ["portion", "sides"],
           tags: ["Vegetarian"],
         }),
+        I(
+          "Lamprais",
+          1350,
+          "Rice cooked in stock with frikkadel, seeni sambol and blachan, baked in a banana leaf.",
+          undefined,
+          { options: ["sides"] },
+        ),
       ],
     ],
     [
@@ -728,14 +739,84 @@ const menuTemplates: Record<string, Array<[string, ItemSeed[]]>> = {
       ],
     ],
   ],
+  // Kadé Market: aisles instead of menu sections, products sold by weight or pack
   grocery: [
     [
-      "Everyday",
+      "Fruit and vegetables",
       [
-        I("Red rice, 1 kg", 320, "Locally grown.", P.grocery, { popularRank: 1 }),
-        I("Coconut milk, 400 ml", 380, "", undefined, { popularRank: 2 }),
-        I("Eggs, pack of 10", 650, "Free range."),
-        I("Bananas, 1 kg", 450, "Ambul kesel."),
+        G("Bananas, ambul", 450, "1 kg", "From Embilipitiya.", { popularRank: 1 }),
+        G("King coconut", 150, "each", "Cut open on request."),
+        G("Red onions", 520, "1 kg", "Jaffna red onions."),
+        G("Tomatoes", 340, "500 g", ""),
+        G("Green chillies", 90, "100 g", ""),
+        G("Carrots", 290, "500 g", "Nuwara Eliya."),
+        G("Gotukola", 80, "bunch", "For sambol or kola kenda."),
+        G("Limes", 220, "250 g", ""),
+        G("Papaya", 380, "about 1.2 kg", "Ripe, ready to eat."),
+        G("Avocado", 260, "each", "", { soldOut: true }),
+      ],
+    ],
+    [
+      "Rice, flour and lentils",
+      [
+        G("Red raw rice", 320, "1 kg", "Locally grown.", { popularRank: 2 }),
+        G("Keeri samba", 390, "1 kg", "For biryani and lamprais."),
+        G("Samba rice", 1450, "5 kg", ""),
+        G("Red lentils", 290, "500 g", "Mysore parippu."),
+        G("Kurakkan flour", 340, "500 g", "Finger millet, for roti and pittu."),
+        G("Basmati rice", 980, "1 kg", "", { soldOut: true }),
+      ],
+    ],
+    [
+      "Dairy and eggs",
+      [
+        G("Eggs", 650, "pack of 10", "Free range.", { popularRank: 3 }),
+        G("Fresh milk", 490, "1 l", ""),
+        G("Buffalo curd", 750, "900 ml clay pot", "Have it with kithul treacle."),
+        G("Set yoghurt", 380, "pack of 4", ""),
+        G("Salted butter", 1050, "200 g", ""),
+        G("Cheddar", 1250, "200 g", ""),
+      ],
+    ],
+    [
+      "Bakery",
+      [
+        G("Sandwich bread", 220, "450 g loaf", "Baked this morning."),
+        G("Kimbula buns", 280, "pack of 4", ""),
+        G("Butter cake", 650, "400 g", ""),
+        G("Roast paan", 140, "each", "", { soldOut: true }),
+      ],
+    ],
+    [
+      "Spices and pantry",
+      [
+        G("Coconut milk", 380, "400 ml", "", { popularRank: 4 }),
+        G("Roasted curry powder", 260, "100 g", ""),
+        G("Chilli flakes", 240, "100 g", ""),
+        G("Maldive fish", 690, "100 g", "For pol sambol."),
+        G("Kithul treacle", 980, "375 ml", ""),
+        G("Coconut oil", 850, "1 l", ""),
+        G("White sugar", 300, "1 kg", ""),
+        G("Ceylon black tea", 1150, "400 g", "BOPF, from Dimbula."),
+      ],
+    ],
+    [
+      "Snacks and drinks",
+      [
+        G("Marie biscuits", 280, "360 g", ""),
+        G("Cream crackers", 450, "490 g", ""),
+        G("Murukku", 350, "200 g", "Spicy."),
+        G("Ginger beer", 420, "1.5 l", ""),
+        G("Drinking water", 130, "1.5 l", ""),
+      ],
+    ],
+    [
+      "Household",
+      [
+        G("Dishwashing liquid", 420, "500 ml", ""),
+        G("Laundry soap", 260, "pack of 2", ""),
+        G("Toilet rolls", 650, "pack of 4", ""),
+        G("Garbage bags", 320, "pack of 10", "Large."),
       ],
     ],
   ],
@@ -791,4 +872,15 @@ export const reviews: Review[] = [
     stars: 4,
     text: "Gravy came on the side so it didn't go soggy. Rider called when he reached the gate.",
   },
+];
+
+/** What people search for most this week. */
+export const popularSearches = [
+  "Kottu",
+  "Biryani",
+  "Fish buns",
+  "Watalappan",
+  "Ramen",
+  "Rice and curry",
+  "Eggs",
 ];

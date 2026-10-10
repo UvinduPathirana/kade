@@ -1,0 +1,38 @@
+.slot {
+  position: fixed;
+  left: 0;
+  right: 0;
+  /* Just under the header, so it never sits on top of toasts or the checkout button */
+  top: calc(var(--kd-header-h) + var(--kd-s-2));
+  z-index: var(--kd-z-overlay);
+  display: flex;
+  justify-content: center;
+  padding-inline: var(--kd-gutter);
+  pointer-events: none;
+}
+
+.banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--kd-s-3);
+  max-width: 560px;
+  padding: var(--kd-s-3) var(--kd-s-4);
+  background: var(--kd-ink);
+  color: var(--kd-white);
+  border-radius: var(--kd-radius-media);
+  box-shadow: var(--kd-shadow-float);
+  pointer-events: auto;
+  animation: rise 0.25s var(--kd-ease-out);
+}
+
+.banner svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+@keyframes rise {
+  from {
+    transform: translateY(-12px);
+    opacity: 0;
+  }
+}
