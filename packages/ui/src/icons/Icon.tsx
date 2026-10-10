@@ -148,6 +148,129 @@ const paths = {
       <path d="M4 10h16M8.5 3.5v4M15.5 3.5v4" />
     </>
   ),
+  menu: <path d="M4 7h16M4 12h16M4 17h16" />,
+  bell: (
+    <>
+      <path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15L6 16Z" />
+      <path d="M10 20.5a2 2 0 0 0 4 0" />
+    </>
+  ),
+  settings: (
+    <>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8" />
+    </>
+  ),
+  chart: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
+  wallet: (
+    <>
+      <path d="M4 7h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a1 1 0 0 1-1-1V7Z" />
+      <path d="M4 7l11-3v3M16 13.5h.01" />
+    </>
+  ),
+  map: (
+    <>
+      <path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20V6.5Z" />
+      <path d="M9 4v13.5M15 6.5V20" />
+    </>
+  ),
+  logout: (
+    <>
+      <path d="M10 4H5v16h5" />
+      <path d="M14 8l4 4-4 4M18 12H9" />
+    </>
+  ),
+  edit: <path d="M4 20h4L19 9l-4-4L4 16v4ZM13 7l4 4" />,
+  trash: (
+    <>
+      <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" />
+    </>
+  ),
+  eye: (
+    <>
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
+      <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+  filter: <path d="M4 5h16l-6 7.5V19l-4-2v-4.5L4 5Z" />,
+  upload: <path d="M12 16V4M7 9l5-5 5 5M4 16v4h16v-4" />,
+  download: <path d="M12 4v12M7 11l5 5 5-5M4 16v4h16v-4" />,
+  refresh: <path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6" />,
+  flag: <path d="M5 21V4M5 4h11l-2 4 2 4H5" />,
+  shield: <path d="M12 3 4.5 6v6c0 4.5 3.2 7.8 7.5 9 4.3-1.2 7.5-4.5 7.5-9V6L12 3Z" />,
+  megaphone: (
+    <>
+      <path d="M4 10v4h3l8 4V6L7 10H4Z" />
+      <path d="M18.5 9a4 4 0 0 1 0 6" />
+    </>
+  ),
+  image: (
+    <>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+      <circle cx="9" cy="10" r="1.8" />
+      <path d="m20.5 16-5-5-9 8.5" />
+    </>
+  ),
+  more: <path d="M5 12h.01M12 12h.01M19 12h.01" />,
+  alert: (
+    <>
+      <path d="M12 4 2.5 20h19L12 4Z" />
+      <path d="M12 10v4.5M12 17.5h.01" />
+    </>
+  ),
+  lock: (
+    <>
+      <rect x="5" y="10.5" width="14" height="10" rx="2" />
+      <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" />
+    </>
+  ),
+  navigation: <path d="M12 3 19 20l-7-3.5L5 20 12 3Z" />,
+  doc: (
+    <>
+      <path d="M6 3h8l4 4v14H6V3Z" />
+      <path d="M14 3v4h4M9 12h6M9 16h6" />
+    </>
+  ),
+  timer: (
+    <>
+      <circle cx="12" cy="13" r="7.5" />
+      <path d="M12 9v4l2.5 2M9.5 2.5h5" />
+    </>
+  ),
+  pause: <path d="M9 5v14M15 5v14" />,
+  play: <path d="M7 4.5v15L19 12 7 4.5Z" />,
+  gift: (
+    <>
+      <rect x="3.5" y="9" width="17" height="11" rx="1.5" />
+      <path d="M3.5 13h17M12 9v11M12 9c-1.5-3.5-6-4-6-1.5S9 9 12 9Zm0 0c1.5-3.5 6-4 6-1.5S15 9 12 9Z" />
+    </>
+  ),
+  car: (
+    <>
+      <path d="M4 16v-4l2-5h12l2 5v4H4Z" />
+      <circle cx="7.5" cy="16.5" r="1.8" />
+      <circle cx="16.5" cy="16.5" r="1.8" />
+    </>
+  ),
+  globe: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M3.5 12h17M12 3.5c2.5 2.5 3.5 5.5 3.5 8.5s-1 6-3.5 8.5c-2.5-2.5-3.5-5.5-3.5-8.5s1-6 3.5-8.5Z" />
+    </>
+  ),
+  mail: (
+    <>
+      <rect x="3" y="5.5" width="18" height="13" rx="2" />
+      <path d="m3.5 7 8.5 6.5L20.5 7" />
+    </>
+  ),
+  grocery: (
+    <>
+      <path d="M3 4h2.5l2 11h11l2-8H7" />
+      <circle cx="9" cy="19" r="1.4" />
+      <circle cx="17" cy="19" r="1.4" />
+    </>
+  ),
 } as const;
 
 export type IconName = keyof typeof paths;

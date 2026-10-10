@@ -3,6 +3,7 @@ import {
   useId,
   type InputHTMLAttributes,
   type ReactNode,
+  type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
 } from "react";
 import { Icon } from "../../icons/Icon";
@@ -160,3 +161,33 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(function T
     </div>
   );
 });
+
+/* ---------- Select: native select styled as a field ---------- */
+
+export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
+  label: string;
+  hideLabel?: boolean;
+  options: { value: string; label: string }[];
+}
+
+export function Select({ label, hideLabel, options, className, id, ...rest }: SelectProps) {
+  const autoId = useId();
+  const selectId = id ?? autoId;
+  return (
+    <div className={className}>
+      <label htmlFor={selectId} className={cx(styles.textLabel, hideLabel && "kd-visually-hidden")}>
+        {label}
+      </label>
+      <div className={styles.selectControl}>
+        <select id={selectId} {...rest}>
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        <Icon name="chevronDown" size={16} />
+      </div>
+    </div>
+  );
+}

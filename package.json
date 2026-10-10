@@ -11,7 +11,10 @@
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "dev:restaurant": "pnpm --filter @kade/restaurant dev",
+    "dev:rider": "pnpm --filter @kade/rider dev",
+    "dev:admin": "pnpm --filter @kade/admin dev"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

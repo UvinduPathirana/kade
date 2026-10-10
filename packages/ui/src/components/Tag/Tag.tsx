@@ -15,7 +15,13 @@ export type TagTone =
   /** Chilli tint with icon, for an offer line in text. */
   | "offerSoft"
   /** Leaf tint, for success states ("Free delivery"). */
-  | "positive";
+  | "positive"
+  /** Turmeric tint, for things that need attention soon ("Waiting 4 min", "Docs expiring"). */
+  | "warning"
+  /** Solid ink, for strong neutral states ("Closed", "Suspended"). */
+  | "dark"
+  /** Solid leaf, for a live/active state ("Online", "Open"). */
+  | "live";
 
 export interface TagProps {
   tone?: TagTone;

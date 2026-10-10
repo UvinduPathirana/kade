@@ -229,3 +229,36 @@
   color: var(--kd-ink-muted);
   font-size: var(--kd-text-xs);
 }
+
+/* ---------- Select ---------- */
+.selectControl {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 44px;
+  border: 1.5px solid var(--kd-line);
+  border-radius: var(--kd-radius-media);
+  background: var(--kd-white);
+}
+
+.selectControl:focus-within {
+  border-color: var(--kd-ink);
+}
+
+.selectControl select {
+  flex: 1;
+  height: 100%;
+  padding: 0 40px 0 var(--kd-s-4);
+  border: 0;
+  outline: none;
+  background: none;
+  appearance: none;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.selectControl svg {
+  position: absolute;
+  right: var(--kd-s-3);
+  pointer-events: none;
+}

@@ -43,3 +43,18 @@
 .offer.sm {
   padding: 4px 10px;
 }
+
+.warning {
+  background: #fdf1c9;
+  color: #6b5200;
+}
+
+.dark {
+  background: var(--kd-ink);
+  color: var(--kd-white);
+}
+
+.live {
+  background: var(--kd-leaf);
+  color: var(--kd-white);
+}

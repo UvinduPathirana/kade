@@ -41,6 +41,14 @@ Also: `--kd-leaf-deep` / `--kd-leaf-tint`, `--kd-chilli-tint`, `--kd-ink-muted`,
 | `Icon`                                                             | The shared 24px stroke icon set. Add new icons there.                                                                                                                                                                       |
 | `formatRs`, `plural`, `cx`                                         | Helpers.                                                                                                                                                                                                                    |
 
+| `Switch` | Immediate on/off settings (sold out, busy mode). `role="switch"`. |
+| `Tabs` | Accessible tabs with optional counts ("New 3"). Arrow keys move between tabs. |
+| `Select` | Native select styled as a field. |
+| `StatTile`, `StatGroup` | A figure people act on, with label and comparison. Only for numbers that drive a decision. |
+| `DataTable` | Dense operations table: sticky header, tabular numbers, keyboard-clickable rows, `hideOnNarrow` columns. |
+| `AppShell` | Frame for the operations apps: labelled sidebar on desktop, icon rail on tablets, bottom tabs on phones. `tone="ink"` for always-on screens. |
+| `ToastProvider`, `useToast` | Confirmations after an action, named in the past tense of the action ("Order accepted"). |
+
 **Routing:** `@kade/ui` never imports a router. Each app passes its link via `<UIProvider linkComponent={AppLink}>`; every component with `href` uses it.
 
 ## Customer app (`apps/customer`)
@@ -53,6 +61,16 @@ Also: `--kd-leaf-deep` / `--kd-leaf-tint`, `--kd-chilli-tint`, `--kd-ink-muted`,
 - `src/layout/`: site header, footer, phone tab bar.
 - `src/features/cart/totals.ts`: the one price calculation (subtotal, offer, promo, delivery fee, small-order fee under Rs 500, tip) shared by cart, checkout and the order service.
 - Routes: `/` home, `/restaurant/:id`, `/cart`, `/checkout`, `/orders/:id` (tracking, then rating and receipt), plus planned routes that show a "still being built" page.
+
+## Operations apps
+
+All four apps share the tokens, type and voice. Each has its own job, so each spends its one bold surface differently.
+
+| App                           | Device                                                  | Direction                                                                                                                                                    | Turmeric surface                                           |
+| ----------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| `apps/restaurant` (port 5175) | Kitchen tablet, landscape, arm's length, greasy fingers | Big type and 56px+ touch targets, glanceable from a metre away. `AppShell tone="ink"`, so the screen recedes and the orders read. Timers in tabular numbers. | The new-order alert card: what the kitchen must accept now |
+| `apps/rider` (port 5176)      | Phone, one hand, outdoors in Colombo sun                | Map-first, very high contrast, everything thumb-reachable at the bottom. One action per screen, large primary buttons.                                       | "Go online" and the incoming job offer                     |
+| `apps/admin` (port 5177)      | Desktop, operations staff all day                       | Dense and calm: tables, filters, side panels, small type. No turmeric. Chilli only for things needing intervention.                                          | None                                                       |
 
 ## Rules we agreed
 

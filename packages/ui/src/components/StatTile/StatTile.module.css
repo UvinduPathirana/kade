@@ -1,0 +1,46 @@
+.group {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 1px;
+  border: 1.5px solid var(--kd-line);
+  border-radius: var(--kd-radius-panel);
+  overflow: hidden;
+  background: var(--kd-line);
+}
+
+.tile {
+  padding: var(--kd-s-4) var(--kd-s-5);
+  background: var(--kd-white);
+}
+
+.label {
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-xs);
+  font-weight: 600;
+}
+
+.value {
+  margin: 2px 0 0;
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-xl);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+.change {
+  margin: 2px 0 0;
+  font-size: var(--kd-text-xs);
+  color: var(--kd-ink-muted);
+}
+
+.good {
+  color: var(--kd-leaf);
+  font-weight: 600;
+}
+
+.bad {
+  color: var(--kd-chilli);
+  font-weight: 600;
+}
