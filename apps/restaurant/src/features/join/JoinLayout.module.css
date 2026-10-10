@@ -1,0 +1,60 @@
+.frame {
+  min-height: 100vh;
+  background: var(--kd-white);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--kd-s-4);
+  max-width: 1200px;
+  margin: 0 auto;
+  height: var(--kd-header-h);
+  padding: 0 var(--kd-gutter);
+}
+
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: var(--kd-s-2);
+  border-radius: 8px;
+}
+
+.wordmark {
+  font-family: var(--kd-font-display);
+  font-weight: 800;
+  font-size: 1.75rem;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--kd-leaf);
+}
+
+.product {
+  color: var(--kd-ink-muted);
+  font-weight: 600;
+}
+
+.signIn {
+  color: var(--kd-ink-muted);
+}
+
+.signIn a {
+  color: var(--kd-leaf);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  border-radius: 4px;
+}
+
+.main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--kd-s-5) var(--kd-gutter) var(--kd-s-8);
+}
+
+@media (max-width: 640px) {
+  .signIn {
+    font-size: var(--kd-text-xs);
+  }
+}

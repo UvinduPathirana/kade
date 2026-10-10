@@ -1,0 +1,179 @@
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 340px) minmax(0, 640px);
+  gap: var(--kd-s-8);
+  align-items: start;
+}
+
+.intro {
+  position: sticky;
+  top: var(--kd-s-5);
+  display: grid;
+  gap: var(--kd-s-4);
+}
+
+.title {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-2xl);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+}
+
+.pitch {
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-md);
+}
+
+.steps {
+  display: grid;
+  gap: var(--kd-s-1);
+  margin-top: var(--kd-s-3);
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: var(--kd-s-3);
+  min-height: 44px;
+  color: var(--kd-ink-muted);
+  font-weight: 600;
+}
+
+.stepNumber {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid var(--kd-line);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--kd-text-sm);
+}
+
+.stepNow {
+  color: var(--kd-ink);
+}
+
+.stepNow .stepNumber {
+  border-color: var(--kd-ink);
+  background: var(--kd-ink);
+  color: var(--kd-white);
+}
+
+.stepDone {
+  color: var(--kd-ink);
+}
+
+.stepDone .stepNumber {
+  border-color: var(--kd-leaf);
+  background: var(--kd-leaf);
+  color: var(--kd-white);
+}
+
+.stepLink {
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--kd-line);
+  text-underline-offset: 4px;
+  border-radius: 4px;
+}
+
+.stepLink:hover {
+  text-decoration-color: currentColor;
+}
+
+.form {
+  display: grid;
+  gap: var(--kd-s-4);
+  padding: var(--kd-s-6);
+  border-radius: var(--kd-radius-panel);
+  border: 1.5px solid var(--kd-line);
+}
+
+.progress {
+  color: var(--kd-ink-muted);
+  font-weight: 600;
+}
+
+.bar {
+  height: 6px;
+  margin-top: calc(var(--kd-s-2) * -1);
+  border-radius: var(--kd-radius-pill);
+  background: var(--kd-steam);
+  overflow: hidden;
+}
+
+.bar span {
+  display: block;
+  height: 100%;
+  background: var(--kd-leaf);
+  transition: width 0.3s var(--kd-ease-out);
+}
+
+.stepTitle {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  border-radius: 6px;
+}
+
+.stepTitle:focus-visible {
+  border-radius: 6px;
+}
+
+.stepIntro {
+  margin-top: calc(var(--kd-s-3) * -1);
+  margin-bottom: var(--kd-s-2);
+  color: var(--kd-ink-muted);
+}
+
+.confirm {
+  display: grid;
+  gap: var(--kd-s-2);
+}
+
+.error {
+  color: var(--kd-chilli);
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  gap: var(--kd-s-3);
+  padding-top: var(--kd-s-4);
+  border-top: 1px solid var(--kd-line);
+}
+
+.next {
+  flex: 1;
+}
+
+.saved {
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-xs);
+}
+
+@media (max-width: 960px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--kd-s-5);
+  }
+
+  .intro {
+    position: static;
+  }
+
+  /* On narrow screens the bar and "Step 2 of 6" carry the sequence; the full list would push the form down */
+  .steps {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .form {
+    padding: var(--kd-s-4);
+  }
+}

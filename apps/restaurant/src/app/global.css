@@ -1,0 +1,48 @@
+/* App-wide rules the design system doesn't own: the kitchen ticket print layout. */
+
+@media print {
+  /* 80mm thermal receipt paper; 58mm printers scale the same layout down */
+  @page {
+    size: 80mm auto;
+    margin: 3mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* Print only the element marked data-print, wherever it sits in the shell */
+  body * {
+    visibility: hidden;
+  }
+
+  [data-print],
+  [data-print] * {
+    visibility: visible;
+    color: #000 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  [data-print] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 74mm;
+    margin: 0;
+    padding: 0;
+    border: 0 !important;
+  }
+
+  /* Take the app shell's sidebar and phone tabs out of the flow so no blank pages follow the ticket */
+  body:has([data-print]) aside,
+  body:has([data-print]) nav {
+    display: none !important;
+  }
+
+  [data-no-print] {
+    display: none !important;
+  }
+}

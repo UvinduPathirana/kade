@@ -1,0 +1,194 @@
+/* The turmeric alert: the one bold surface on the board */
+.card {
+  display: grid;
+  gap: var(--kd-s-4);
+  padding: var(--kd-s-5) var(--kd-s-6) var(--kd-s-6);
+  border-radius: var(--kd-radius-hero);
+  background: var(--kd-turmeric);
+  color: var(--kd-ink);
+  box-shadow: inset 0 -4px 0 var(--kd-turmeric-deep);
+  animation: arrive 0.5s var(--kd-ease-out);
+}
+
+/* One movement on arrival, to pull eyes to the card; nothing loops */
+@keyframes arrive {
+  from {
+    transform: translateY(-8px) scale(0.98);
+    opacity: 0;
+  }
+}
+
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--kd-s-4);
+}
+
+.who {
+  display: grid;
+  gap: var(--kd-s-1);
+  min-width: 0;
+}
+
+.number {
+  font-family: var(--kd-font-display);
+  font-size: clamp(2.5rem, 1.6rem + 2.4vw, 3.5rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kd-s-1) var(--kd-s-3);
+  font-size: var(--kd-text-md);
+  font-weight: 500;
+}
+
+.mode {
+  padding: 0 var(--kd-s-3);
+  border-radius: var(--kd-radius-pill);
+  background: var(--kd-ink);
+  color: var(--kd-turmeric);
+  font-weight: 700;
+}
+
+.clock {
+  display: grid;
+  justify-items: end;
+  flex: none;
+  text-align: right;
+}
+
+.time {
+  font-family: var(--kd-font-display);
+  font-size: clamp(2.5rem, 1.6rem + 2.4vw, 3.5rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.clockLabel {
+  font-weight: 700;
+}
+
+/* Time left drains from right to left */
+.bar {
+  height: 8px;
+  border-radius: var(--kd-radius-pill);
+  background: rgb(16 37 26 / 0.15);
+  overflow: hidden;
+}
+
+.bar span {
+  display: block;
+  height: 100%;
+  background: var(--kd-ink);
+  transform-origin: left;
+  transition: transform 1s linear;
+}
+
+.card[data-urgent] .bar span {
+  background: var(--kd-chilli);
+}
+
+.lines {
+  padding: var(--kd-s-2) 0;
+}
+
+.foot {
+  display: grid;
+  gap: var(--kd-s-4);
+  padding-top: var(--kd-s-4);
+  border-top: 2px solid rgb(16 37 26 / 0.18);
+}
+
+.prep {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--kd-s-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.prepLabel {
+  float: left;
+  margin-right: var(--kd-s-2);
+  padding: 0;
+  font-weight: 700;
+  font-size: var(--kd-text-md);
+}
+
+.prepChip {
+  position: relative;
+}
+
+.prepChip input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.prepChip span {
+  display: grid;
+  place-items: center;
+  min-width: 96px;
+  min-height: 56px;
+  padding: 0 var(--kd-s-4);
+  border-radius: var(--kd-radius-pill);
+  border: 2px solid var(--kd-ink);
+  font-weight: 700;
+  font-size: var(--kd-text-md);
+  font-variant-numeric: tabular-nums;
+}
+
+.prepChip input:checked + span {
+  background: var(--kd-ink);
+  color: var(--kd-white);
+}
+
+.prepChip input:focus-visible + span {
+  box-shadow: var(--kd-focus);
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(0, 2.4fr);
+  gap: var(--kd-s-3);
+}
+
+.actions .reject {
+  height: 64px;
+  border: 2px solid var(--kd-ink);
+  font-size: var(--kd-text-md);
+}
+
+.actions .accept {
+  height: 64px;
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-lg);
+  font-weight: 700;
+}
+
+.busy {
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .card {
+    padding: var(--kd-s-4);
+    border-radius: var(--kd-radius-panel);
+  }
+
+  .prepChip span {
+    min-width: 72px;
+  }
+}

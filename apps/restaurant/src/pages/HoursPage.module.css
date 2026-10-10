@@ -1,0 +1,186 @@
+.page {
+  display: grid;
+  gap: var(--kd-s-5);
+  max-width: 1100px;
+}
+
+.title {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-2xl);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.muted {
+  color: var(--kd-ink-muted);
+}
+
+.panel {
+  display: grid;
+  align-content: start;
+  gap: var(--kd-s-4);
+  background: var(--kd-white);
+}
+
+/* Panel's own heading margin is replaced by the grid gap */
+.panel > div:first-child {
+  margin-bottom: 0;
+}
+
+.now {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--kd-s-5);
+}
+
+.pauseGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--kd-s-3);
+}
+
+.paused {
+  display: grid;
+  justify-items: start;
+  gap: var(--kd-s-3);
+}
+
+.big {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.busy {
+  width: 100%;
+}
+
+.busy button {
+  min-height: 72px;
+}
+
+.unsaved {
+  color: var(--kd-ink-muted);
+  font-weight: 600;
+}
+
+.week {
+  display: grid;
+}
+
+.day {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: var(--kd-s-4);
+  align-items: start;
+  margin: 0;
+  padding: var(--kd-s-4) 0;
+  border: 0;
+  border-top: 1px solid var(--kd-line);
+}
+
+.dayToggle {
+  min-height: 56px;
+  font-size: var(--kd-text-md);
+}
+
+.ranges {
+  display: grid;
+  justify-items: start;
+  gap: var(--kd-s-3);
+}
+
+.range {
+  display: flex;
+  align-items: center;
+  gap: var(--kd-s-3);
+  font-weight: 600;
+}
+
+.time {
+  width: 160px;
+}
+
+.time input {
+  min-height: 56px;
+  font-size: var(--kd-text-md);
+  font-variant-numeric: tabular-nums;
+}
+
+.error {
+  color: var(--kd-chilli);
+  font-weight: 600;
+}
+
+.formActions {
+  display: flex;
+  gap: var(--kd-s-3);
+  padding-top: var(--kd-s-4);
+  border-top: 1px solid var(--kd-line);
+}
+
+.closures {
+  display: grid;
+}
+
+.closures li {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--kd-s-3);
+  min-height: 64px;
+  border-top: 1px solid var(--kd-line);
+  font-size: var(--kd-text-md);
+}
+
+.closureDate {
+  font-weight: 700;
+}
+
+.empty {
+  padding: var(--kd-s-3) 0;
+  color: var(--kd-ink-muted);
+}
+
+.addClosure {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--kd-s-3);
+  padding-top: var(--kd-s-4);
+  border-top: 1px solid var(--kd-line);
+}
+
+.addClosure > * {
+  min-width: 180px;
+}
+
+.addClosure .error {
+  flex-basis: 100%;
+}
+
+.addButton {
+  min-width: 0;
+}
+
+@media (max-width: 860px) {
+  .now {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .day {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .range {
+    flex-wrap: wrap;
+  }
+
+  .time {
+    width: 130px;
+  }
+}

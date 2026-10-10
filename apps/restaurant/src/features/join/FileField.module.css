@@ -1,0 +1,74 @@
+.field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--kd-s-4);
+  padding: var(--kd-s-4);
+  border-radius: var(--kd-radius-media);
+  border: 1.5px dashed var(--kd-line);
+}
+
+.done {
+  border-style: solid;
+  border-color: var(--kd-leaf);
+  background: var(--kd-leaf-tint);
+}
+
+.error {
+  border-color: var(--kd-chilli);
+}
+
+.text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.label {
+  font-weight: 700;
+}
+
+.hint {
+  display: flex;
+  align-items: center;
+  gap: var(--kd-s-1);
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-xs);
+  word-break: break-all;
+}
+
+.done .hint {
+  color: var(--kd-leaf-deep);
+  font-weight: 600;
+}
+
+.message {
+  color: var(--kd-chilli);
+  font-weight: 600;
+  font-size: var(--kd-text-xs);
+}
+
+.button {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--kd-s-2);
+  min-height: 48px;
+  padding: 0 var(--kd-s-5);
+  border-radius: var(--kd-radius-pill);
+  background: var(--kd-ink);
+  color: var(--kd-white);
+  font-weight: 600;
+}
+
+.button input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.button:focus-within {
+  box-shadow: var(--kd-focus);
+}

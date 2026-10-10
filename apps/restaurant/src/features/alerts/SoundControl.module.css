@@ -1,0 +1,50 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--kd-s-2);
+  min-height: 56px;
+  padding: 0 var(--kd-s-5) 0 var(--kd-s-4);
+  border-radius: var(--kd-radius-pill);
+  background: var(--kd-leaf-tint);
+  color: var(--kd-leaf-deep);
+  font-weight: 700;
+  font-size: var(--kd-text-md);
+  white-space: nowrap;
+}
+
+.off {
+  background: var(--kd-steam);
+  color: var(--kd-ink-muted);
+}
+
+/* Off reads as off at a glance: the bell is struck through */
+.off svg {
+  background: linear-gradient(
+    to top right,
+    transparent calc(50% - 1px),
+    currentColor calc(50% - 1px),
+    currentColor calc(50% + 1px),
+    transparent calc(50% + 1px)
+  );
+}
+
+.blocked {
+  background: var(--kd-ink);
+  color: var(--kd-white);
+}
+
+@media (max-width: 640px) {
+  .button:not(.blocked) .text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .button {
+    min-height: 48px;
+    padding: 0 var(--kd-s-4);
+    font-size: var(--kd-text-sm);
+  }
+}

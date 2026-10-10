@@ -1,0 +1,224 @@
+/* Order cards in the lanes: white kitchen tickets on the board's grey canvas */
+.card {
+  display: grid;
+  gap: var(--kd-s-3);
+  padding: var(--kd-s-4) var(--kd-s-4) var(--kd-s-4) var(--kd-s-5);
+  border-radius: var(--kd-radius-panel);
+  background: var(--kd-white);
+  border: 1.5px solid var(--kd-line);
+  box-shadow: var(--kd-shadow-lift);
+}
+
+.late {
+  border-color: var(--kd-chilli);
+  box-shadow: inset 4px 0 0 var(--kd-chilli);
+}
+
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--kd-s-3);
+}
+
+.number {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-2xl);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.numberLink {
+  border-radius: 8px;
+}
+
+.numberLink:hover {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+.meta {
+  margin-top: var(--kd-s-1);
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-md);
+  font-weight: 600;
+}
+
+.timer {
+  display: grid;
+  justify-items: end;
+  text-align: right;
+}
+
+.timerLabel {
+  color: var(--kd-ink-muted);
+  font-weight: 600;
+}
+
+.timerValue {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-2xl);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.late .timerLabel,
+.late .timerValue {
+  color: var(--kd-chilli);
+}
+
+.progress {
+  height: 6px;
+  border-radius: var(--kd-radius-pill);
+  background: var(--kd-steam);
+  overflow: hidden;
+}
+
+.progress span {
+  display: block;
+  height: 100%;
+  background: var(--kd-leaf);
+  transform-origin: left;
+  transition: transform 1s linear;
+}
+
+.late .progress span {
+  background: var(--kd-chilli);
+}
+
+.action {
+  margin-top: var(--kd-s-1);
+  height: 60px;
+  font-size: var(--kd-text-md);
+}
+
+.rider {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--kd-s-3);
+  padding: var(--kd-s-3);
+  border-radius: 12px;
+  background: var(--kd-steam);
+  font-size: var(--kd-text-md);
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.rider svg {
+  flex: none;
+}
+
+.rider small {
+  display: block;
+  margin-top: 2px;
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-sm);
+  font-weight: 500;
+}
+
+/* The rider is standing at the counter: this is the thing to act on in this lane */
+.riderHere {
+  background: var(--kd-ink);
+  color: var(--kd-white);
+}
+
+.riderHere small {
+  color: rgb(255 255 255 / 0.75);
+}
+
+.hint {
+  color: var(--kd-ink-muted);
+}
+
+/* ---------- Picked up, missed, rejected ---------- */
+.done {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--kd-s-3);
+  min-height: 64px;
+  padding: var(--kd-s-2) var(--kd-s-3);
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.done:hover {
+  background: var(--kd-white);
+}
+
+.done > svg {
+  color: var(--kd-ink-muted);
+}
+
+.doneNumber {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-lg);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.doneText {
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+  line-height: 1.3;
+}
+
+.doneText small {
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-xs);
+  font-weight: 500;
+}
+
+/* ---------- Waiting queue next to the alert card ---------- */
+.waiting {
+  display: grid;
+  gap: var(--kd-s-1);
+  width: 100%;
+  min-height: 96px;
+  padding: var(--kd-s-3) var(--kd-s-4);
+  border-radius: var(--kd-radius-panel);
+  border: 2px solid var(--kd-ink);
+  background: var(--kd-white);
+  text-align: left;
+}
+
+.waiting:hover {
+  background: var(--kd-steam);
+}
+
+.waitingTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.waitingNumber,
+.waitingTime {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-xl);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.waiting[data-urgent] .waitingTime {
+  color: var(--kd-chilli);
+}
+
+.waitingMeta {
+  font-size: var(--kd-text-md);
+  font-weight: 600;
+}
+
+.waitingShow {
+  color: var(--kd-leaf);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

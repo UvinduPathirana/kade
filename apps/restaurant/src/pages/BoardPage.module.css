@@ -1,0 +1,163 @@
+.board {
+  display: grid;
+  gap: var(--kd-s-5);
+}
+
+.loading {
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-lg);
+}
+
+/* ---------- New orders ---------- */
+.newGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: var(--kd-s-4);
+  align-items: start;
+}
+
+.queue {
+  display: grid;
+  gap: var(--kd-s-2);
+}
+
+.queueTitle {
+  font-weight: 700;
+  font-size: var(--kd-text-md);
+}
+
+.queueList {
+  display: grid;
+  gap: var(--kd-s-3);
+}
+
+.quiet {
+  display: flex;
+  align-items: center;
+  gap: var(--kd-s-4);
+  padding: var(--kd-s-5) var(--kd-s-6);
+  border-radius: var(--kd-radius-panel);
+  border: 2px dashed var(--kd-line);
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-md);
+}
+
+.quiet strong {
+  color: var(--kd-ink);
+}
+
+.notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--kd-s-4);
+  padding: var(--kd-s-3) var(--kd-s-3) var(--kd-s-3) var(--kd-s-5);
+  border-radius: var(--kd-radius-panel);
+  background: var(--kd-white);
+  border: 2px solid var(--kd-ink);
+  font-size: var(--kd-text-md);
+}
+
+.notice p {
+  flex: 1 1 260px;
+}
+
+.notice svg {
+  flex: none;
+}
+
+/* ---------- Lanes ---------- */
+.lanes {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.9fr);
+  gap: var(--kd-s-4);
+  align-items: start;
+}
+
+.lane {
+  display: grid;
+  gap: var(--kd-s-3);
+  min-width: 0;
+}
+
+.laneHead {
+  display: grid;
+  gap: 2px;
+  padding-bottom: var(--kd-s-2);
+  border-bottom: 3px solid var(--kd-ink);
+}
+
+.laneTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--kd-s-2);
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.laneCount {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 var(--kd-s-2);
+  display: inline-grid;
+  place-items: center;
+  border-radius: var(--kd-radius-pill);
+  background: var(--kd-ink);
+  color: var(--kd-white);
+  font-family: var(--kd-font-ui);
+  font-size: var(--kd-text-md);
+  font-variant-numeric: tabular-nums;
+}
+
+.laneNote {
+  color: var(--kd-chilli);
+  font-weight: 600;
+}
+
+.cards {
+  display: grid;
+  gap: var(--kd-s-3);
+}
+
+.doneList {
+  display: grid;
+  gap: 2px;
+}
+
+.empty {
+  padding: var(--kd-s-4) 0;
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-md);
+}
+
+@media (max-width: 1100px) {
+  .lanes {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  /* Picked up drops under the two working lanes on a landscape tablet */
+  .lane:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .lane:last-child .doneList {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .newGrid,
+  .lanes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .queueList {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+
+  .notice {
+    flex-wrap: wrap;
+  }
+}

@@ -1,0 +1,209 @@
+.loading {
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-lg);
+}
+
+.page {
+  display: grid;
+  grid-template-columns: minmax(0, 540px) minmax(220px, 300px);
+  gap: var(--kd-s-6);
+  align-items: start;
+}
+
+/* Looks like the paper ticket it prints as: narrow, white, left aligned */
+.ticket {
+  padding: var(--kd-s-6);
+  border-radius: var(--kd-radius-panel);
+  background: var(--kd-white);
+  border: 1.5px solid var(--kd-line);
+}
+
+.outlet {
+  color: var(--kd-ink-muted);
+  font-weight: 600;
+}
+
+.number {
+  margin: var(--kd-s-1) 0 var(--kd-s-2);
+  font-family: var(--kd-font-display);
+  font-size: 4rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.mode {
+  display: inline-block;
+  padding: var(--kd-s-1) var(--kd-s-3);
+  border: 2px solid var(--kd-ink);
+  border-radius: 8px;
+  font-size: var(--kd-text-lg);
+  font-weight: 800;
+}
+
+.facts,
+.total {
+  display: grid;
+  gap: var(--kd-s-2);
+  margin-top: var(--kd-s-4);
+  font-size: var(--kd-text-md);
+}
+
+.facts div,
+.total div {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: var(--kd-s-3);
+}
+
+.facts dt,
+.total dt {
+  color: var(--kd-ink-muted);
+}
+
+.facts dd,
+.total dd {
+  font-weight: 600;
+}
+
+.facts small {
+  color: var(--kd-ink-muted);
+  font-weight: 500;
+}
+
+.total div {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.total dd {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.rule {
+  margin: var(--kd-s-4) 0;
+  border-top: 2px dashed var(--kd-line);
+}
+
+.small {
+  margin-top: var(--kd-s-2);
+  font-weight: 600;
+}
+
+.timelineTitle {
+  margin: var(--kd-s-5) 0 var(--kd-s-2);
+  font-size: var(--kd-text-md);
+  font-weight: 700;
+}
+
+.timeline {
+  display: grid;
+  gap: var(--kd-s-2);
+}
+
+.timeline li {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  gap: var(--kd-s-3);
+  color: var(--kd-ink-muted);
+}
+
+.timeline li[data-done] {
+  color: var(--kd-ink);
+  font-weight: 600;
+}
+
+.timeline small {
+  display: block;
+  color: var(--kd-ink-muted);
+  font-weight: 500;
+}
+
+.when {
+  font-variant-numeric: tabular-nums;
+}
+
+.side {
+  position: sticky;
+  top: 88px;
+  display: grid;
+  justify-items: start;
+  gap: var(--kd-s-3);
+}
+
+.sideText {
+  font-size: var(--kd-text-md);
+  font-weight: 600;
+}
+
+.sideHint {
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-xs);
+}
+
+@media (max-width: 860px) {
+  .page {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .side {
+    position: static;
+    grid-row: 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .ticket {
+    padding: var(--kd-s-4);
+  }
+
+  .number {
+    font-size: 3rem;
+  }
+}
+
+/* 80mm thermal receipt: black on white, no boxes, compact type */
+@media print {
+  .ticket {
+    padding: 0;
+    font-size: 10pt;
+  }
+
+  .outlet {
+    font-size: 9pt;
+  }
+
+  .number {
+    font-size: 30pt;
+  }
+
+  .mode {
+    font-size: 13pt;
+    border-color: #000;
+  }
+
+  .facts,
+  .total {
+    font-size: 10pt;
+  }
+
+  .facts div,
+  .total div {
+    grid-template-columns: 22mm minmax(0, 1fr);
+  }
+
+  .total div {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .rule {
+    margin: 3mm 0;
+    border-top: 1px dashed #000;
+  }
+
+  .timeline li {
+    grid-template-columns: 18mm minmax(0, 1fr);
+    font-size: 9pt;
+  }
+}

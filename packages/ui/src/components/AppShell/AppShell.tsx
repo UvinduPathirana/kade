@@ -7,6 +7,8 @@ import styles from "./AppShell.module.css";
 export interface NavItem {
   href: string;
   label: string;
+  /** Shorter label for the phone bottom bar, where space is tight ("Hours" for "Hours and busy mode"). */
+  shortLabel?: string;
   icon: IconName;
   /** Count shown on the item, e.g. new orders or open tickets. */
   badge?: number;
@@ -104,7 +106,7 @@ export function AppShell({
                   <Icon name={n.icon} />
                   {!!n.badge && <span className={styles.bottomBadge}>{n.badge}</span>}
                 </span>
-                {n.label}
+                {n.shortLabel ?? n.label}
               </Link>
             );
           })}

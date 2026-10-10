@@ -1,0 +1,14 @@
+.account {
+  display: grid;
+  gap: 2px;
+}
+
+.account strong {
+  color: var(--kd-white);
+  line-height: 1.25;
+}
+
+.status {
+  justify-self: start;
+  margin-top: var(--kd-s-2);
+}

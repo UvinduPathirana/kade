@@ -1,0 +1,27 @@
+.lead {
+  margin: var(--kd-s-2) 0 var(--kd-s-5);
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-md);
+}
+
+.group {
+  margin-top: var(--kd-s-5);
+}
+
+/* Bigger rows for fingers in a kitchen */
+.choice {
+  min-height: 56px;
+  font-size: var(--kd-text-md);
+}
+
+.error {
+  margin-top: var(--kd-s-2);
+  color: var(--kd-chilli);
+  font-weight: 600;
+}
+
+.foot {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--kd-s-3);
+}

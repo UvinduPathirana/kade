@@ -1,0 +1,122 @@
+.page {
+  display: grid;
+  gap: var(--kd-s-5);
+  max-width: 960px;
+}
+
+.title {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-2xl);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.muted {
+  color: var(--kd-ink-muted);
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--kd-s-7);
+  align-items: center;
+  padding: var(--kd-s-5) var(--kd-s-6);
+  border-radius: var(--kd-radius-panel);
+  background: var(--kd-white);
+  border: 1.5px solid var(--kd-line);
+}
+
+.score {
+  display: grid;
+  justify-items: start;
+  gap: var(--kd-s-1);
+}
+
+.average {
+  font-family: var(--kd-font-display);
+  font-size: 4rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.bigStars svg {
+  width: 22px;
+  height: 22px;
+}
+
+.distribution {
+  display: grid;
+  gap: 2px;
+}
+
+.distRow {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) 32px;
+  align-items: center;
+  gap: var(--kd-s-3);
+  width: 100%;
+  min-height: 40px;
+  padding: 0 var(--kd-s-2);
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.distRow:hover,
+.distRow[aria-pressed="true"] {
+  background: var(--kd-steam);
+}
+
+.distLabel {
+  text-align: left;
+}
+
+.distBar {
+  height: 10px;
+  border-radius: var(--kd-radius-pill);
+  background: var(--kd-steam);
+  overflow: hidden;
+}
+
+.distRow[aria-pressed="true"] .distBar {
+  background: var(--kd-white);
+}
+
+.distBar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--kd-ink);
+}
+
+.distCount {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kd-s-2);
+}
+
+.chip {
+  min-height: 48px;
+  padding: 0 var(--kd-s-4);
+  font-size: var(--kd-text-md);
+}
+
+.list {
+  display: grid;
+  gap: var(--kd-s-3);
+}
+
+@media (max-width: 640px) {
+  .summary {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--kd-s-4);
+    padding: var(--kd-s-4);
+  }
+}

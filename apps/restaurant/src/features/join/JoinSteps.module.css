@@ -1,0 +1,83 @@
+.fields {
+  display: grid;
+  gap: var(--kd-s-5);
+}
+
+.lead {
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-md);
+}
+
+.error {
+  margin-top: var(--kd-s-1);
+  color: var(--kd-chilli);
+  font-weight: 600;
+  font-size: var(--kd-text-xs);
+}
+
+.option {
+  display: grid;
+}
+
+.option small {
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-xs);
+}
+
+.review {
+  display: grid;
+  gap: var(--kd-s-4);
+}
+
+.reviewGroup {
+  padding-bottom: var(--kd-s-4);
+  border-bottom: 1px solid var(--kd-line);
+}
+
+.reviewHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: var(--kd-s-2);
+}
+
+.reviewHead h3 {
+  font-size: var(--kd-text-md);
+  font-weight: 700;
+}
+
+.change {
+  color: var(--kd-leaf);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  border-radius: 4px;
+  padding: var(--kd-s-2) 0;
+}
+
+.reviewGroup dl {
+  display: grid;
+  gap: var(--kd-s-1);
+}
+
+.reviewGroup dl div {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: var(--kd-s-3);
+}
+
+.reviewGroup dt {
+  color: var(--kd-ink-muted);
+}
+
+.reviewGroup dd {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .reviewGroup dl div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+}

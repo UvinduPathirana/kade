@@ -1,0 +1,112 @@
+.body {
+  display: grid;
+  gap: var(--kd-s-5);
+  margin-top: var(--kd-s-4);
+}
+
+.photoRow {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: var(--kd-s-4);
+  align-items: start;
+}
+
+.photo {
+  aspect-ratio: 4 / 3;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: var(--kd-radius-media);
+  background: var(--kd-steam);
+  color: var(--kd-ink-muted);
+  text-align: center;
+  font-size: var(--kd-text-xs);
+  padding: var(--kd-s-2);
+}
+
+.photo:has(img) {
+  padding: 0;
+}
+
+.photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photoActions {
+  display: grid;
+  justify-items: start;
+  gap: var(--kd-s-2);
+}
+
+/* A file input dressed as a button; the real input covers it so it stays keyboard and touch friendly */
+.upload {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 var(--kd-s-5);
+  border-radius: var(--kd-radius-pill);
+  background: var(--kd-leaf);
+  color: var(--kd-white);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.upload input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.upload:focus-within {
+  box-shadow: var(--kd-focus);
+}
+
+.hint {
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-xs);
+}
+
+.error {
+  color: var(--kd-chilli);
+  font-weight: 600;
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--kd-s-4);
+  align-items: start;
+}
+
+.group {
+  display: grid;
+}
+
+.group small {
+  color: var(--kd-ink-muted);
+  font-size: var(--kd-text-xs);
+}
+
+.foot {
+  display: flex;
+  gap: var(--kd-s-3);
+}
+
+.spacer {
+  flex: 1;
+}
+
+@media (max-width: 640px) {
+  .photoRow,
+  .pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .foot {
+    flex-wrap: wrap;
+  }
+}

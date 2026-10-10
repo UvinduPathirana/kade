@@ -1,0 +1,78 @@
+.figure {
+  display: grid;
+  gap: var(--kd-s-3);
+  margin: 0;
+}
+
+.caption {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--kd-s-3);
+  color: var(--kd-ink-muted);
+}
+
+.toggle {
+  min-height: 48px;
+  padding: 0 var(--kd-s-4);
+  border-radius: var(--kd-radius-pill);
+  border: 1.5px solid var(--kd-line);
+  color: var(--kd-ink);
+  font-weight: 600;
+}
+
+.toggle:hover {
+  border-color: var(--kd-ink);
+}
+
+.plot {
+  position: relative;
+}
+
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.grid {
+  stroke: var(--kd-line);
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+}
+
+.base {
+  stroke: var(--kd-ink-muted);
+  stroke-width: 1;
+}
+
+.axis {
+  fill: var(--kd-ink-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.bar {
+  fill: var(--kd-leaf);
+}
+
+.barActive {
+  fill: var(--kd-leaf-deep);
+}
+
+.tip {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  display: grid;
+  gap: 1px;
+  padding: var(--kd-s-2) var(--kd-s-3);
+  border-radius: 10px;
+  background: var(--kd-ink);
+  color: var(--kd-white);
+  font-size: var(--kd-text-xs);
+  white-space: nowrap;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}

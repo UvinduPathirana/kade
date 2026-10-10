@@ -1,0 +1,44 @@
+.page {
+  display: grid;
+  gap: var(--kd-s-5);
+  max-width: 1200px;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: var(--kd-s-4);
+}
+
+.title {
+  font-family: var(--kd-font-display);
+  font-size: var(--kd-text-2xl);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.muted {
+  color: var(--kd-ink-muted);
+}
+
+.period button {
+  min-height: 48px;
+  padding: 0 var(--kd-s-4);
+  font-size: var(--kd-text-md);
+}
+
+.stats {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.panel {
+  background: var(--kd-white);
+}
+
+.week {
+  white-space: nowrap;
+  font-weight: 600;
+}
