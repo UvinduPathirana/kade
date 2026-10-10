@@ -5,3 +5,6 @@ node_modules/
 .env.*
 dist/
 *.tsbuildinfo
+
+# Generated screenshots (regenerate with pnpm screenshots)
+screenshots/*/

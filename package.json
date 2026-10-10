@@ -14,7 +14,8 @@
     "format:check": "prettier --check .",
     "dev:restaurant": "pnpm --filter @kade/restaurant dev",
     "dev:rider": "pnpm --filter @kade/rider dev",
-    "dev:admin": "pnpm --filter @kade/admin dev"
+    "dev:admin": "pnpm --filter @kade/admin dev",
+    "screenshots": "node scripts/screenshots.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
