@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kadé: food delivery in Colombo</title>
+  <meta name="description" content="Order from Colombo's restaurants, bakeries and shops. Delivered to your door or ready for pickup.">
+  <meta name="theme-color" content="#f2b705">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://images.unsplash.com">
+  <link rel="stylesheet" href="assets/css/tokens.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/home.css">
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.5"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></symbol>
+    <symbol id="i-bag" viewBox="0 0 24 24"><path d="M5 8h14l-1 13H6L5 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20Z"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 16.8 6.6 19.7l1.1-6.1L3.2 9.4l6.1-.8L12 3Z"/></symbol>
+    <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></symbol>
+    <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8L3 12Z"/><circle cx="7.5" cy="8.5" r="1.3"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+    <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M5 19c0-8 5-13 14-14 0 9-5 14-13 14"/><path d="M5 19 13 11"/></symbol>
+    <symbol id="i-sort" viewBox="0 0 24 24"><path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11 12 4l8 7v9h-5v-6H9v6H4v-9Z"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z"/><path d="M9 8h6M9 12h6"/></symbol>
+  </svg>
+
+  <a class="skip-link" href="#main">Skip to restaurants</a>
+
+  <header class="site-header" id="header">
+    <div class="wrap site-header__row">
+      <a class="wordmark" href="/" aria-label="Kadé home">kadé</a>
+
+      <button class="address-btn" type="button" aria-haspopup="dialog">
+        <svg class="icon"><use href="#i-pin"/></svg>
+        <span>42 Galle Rd, Colombo 03</span>
+        <svg class="icon" style="width:16px;height:16px"><use href="#i-down"/></svg>
+      </button>
+
+      <div class="mode-toggle mode-toggle--header" role="group" aria-label="Order type" data-mode-toggle>
+        <button type="button" aria-pressed="true" data-mode="delivery">Delivery</button>
+        <button type="button" aria-pressed="false" data-mode="pickup">Pickup</button>
+      </div>
+
+      <label class="header-search" aria-hidden="true">
+        <svg class="icon"><use href="#i-search"/></svg>
+        <span class="visually-hidden">Search Kadé</span>
+        <input type="search" placeholder="Search dishes, restaurants or shops" tabindex="-1" data-search-mirror>
+      </label>
+
+      <div class="header-actions">
+        <a class="icon-btn account-btn" href="#" aria-label="Account">
+          <svg class="icon"><use href="#i-user"/></svg>
+        </a>
+        <button class="cart-btn" type="button" aria-haspopup="dialog" aria-controls="cart" data-cart-open>
+          <svg class="icon"><use href="#i-bag"/></svg>
+          <span class="cart-btn__label">Cart</span>
+          <span class="cart-btn__count" data-cart-count aria-label="items">3</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="wrap hero" aria-labelledby="hero-title">
+      <div class="hero__band">
+        <div class="hero__copy">
+          <div class="mode-toggle mode-toggle--mobile" role="group" aria-label="Order type" data-mode-toggle>
+            <button type="button" aria-pressed="true" data-mode="delivery">Delivery</button>
+            <button type="button" aria-pressed="false" data-mode="pickup">Pickup</button>
+          </div>
+
+          <h1 class="hero__title" id="hero-title" aria-live="polite">
+            <span class="hero__dish"><span data-hero-dish>Kottu,</span></span>
+            <span class="hero__eta"><span data-hero-eta>22 minutes away.</span></span>
+          </h1>
+
+          <form class="hero__search" role="search" action="#" data-search>
+            <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+            <label class="visually-hidden" for="q">Search dishes, restaurants or shops</label>
+            <input id="q" name="q" type="search" placeholder="Search dishes, restaurants or shops" autocomplete="off">
+            <button type="submit">Find food</button>
+          </form>
+
+          <p class="hero__tries">Or try
+            <a href="#" data-try>lamprais</a>,
+            <a href="#" data-try>isso wade</a> or
+            <a href="#" data-try>watalappan</a>.
+          </p>
+        </div>
+
+        <div class="hero__plate" aria-hidden="true">
+          <img data-hero-img src="https://images.unsplash.com/photo-1589302168068-964664d93dc0?w=800&h=800&fit=crop&q=75" alt="">
+          <div class="hero__ticket">
+            <strong data-hero-place>Galle Road Kottu House</strong>
+            <span data-hero-meta>Rs 1,150 for a chicken kottu</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="wrap">
+      <nav class="categories" aria-label="Categories" data-categories></nav>
+
+      <div class="filters" role="group" aria-label="Filters" data-filters>
+        <button class="chip" type="button" aria-pressed="false" data-filter="offers"><svg class="icon"><use href="#i-tag"/></svg>Offers</button>
+        <button class="chip" type="button" aria-pressed="false" data-filter="fast"><svg class="icon"><use href="#i-clock"/></svg>Under 30 min</button>
+        <button class="chip" type="button" aria-pressed="false" data-filter="rated"><svg class="icon"><use href="#i-star"/></svg>Rated 4.5+</button>
+        <button class="chip" type="button" aria-pressed="false" data-filter="free">No delivery fee</button>
+        <button class="chip" type="button" aria-pressed="false" data-filter="veg"><svg class="icon"><use href="#i-leaf"/></svg>Vegetarian</button>
+        <button class="chip" type="button" aria-pressed="false" data-filter="budget">Under Rs 1,000</button>
+        <button class="chip filters__sort" type="button" aria-haspopup="listbox"><svg class="icon"><use href="#i-sort"/></svg>Recommended</button>
+      </div>
+
+      <section class="live-order" aria-label="Order in progress">
+        <div class="live-order__rider" aria-hidden="true">N</div>
+        <div class="live-order__text">
+          <strong>Nimal is on the way with your kottu</strong>
+          <p>From Galle Road Kottu House. Arriving around 7:42 pm.</p>
+          <ol class="live-order__steps">
+            <li class="done">Confirmed</li>
+            <li class="done">Cooked</li>
+            <li class="now">On the way</li>
+            <li>Delivered</li>
+          </ol>
+        </div>
+        <a class="live-order__track" href="#">Track order</a>
+      </section>
+
+      <section class="section" aria-labelledby="offers-title">
+        <div class="section-head">
+          <div>
+            <h2 id="offers-title">Offers near you</h2>
+            <p>Discounts end at 11 pm tonight</p>
+          </div>
+          <div class="section-head__nav">
+            <a class="text-link" href="#">See all</a>
+            <button class="round-btn" type="button" aria-label="Scroll offers back" data-scroll="offers" data-dir="-1"><svg class="icon"><use href="#i-left"/></svg></button>
+            <button class="round-btn" type="button" aria-label="Scroll offers forward" data-scroll="offers" data-dir="1"><svg class="icon"><use href="#i-right"/></svg></button>
+          </div>
+        </div>
+        <div class="shelf" id="offers" data-shelf="offers"></div>
+      </section>
+
+      <section class="section" aria-labelledby="again-title">
+        <div class="section-head">
+          <h2 id="again-title">Order again</h2>
+          <div class="section-head__nav">
+            <a class="text-link" href="#">Past orders</a>
+          </div>
+        </div>
+        <div class="shelf" id="again" data-shelf="again"></div>
+      </section>
+
+      <aside class="plus" aria-label="Kadé Plus membership">
+        <div>
+          <p class="plus__name">Kadé Plus</p>
+          <p>No delivery fee on orders over Rs 1,500, and 5% back on every pickup. First month free, then Rs 990 a month.</p>
+        </div>
+        <a class="plus__cta" href="#">Try Plus free</a>
+      </aside>
+
+      <section class="section" aria-labelledby="fast-title">
+        <div class="section-head">
+          <div>
+            <h2 id="fast-title">Quickest to your door</h2>
+            <p>Kitchens within 2 km of Galle Rd</p>
+          </div>
+          <div class="section-head__nav">
+            <button class="round-btn" type="button" aria-label="Scroll back" data-scroll="fast" data-dir="-1"><svg class="icon"><use href="#i-left"/></svg></button>
+            <button class="round-btn" type="button" aria-label="Scroll forward" data-scroll="fast" data-dir="1"><svg class="icon"><use href="#i-right"/></svg></button>
+          </div>
+        </div>
+        <div class="shelf" id="fast" data-shelf="fast"></div>
+      </section>
+
+      <section class="section" aria-labelledby="all-title">
+        <div class="section-head">
+          <div>
+            <h2 id="all-title">All restaurants and shops</h2>
+            <p data-result-count></p>
+          </div>
+        </div>
+        <div class="grid" data-grid></div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <div class="site-footer__grid">
+        <div class="site-footer__brand">
+          <a class="wordmark" href="/">kadé</a>
+          <p class="site-footer__tag">Colombo's restaurants, bakeries and corner shops, delivered.</p>
+        </div>
+        <div>
+          <h3>Work with us</h3>
+          <ul>
+            <li><a href="#">Add your restaurant</a></li>
+            <li><a href="#">Deliver with Kadé</a></li>
+            <li><a href="#">Kadé for business</a></li>
+          </ul>
+        </div>
+        <div>
+          <h3>Ordering</h3>
+          <ul>
+            <li><a href="#">Gift cards</a></li>
+            <li><a href="#">Kadé Plus</a></li>
+            <li><a href="#">Cities we deliver to</a></li>
+          </ul>
+        </div>
+        <div>
+          <h3>Help</h3>
+          <ul>
+            <li><a href="#">Get help with an order</a></li>
+            <li><a href="#">Privacy</a></li>
+            <li><a href="#">Terms</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="site-footer__base">
+        <span>© 2026 Kadé (Pvt) Ltd, Colombo</span>
+        <div class="lang" role="group" aria-label="Language">
+          <button type="button" aria-pressed="true">English</button>
+          <button type="button" aria-pressed="false" lang="si">සිංහල</button>
+          <button type="button" aria-pressed="false" lang="ta">தமிழ்</button>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <nav class="tabbar" aria-label="Main">
+    <a href="/" aria-current="page"><svg class="icon"><use href="#i-home"/></svg>Home</a>
+    <a href="#"><svg class="icon"><use href="#i-grid"/></svg>Browse</a>
+    <a href="#"><svg class="icon"><use href="#i-receipt"/></svg>Orders</a>
+    <a href="#"><svg class="icon"><use href="#i-user"/></svg>Account</a>
+  </nav>
+
+  <div class="scrim" data-scrim></div>
+  <aside class="drawer" id="cart" role="dialog" aria-modal="true" aria-labelledby="cart-title" data-cart></aside>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/cart.js"></script>
+  <script src="assets/js/home.js"></script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "kade-static",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["/Users/uvindup/Documents/food-delivery/.claude/serve.mjs"],
+      "port": 5173
+    }
+  ]
+}

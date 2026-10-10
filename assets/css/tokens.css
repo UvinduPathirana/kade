@@ -1,0 +1,54 @@
+/* Kadé design tokens — shared by every page (customer, restaurant, rider, admin). */
+@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&display=swap");
+
+:root {
+  /* Palette: Sri Lankan street food, not delivery-app black and green */
+  --leaf: #1e5b3a;        /* banana leaf: primary actions, selection */
+  --leaf-deep: #154530;
+  --leaf-tint: #e4efe8;
+  --turmeric: #f2b705;    /* reserved for the one bold surface per page */
+  --turmeric-deep: #d9a204;
+  --chilli: #c8331e;      /* offers and price drops only */
+  --chilli-tint: #fbe9e5;
+  --ink: #10251a;         /* leaf ink: body text */
+  --ink-muted: #56645b;
+  --line: #dde3de;
+  --steam: #f1f3f0;       /* section wash on white */
+  --white: #ffffff;
+
+  /* Type */
+  --font-display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --font-ui: "Instrument Sans", "Helvetica Neue", system-ui, sans-serif;
+
+  /* Scale: 13 / 15 / 17 / 21 / 28 / 40 / hero */
+  --text-xs: 0.8125rem;
+  --text-sm: 0.9375rem;
+  --text-md: 1.0625rem;
+  --text-lg: 1.3125rem;
+  --text-xl: 1.75rem;
+  --text-2xl: 2.5rem;
+  --text-hero: clamp(2.75rem, 1.4rem + 5.2vw, 5.75rem);
+
+  /* Radii follow hierarchy: controls are pills, media is soft, the hero is the roundest surface */
+  --radius-pill: 999px;
+  --radius-media: 14px;
+  --radius-panel: 20px;
+  --radius-hero: 32px;
+
+  /* Spacing (4px base) */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+
+  --page-max: 1320px;
+  --gutter: clamp(16px, 4vw, 40px);
+  --header-h: 72px;
+
+  --focus: 0 0 0 3px var(--white), 0 0 0 5px var(--leaf);
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
