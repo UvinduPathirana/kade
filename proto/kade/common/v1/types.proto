@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package kade.common.v1;
+
+option java_multiple_files = true;
+option java_package = "lk.kade.common.v1";
+
+// A point on the map (WGS84).
+message GeoPoint {
+  double lat = 1;
+  double lng = 2;
+}
+
+// Cursor pagination for list RPCs.
+message PageRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+}
+
+message PageResponse {
+  string next_page_token = 1;
+  int32 total_size = 2;
+}
+
+// Who is calling, as established by a gateway from the JWT. Services also read it from gRPC metadata
+// (x-user-id, x-roles, x-outlet-id); this message is for places where it travels inside events.
+message Actor {
+  string user_id = 1;
+  repeated string roles = 2;
+  string outlet_id = 3;
+}

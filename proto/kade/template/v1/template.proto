@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package kade.template.v1;
+
+import "google/protobuf/timestamp.proto";
+import "kade/common/v1/money.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.template.v1";
+
+// Example API the service templates implement end to end (gRPC, Postgres, outbox, consumer).
+// Real services replace it with their own package.
+service TemplateService {
+  // Creates a note and emits NoteCreated through the outbox.
+  rpc CreateNote(CreateNoteRequest) returns (CreateNoteResponse);
+  rpc GetNote(GetNoteRequest) returns (GetNoteResponse);
+}
+
+message Note {
+  string id = 1;
+  string text = 2;
+  kade.common.v1.Money amount = 3;
+  google.protobuf.Timestamp created_at = 4;
+}
+
+message CreateNoteRequest {
+  string text = 1;
+  kade.common.v1.Money amount = 2;
+  // Retrying with the same key returns the first result instead of creating a duplicate.
+  string idempotency_key = 3;
+}
+
+message CreateNoteResponse {
+  Note note = 1;
+}
+
+message GetNoteRequest {
+  string id = 1;
+}
+
+message GetNoteResponse {
+  Note note = 1;
+}
+
+// Event written to the outbox (aggregatetype "note" → topic kade.note.events).
+message NoteCreated {
+  string note_id = 1;
+  string text = 2;
+  kade.common.v1.Money amount = 3;
+  google.protobuf.Timestamp created_at = 4;
+}

@@ -1,0 +1,24 @@
+{
+  "name": "@kade/proto",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Generated TypeScript for Kadé's Protobuf contracts (ts-proto + @grpc/grpc-js). Do not edit; run pnpm proto:gen.",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "2.16.0",
+    "@grpc/grpc-js": "1.14.6"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
+  }
+}

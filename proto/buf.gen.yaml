@@ -1,0 +1,26 @@
+version: v2
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/UvinduPathirana/kade/gen/go
+clean: true
+plugins:
+  # TypeScript: plain @grpc/grpc-js services, usable from NestJS and the gateways
+  - remote: buf.build/community/stephenh-ts-proto:v2.12.4
+    out: ../gen/ts/src
+    opt:
+      - outputServices=grpc-js
+      - env=node
+      - esModuleInterop=true
+      - useDate=true
+      - forceLong=number
+      - useOptionals=messages
+      - exportCommonSymbols=false
+      - importSuffix=.js
+  - remote: buf.build/protocolbuffers/go
+    out: ../gen/go
+    opt: paths=source_relative
+  - remote: buf.build/grpc/go
+    out: ../gen/go
+    opt: paths=source_relative

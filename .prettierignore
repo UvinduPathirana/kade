@@ -2,3 +2,6 @@ pnpm-lock.yaml
 dist
 prototype
 .claude
+gen
+services/**/build
+services/**/target

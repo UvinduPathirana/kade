@@ -62,3 +62,13 @@ Goal: learn complex microservices by building a real one. Every service exists b
 9. **Production-grade** — kind, Helm, Tilt, ArgoCD, Linkerd, chaos, k6, SLOs.
 
 The frontend already isolates data access in each app's `src/api`; each milestone swaps one mock module for real gateway calls.
+
+## How it's being built (16 GB laptop)
+
+- **Docker everything.** One shared infrastructure stack (`deploy/compose`) with explicit memory limits; every service has a multi-stage Dockerfile and a Compose fragment; profiles start only the slice you need (`core`, `ordering`, `fulfilment`, `money`, `engagement`, `obs`, `tools`).
+- **Postgres:** one server in dev, one database and one login per service (no service can read another's tables), `wal_level=logical` for Debezium. Production would split instances; only connection settings change.
+- **Memory caps:** Kafka 512 MB heap, Keycloak, Debezium and Spring Boot services capped; Kafka UI and the full Grafana stack only in their profiles. Target backend footprint ~7 GB; give Docker Desktop 10–12 GB.
+- **Waves of parallel agents.** Wave 0: conventions, contracts (`proto/`), infrastructure, one service template per language. Wave 1: services, each agent owning its folders. Wave 2: connect the four apps (generated clients, WebSockets, `VITE_API_MODE=mock|live`). Wave 3: end-to-end order across all apps, dashboards.
+- **Rules that keep agents from colliding:** each agent owns its folders; `proto/`, `deploy/compose` and root config are owned by the lead and changed on request; agents test against the shared stack, never their own Kafka/Postgres; at most one Java build at a time; heavy integration tests run one at a time.
+
+See `docs/backend/CONVENTIONS.md` for ports, environment variables, event and outbox formats.

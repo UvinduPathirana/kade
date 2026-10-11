@@ -15,9 +15,14 @@
     "dev:restaurant": "pnpm --filter @kade/restaurant dev",
     "dev:rider": "pnpm --filter @kade/rider dev",
     "dev:admin": "pnpm --filter @kade/admin dev",
-    "screenshots": "node scripts/screenshots.mjs"
+    "screenshots": "node scripts/screenshots.mjs",
+    "proto:gen": "cd proto && buf generate && cd .. && pnpm --filter @kade/proto build",
+    "proto:lint": "cd proto && buf lint",
+    "infra:up": "docker compose -f deploy/compose/compose.yaml up -d",
+    "infra:down": "docker compose -f deploy/compose/compose.yaml down"
   },
   "devDependencies": {
+    "@bufbuild/buf": "1.73.0",
     "@eslint/js": "10.0.1",
     "eslint": "10.12.0",
     "eslint-plugin-react-hooks": "7.1.1",

@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package kade.common.v1;
+
+option java_multiple_files = true;
+option java_package = "lk.kade.common.v1";
+
+// An amount of money in minor units (cents). Never use floats for money.
+// LKR prices display as whole rupees ("Rs 1,150"); gateways convert.
+message Money {
+  int64 amount_minor = 1;
+  // ISO 4217 code; always "LKR" today.
+  string currency = 2;
+}
