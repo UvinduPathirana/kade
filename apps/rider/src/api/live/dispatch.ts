@@ -30,6 +30,11 @@ export async function declineOffer(input: { offerId: string; reason?: string }):
   await post(`/v1/offers/${enc(input.offerId)}/decline`, { reason: input.reason });
 }
 
+/** The job dispatch has for this rider (kitchen readiness, note); null when there is none. */
+export async function getActiveJob(): Promise<Offer | null> {
+  return (await get<Offer | undefined>("/v1/job")) ?? null;
+}
+
 export async function arriveAtRestaurant(jobId: string): Promise<number> {
   return (await post<{ at: number }>(`/v1/jobs/${enc(jobId)}/arrived-restaurant`)).at;
 }

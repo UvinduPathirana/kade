@@ -57,6 +57,9 @@ export const Offer = Type.Object(
     ),
     sealed: Type.Boolean(),
     notReadyMinutes: Type.Integer(),
+    foodReadyAt: Type.Optional(
+      EpochMs("When the kitchen marked the food ready; absent until then (the job only)."),
+    ),
     deliveryCode: Type.String({ description: "Always empty: dispatch checks the code server-side." }),
     offeredAt: EpochMs(),
     expiresAt: EpochMs(),

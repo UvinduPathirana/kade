@@ -173,6 +173,8 @@ message Delivery {
   kade.common.v1.Money cash_collected = 27;
   // Matching rounds so far.
   int32 attempts = 28;
+  // When the kitchen marked the food ready (order OrderReady); unset until then.
+  google.protobuf.Timestamp food_ready_at = 29;
 }
 
 enum OfferStatus {

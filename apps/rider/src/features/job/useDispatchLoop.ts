@@ -5,6 +5,7 @@ import { setAvailability } from "@/api/dispatch";
 import { useCashBalance, useRequestOffer } from "@/api/queries";
 import { cashHolding } from "@/api/types";
 import { useJob } from "./store";
+import { useJobSync } from "./useJobSync";
 import { useLocationReporter } from "./useLocationReporter";
 import { useRealtimeNudge } from "./useRealtimeNudge";
 
@@ -18,6 +19,7 @@ export function useDispatchLoop() {
   useAvailabilitySync();
   useLocationReporter();
   useRealtimeNudge();
+  useJobSync();
 
   const phase = useJob((s) => s.phase);
   const nextOfferAt = useJob((s) => s.nextOfferAt);

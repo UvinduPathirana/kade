@@ -1,9 +1,15 @@
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { EarningsPeriod } from "@kade/proto/kade/ledger/v1/ledger_service";
 import { Thumb } from "@kade/proto/kade/review/v1/review_service";
+import { status } from "@grpc/grpc-js";
+import type { FastifyReply, FastifyRequest } from "fastify";
 import { Type } from "typebox";
-import { unary } from "../grpc/call.js";
+import { isServiceError, unary } from "../grpc/call.js";
 import {
+  type Period as PeriodName,
+  cashFromRider,
+  earningsFromTrips,
+  periodStart,
   toCash,
   toDocument,
   toEarnings,
@@ -38,12 +44,46 @@ const PERIODS = {
 const thumb = (t: "up" | "down" | undefined) =>
   t === "up" ? Thumb.THUMB_UP : t === "down" ? Thumb.THUMB_DOWN : Thumb.THUMB_UNSPECIFIED;
 
+/** Ledger not running (or not answering): the money screens fall back to dispatch's own figures. */
+const ledgerDown = (err: unknown) =>
+  isServiceError(err) &&
+  [status.UNAVAILABLE, status.UNIMPLEMENTED, status.DEADLINE_EXCEEDED].includes(err.code);
+
 /** Profile, documents, trips and ratings (dispatch, review); earnings, cash, payouts (ledger). */
 export const accountRoutes =
   ({ u, callContext }: RouteDeps): FastifyPluginAsyncTypebox =>
   async (app) => {
     const config = { roles: RIDER };
     const fail = problems(401, 403, 503, 504);
+
+    /** Earnings computed from dispatch's delivered trips, for when ledger can't answer. */
+    const tripEarnings = async (req: FastifyRequest, reply: FastifyReply, period: PeriodName) => {
+      const res = await unary(
+        u.dispatch.listTrips.bind(u.dispatch),
+        {
+          riderId: riderOf(req),
+          from: periodStart(period),
+          to: undefined,
+          page: { pageSize: 500, pageToken: "" },
+        },
+        callContext(req, reply),
+      );
+      return earningsFromTrips(res.trips, period);
+    };
+    const earnings = async (req: FastifyRequest, reply: FastifyReply, period: PeriodName) => {
+      try {
+        const res = await unary(
+          u.finance.getRiderEarnings.bind(u.finance),
+          { riderId: riderOf(req), period: PERIODS[period] },
+          callContext(req, reply),
+        );
+        return res.summary;
+      } catch (err) {
+        if (!ledgerDown(err)) throw err;
+        req.log.debug({ err }, "ledger unavailable; earnings from dispatch trips");
+        return tripEarnings(req, reply, period);
+      }
+    };
 
     app.get(
       "/v1/profile",
@@ -205,13 +245,8 @@ export const accountRoutes =
         },
       },
       async (req, reply) => {
-        const period = req.query.period as keyof typeof PERIODS;
-        const res = await unary(
-          u.finance.getRiderEarnings.bind(u.finance),
-          { riderId: riderOf(req), period: PERIODS[period] },
-          callContext(req, reply),
-        );
-        return toEarnings(res.summary, period);
+        const period = req.query.period as PeriodName;
+        return toEarnings(await earnings(req, reply, period), period);
       },
     );
 
@@ -228,12 +263,7 @@ export const accountRoutes =
         },
       },
       async (req, reply) => {
-        const res = await unary(
-          u.finance.getRiderEarnings.bind(u.finance),
-          { riderId: riderOf(req), period: EarningsPeriod.EARNINGS_PERIOD_TODAY },
-          callContext(req, reply),
-        );
-        const e = toEarnings(res.summary, "today");
+        const e = toEarnings(await earnings(req, reply, "today"), "today");
         return { amount: e.total, trips: e.trips, onlineMinutes: e.onlineMinutes, tips: e.tips };
       },
     );
@@ -271,12 +301,23 @@ export const accountRoutes =
         },
       },
       async (req, reply) => {
-        const res = await unary(
-          u.finance.getRiderCashBalance.bind(u.finance),
-          { riderId: riderOf(req) },
-          callContext(req, reply),
-        );
-        return toCash(res.balance);
+        try {
+          const res = await unary(
+            u.finance.getRiderCashBalance.bind(u.finance),
+            { riderId: riderOf(req) },
+            callContext(req, reply),
+          );
+          return toCash(res.balance);
+        } catch (err) {
+          if (!ledgerDown(err)) throw err;
+          req.log.debug({ err }, "ledger unavailable; cash from dispatch");
+          const res = await unary(
+            u.riders.getRiderProfile.bind(u.riders),
+            { riderId: riderOf(req) },
+            callContext(req, reply),
+          );
+          return cashFromRider(res.rider);
+        }
       },
     );
 

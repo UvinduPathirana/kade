@@ -235,6 +235,33 @@ describe("offers and the job", () => {
     expect(offer.from.y).toBeCloseTo(120, 0);
   });
 
+  it("marks the job ready once the kitchen has, and shows a repeated note once", async () => {
+    const foodReadyAt = new Date(Date.now() - 60_000);
+    replies["dispatch.getActiveJob"] = {
+      response: {
+        delivery: {
+          ...delivery,
+          readyBy: new Date(Date.now() + 5 * 60_000),
+          foodReadyAt,
+          dropoff: { ...delivery.dropoff!, note: "Green gate · green gate" },
+        },
+      },
+    };
+    const res = await gw.app.inject({ url: "/v1/job", headers: rider });
+    expect(res.json()).toMatchObject({
+      notReadyMinutes: 0,
+      foodReadyAt: foodReadyAt.getTime(),
+      customer: { note: "Green gate" },
+    });
+
+    replies["dispatch.getActiveJob"] = {
+      response: { delivery: { ...delivery, readyBy: new Date(Date.now() + 5 * 60_000) } },
+    };
+    const waiting = (await gw.app.inject({ url: "/v1/job", headers: rider })).json();
+    expect(waiting.foodReadyAt).toBeUndefined();
+    expect(waiting.notReadyMinutes).toBe(5);
+  });
+
   it("accepts and answers with the job keyed by delivery id", async () => {
     replies["dispatch.acceptOffer"] = { response: { delivery } };
     const res = await gw.app.inject({
@@ -364,6 +391,33 @@ describe("money and account", () => {
       riderId: NIMAL,
       period: EarningsPeriod.EARNINGS_PERIOD_TODAY,
     });
+  });
+
+  it("falls back to dispatch's trips and cash while ledger is down", async () => {
+    const now = Date.now();
+    const trip = (secondsAgo: number, total: number, tip: number) => ({
+      id: `t-${secondsAgo}`,
+      pay: { base: rs(180), distance: rs(0), tip: rs(tip), boost: rs(0), total: rs(total) },
+      deliveredAt: new Date(now - secondsAgo * 1000),
+    });
+    replies["dispatch.listTrips"] = {
+      response: { trips: [trip(1, 460, 100), trip(2, 300, 0), trip(86_400 * 40, 999, 0)] },
+    };
+    const today = await gw.app.inject({ url: "/v1/earnings/today", headers: rider });
+    expect(today.statusCode).toBe(200);
+    expect(today.json()).toEqual({ amount: 760, trips: 2, onlineMinutes: 0, tips: 100 });
+    const from = callsTo("dispatch.listTrips")[0]!.request.from as Date;
+    expect(now - from.getTime()).toBeLessThanOrEqual(86_400_000);
+
+    const week = (await gw.app.inject({ url: "/v1/earnings?period=week", headers: rider })).json();
+    expect(week.bars).toHaveLength(7);
+    expect(week.total).toBe(760);
+
+    replies["riders.getRiderProfile"] = {
+      response: { rider: { id: NIMAL, cashHeld: rs(14_330), cashLimit: rs(15_000) } },
+    };
+    const cash = await gw.app.inject({ url: "/v1/cash", headers: rider });
+    expect(cash.json()).toEqual({ collected: 14_330, owedToRider: 0, limit: 15_000, lastDepositAt: 0 });
   });
 
   it("maps the rider profile", async () => {

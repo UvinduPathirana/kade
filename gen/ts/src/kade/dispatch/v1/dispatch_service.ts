@@ -490,6 +490,8 @@ export interface Delivery {
     | undefined;
   /** Matching rounds so far. */
   attempts: number;
+  /** When the kitchen marked the food ready (order OrderReady); unset until then. */
+  foodReadyAt?: Date | undefined;
 }
 
 /** A job offered to one rider at a time. */
@@ -1620,6 +1622,7 @@ function createBaseDelivery(): Delivery {
     proofPhotoRef: "",
     cashCollected: undefined,
     attempts: 0,
+    foodReadyAt: undefined,
   };
 }
 
@@ -1708,6 +1711,9 @@ export const Delivery: MessageFns<Delivery> = {
     }
     if (message.attempts !== 0) {
       writer.uint32(224).int32(message.attempts);
+    }
+    if (message.foodReadyAt !== undefined) {
+      Timestamp.encode(toTimestamp(message.foodReadyAt), writer.uint32(234).fork()).join();
     }
     return writer;
   },
@@ -1949,6 +1955,14 @@ export const Delivery: MessageFns<Delivery> = {
             message.attempts = reader.int32();
             continue;
           }
+          case 29: {
+            if (tag !== 234) {
+              break;
+            }
+
+            message.foodReadyAt = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -2061,6 +2075,11 @@ export const Delivery: MessageFns<Delivery> = {
         ? Money.fromJSON(object.cash_collected)
         : undefined,
       attempts: isSet(object.attempts) ? globalThis.Number(object.attempts) : 0,
+      foodReadyAt: isSet(object.foodReadyAt)
+        ? fromJsonTimestamp(object.foodReadyAt)
+        : isSet(object.food_ready_at)
+        ? fromJsonTimestamp(object.food_ready_at)
+        : undefined,
     };
   },
 
@@ -2150,6 +2169,9 @@ export const Delivery: MessageFns<Delivery> = {
     if (message.attempts !== 0) {
       obj.attempts = Math.round(message.attempts);
     }
+    if (message.foodReadyAt !== undefined) {
+      obj.foodReadyAt = message.foodReadyAt.toISOString();
+    }
     return obj;
   },
 
@@ -2196,6 +2218,7 @@ export const Delivery: MessageFns<Delivery> = {
       ? Money.fromPartial(object.cashCollected)
       : undefined;
     message.attempts = object.attempts ?? 0;
+    message.foodReadyAt = object.foodReadyAt ?? undefined;
     return message;
   },
 };

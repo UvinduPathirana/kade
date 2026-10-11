@@ -20,6 +20,7 @@ export const {
   requestOffer,
   acceptOffer,
   declineOffer,
+  getActiveJob,
   arriveAtRestaurant,
   reportNotReady,
   confirmPickup,

@@ -772,7 +772,9 @@ type Delivery struct {
 	ProofPhotoRef         string                 `protobuf:"bytes,26,opt,name=proof_photo_ref,json=proofPhotoRef,proto3" json:"proof_photo_ref,omitempty"`
 	CashCollected         *v1.Money              `protobuf:"bytes,27,opt,name=cash_collected,json=cashCollected,proto3" json:"cash_collected,omitempty"`
 	// Matching rounds so far.
-	Attempts      int32 `protobuf:"varint,28,opt,name=attempts,proto3" json:"attempts,omitempty"`
+	Attempts int32 `protobuf:"varint,28,opt,name=attempts,proto3" json:"attempts,omitempty"`
+	// When the kitchen marked the food ready (order OrderReady); unset until then.
+	FoodReadyAt   *timestamppb.Timestamp `protobuf:"bytes,29,opt,name=food_ready_at,json=foodReadyAt,proto3" json:"food_ready_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1001,6 +1003,13 @@ func (x *Delivery) GetAttempts() int32 {
 		return x.Attempts
 	}
 	return 0
+}
+
+func (x *Delivery) GetFoodReadyAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.FoodReadyAt
+	}
+	return nil
 }
 
 // A job offered to one rider at a time.
@@ -5764,8 +5773,7 @@ const file_kade_dispatch_v1_dispatch_service_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
 	"\bquantity\x18\x02 \x01(\x05R\bquantity\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12\x18\n" +
-	"\aoptions\x18\x04 \x01(\tR\aoptions\"\xd2\n" +
-	"\n" +
+	"\aoptions\x18\x04 \x01(\tR\aoptions\"\x92\v\n" +
 	"\bDelivery\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\border_id\x18\x02 \x01(\tR\aorderId\x12!\n" +
@@ -5798,7 +5806,8 @@ const file_kade_dispatch_v1_dispatch_service_proto_rawDesc = "" +
 	"\x05proof\x18\x19 \x01(\x0e2\x1b.kade.dispatch.v1.ProofKindR\x05proof\x12&\n" +
 	"\x0fproof_photo_ref\x18\x1a \x01(\tR\rproofPhotoRef\x12<\n" +
 	"\x0ecash_collected\x18\x1b \x01(\v2\x15.kade.common.v1.MoneyR\rcashCollected\x12\x1a\n" +
-	"\battempts\x18\x1c \x01(\x05R\battempts\"\xc1\x03\n" +
+	"\battempts\x18\x1c \x01(\x05R\battempts\x12>\n" +
+	"\rfood_ready_at\x18\x1d \x01(\v2\x1a.google.protobuf.TimestampR\vfoodReadyAt\"\xc1\x03\n" +
 	"\rDeliveryOffer\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n" +
 	"\vdelivery_id\x18\x02 \x01(\tR\n" +
@@ -6372,165 +6381,166 @@ var file_kade_dispatch_v1_dispatch_service_proto_depIdxs = []int32{
 	90,  // 21: kade.dispatch.v1.Delivery.delivered_at:type_name -> google.protobuf.Timestamp
 	1,   // 22: kade.dispatch.v1.Delivery.proof:type_name -> kade.dispatch.v1.ProofKind
 	87,  // 23: kade.dispatch.v1.Delivery.cash_collected:type_name -> kade.common.v1.Money
-	11,  // 24: kade.dispatch.v1.DeliveryOffer.delivery:type_name -> kade.dispatch.v1.Delivery
-	88,  // 25: kade.dispatch.v1.DeliveryOffer.from:type_name -> kade.common.v1.GeoPoint
-	90,  // 26: kade.dispatch.v1.DeliveryOffer.offered_at:type_name -> google.protobuf.Timestamp
-	90,  // 27: kade.dispatch.v1.DeliveryOffer.expires_at:type_name -> google.protobuf.Timestamp
-	2,   // 28: kade.dispatch.v1.DeliveryOffer.status:type_name -> kade.dispatch.v1.OfferStatus
-	7,   // 29: kade.dispatch.v1.Trip.pay:type_name -> kade.dispatch.v1.RiderPay
-	89,  // 30: kade.dispatch.v1.Trip.payment:type_name -> kade.common.v1.PaymentMethodKind
-	87,  // 31: kade.dispatch.v1.Trip.cash_collected:type_name -> kade.common.v1.Money
-	90,  // 32: kade.dispatch.v1.Trip.accepted_at:type_name -> google.protobuf.Timestamp
-	90,  // 33: kade.dispatch.v1.Trip.arrived_at_restaurant_at:type_name -> google.protobuf.Timestamp
-	90,  // 34: kade.dispatch.v1.Trip.picked_up_at:type_name -> google.protobuf.Timestamp
-	90,  // 35: kade.dispatch.v1.Trip.delivered_at:type_name -> google.protobuf.Timestamp
-	1,   // 36: kade.dispatch.v1.Trip.proof:type_name -> kade.dispatch.v1.ProofKind
-	88,  // 37: kade.dispatch.v1.Trip.from:type_name -> kade.common.v1.GeoPoint
-	88,  // 38: kade.dispatch.v1.Trip.pickup_point:type_name -> kade.common.v1.GeoPoint
-	88,  // 39: kade.dispatch.v1.Trip.dropoff_point:type_name -> kade.common.v1.GeoPoint
-	87,  // 40: kade.dispatch.v1.Quest.bonus:type_name -> kade.common.v1.Money
-	90,  // 41: kade.dispatch.v1.Quest.ends_at:type_name -> google.protobuf.Timestamp
-	88,  // 42: kade.dispatch.v1.SetAvailabilityRequest.position:type_name -> kade.common.v1.GeoPoint
-	58,  // 43: kade.dispatch.v1.SetAvailabilityResponse.rider:type_name -> kade.dispatch.v1.Rider
-	12,  // 44: kade.dispatch.v1.GetCurrentOfferResponse.offer:type_name -> kade.dispatch.v1.DeliveryOffer
-	11,  // 45: kade.dispatch.v1.AcceptOfferResponse.delivery:type_name -> kade.dispatch.v1.Delivery
-	11,  // 46: kade.dispatch.v1.GetActiveJobResponse.delivery:type_name -> kade.dispatch.v1.Delivery
-	11,  // 47: kade.dispatch.v1.ArriveAtRestaurantResponse.delivery:type_name -> kade.dispatch.v1.Delivery
-	90,  // 48: kade.dispatch.v1.ReportFoodNotReadyResponse.ready_at:type_name -> google.protobuf.Timestamp
-	11,  // 49: kade.dispatch.v1.ConfirmPickupResponse.delivery:type_name -> kade.dispatch.v1.Delivery
-	11,  // 50: kade.dispatch.v1.ArriveAtCustomerResponse.delivery:type_name -> kade.dispatch.v1.Delivery
-	1,   // 51: kade.dispatch.v1.CompleteDeliveryRequest.proof:type_name -> kade.dispatch.v1.ProofKind
-	87,  // 52: kade.dispatch.v1.CompleteDeliveryRequest.cash_collected:type_name -> kade.common.v1.Money
-	13,  // 53: kade.dispatch.v1.CompleteDeliveryResponse.trip:type_name -> kade.dispatch.v1.Trip
-	90,  // 54: kade.dispatch.v1.ListTripsRequest.from:type_name -> google.protobuf.Timestamp
-	90,  // 55: kade.dispatch.v1.ListTripsRequest.to:type_name -> google.protobuf.Timestamp
-	91,  // 56: kade.dispatch.v1.ListTripsRequest.page:type_name -> kade.common.v1.PageRequest
-	13,  // 57: kade.dispatch.v1.ListTripsResponse.trips:type_name -> kade.dispatch.v1.Trip
-	92,  // 58: kade.dispatch.v1.ListTripsResponse.page:type_name -> kade.common.v1.PageResponse
-	13,  // 59: kade.dispatch.v1.GetTripResponse.trip:type_name -> kade.dispatch.v1.Trip
-	14,  // 60: kade.dispatch.v1.ListQuestsResponse.quests:type_name -> kade.dispatch.v1.Quest
-	3,   // 61: kade.dispatch.v1.AttentionItem.kind:type_name -> kade.dispatch.v1.AttentionKind
-	4,   // 62: kade.dispatch.v1.MapDot.kind:type_name -> kade.dispatch.v1.DotKind
-	88,  // 63: kade.dispatch.v1.MapDot.location:type_name -> kade.common.v1.GeoPoint
-	90,  // 64: kade.dispatch.v1.LiveSnapshot.at:type_name -> google.protobuf.Timestamp
-	43,  // 65: kade.dispatch.v1.LiveSnapshot.attention:type_name -> kade.dispatch.v1.AttentionItem
-	45,  // 66: kade.dispatch.v1.LiveSnapshot.orders_by_hour:type_name -> kade.dispatch.v1.HourCount
-	44,  // 67: kade.dispatch.v1.LiveSnapshot.dots:type_name -> kade.dispatch.v1.MapDot
-	46,  // 68: kade.dispatch.v1.LiveSnapshot.zones:type_name -> kade.dispatch.v1.ZoneLoad
-	47,  // 69: kade.dispatch.v1.GetLiveSnapshotResponse.snapshot:type_name -> kade.dispatch.v1.LiveSnapshot
-	58,  // 70: kade.dispatch.v1.NearbyRider.rider:type_name -> kade.dispatch.v1.Rider
-	50,  // 71: kade.dispatch.v1.ListNearbyRidersResponse.riders:type_name -> kade.dispatch.v1.NearbyRider
-	11,  // 72: kade.dispatch.v1.ReassignRiderResponse.delivery:type_name -> kade.dispatch.v1.Delivery
-	11,  // 73: kade.dispatch.v1.GetDeliveryResponse.delivery:type_name -> kade.dispatch.v1.Delivery
-	12,  // 74: kade.dispatch.v1.GetDeliveryResponse.offers:type_name -> kade.dispatch.v1.DeliveryOffer
-	5,   // 75: kade.dispatch.v1.Vehicle.type:type_name -> kade.dispatch.v1.VehicleType
-	57,  // 76: kade.dispatch.v1.Rider.vehicle:type_name -> kade.dispatch.v1.Vehicle
-	6,   // 77: kade.dispatch.v1.Rider.status:type_name -> kade.dispatch.v1.RiderStatus
-	87,  // 78: kade.dispatch.v1.Rider.cash_held:type_name -> kade.common.v1.Money
-	87,  // 79: kade.dispatch.v1.Rider.cash_limit:type_name -> kade.common.v1.Money
-	90,  // 80: kade.dispatch.v1.Rider.joined_at:type_name -> google.protobuf.Timestamp
-	93,  // 81: kade.dispatch.v1.Rider.bank:type_name -> kade.common.v1.BankAccount
-	94,  // 82: kade.dispatch.v1.Rider.documents:type_name -> kade.common.v1.PartnerDocument
-	88,  // 83: kade.dispatch.v1.Rider.position:type_name -> kade.common.v1.GeoPoint
-	90,  // 84: kade.dispatch.v1.Rider.last_seen_at:type_name -> google.protobuf.Timestamp
-	58,  // 85: kade.dispatch.v1.GetMyRiderResponse.rider:type_name -> kade.dispatch.v1.Rider
-	5,   // 86: kade.dispatch.v1.RiderApplication.vehicle:type_name -> kade.dispatch.v1.VehicleType
-	94,  // 87: kade.dispatch.v1.RiderApplication.documents:type_name -> kade.common.v1.PartnerDocument
-	93,  // 88: kade.dispatch.v1.RiderApplication.bank:type_name -> kade.common.v1.BankAccount
-	95,  // 89: kade.dispatch.v1.RiderApplication.status:type_name -> kade.common.v1.ApplicationStatus
-	90,  // 90: kade.dispatch.v1.RiderApplication.submitted_at:type_name -> google.protobuf.Timestamp
-	90,  // 91: kade.dispatch.v1.RiderApplication.decided_at:type_name -> google.protobuf.Timestamp
-	58,  // 92: kade.dispatch.v1.GetRiderProfileResponse.rider:type_name -> kade.dispatch.v1.Rider
-	94,  // 93: kade.dispatch.v1.ListRiderDocumentsResponse.documents:type_name -> kade.common.v1.PartnerDocument
-	5,   // 94: kade.dispatch.v1.SubmitRiderApplicationRequest.vehicle:type_name -> kade.dispatch.v1.VehicleType
-	94,  // 95: kade.dispatch.v1.SubmitRiderApplicationRequest.documents:type_name -> kade.common.v1.PartnerDocument
-	93,  // 96: kade.dispatch.v1.SubmitRiderApplicationRequest.bank:type_name -> kade.common.v1.BankAccount
-	61,  // 97: kade.dispatch.v1.SubmitRiderApplicationResponse.application:type_name -> kade.dispatch.v1.RiderApplication
-	61,  // 98: kade.dispatch.v1.GetRiderApplicationStatusResponse.application:type_name -> kade.dispatch.v1.RiderApplication
-	94,  // 99: kade.dispatch.v1.GetRiderApplicationStatusResponse.needs_fix:type_name -> kade.common.v1.PartnerDocument
-	61,  // 100: kade.dispatch.v1.ResubmitRiderDocumentResponse.application:type_name -> kade.dispatch.v1.RiderApplication
-	6,   // 101: kade.dispatch.v1.ListRidersRequest.status:type_name -> kade.dispatch.v1.RiderStatus
-	91,  // 102: kade.dispatch.v1.ListRidersRequest.page:type_name -> kade.common.v1.PageRequest
-	58,  // 103: kade.dispatch.v1.ListRidersResponse.riders:type_name -> kade.dispatch.v1.Rider
-	92,  // 104: kade.dispatch.v1.ListRidersResponse.page:type_name -> kade.common.v1.PageResponse
-	58,  // 105: kade.dispatch.v1.GetRiderResponse.rider:type_name -> kade.dispatch.v1.Rider
-	95,  // 106: kade.dispatch.v1.ListRiderApplicationsRequest.status:type_name -> kade.common.v1.ApplicationStatus
-	91,  // 107: kade.dispatch.v1.ListRiderApplicationsRequest.page:type_name -> kade.common.v1.PageRequest
-	61,  // 108: kade.dispatch.v1.ListRiderApplicationsResponse.applications:type_name -> kade.dispatch.v1.RiderApplication
-	92,  // 109: kade.dispatch.v1.ListRiderApplicationsResponse.page:type_name -> kade.common.v1.PageResponse
-	96,  // 110: kade.dispatch.v1.ReviewRiderDocumentRequest.status:type_name -> kade.common.v1.DocumentStatus
-	94,  // 111: kade.dispatch.v1.ReviewRiderDocumentResponse.documents:type_name -> kade.common.v1.PartnerDocument
-	95,  // 112: kade.dispatch.v1.DecideRiderApplicationRequest.decision:type_name -> kade.common.v1.ApplicationStatus
-	61,  // 113: kade.dispatch.v1.DecideRiderApplicationResponse.application:type_name -> kade.dispatch.v1.RiderApplication
-	58,  // 114: kade.dispatch.v1.SetRiderZonesResponse.rider:type_name -> kade.dispatch.v1.Rider
-	58,  // 115: kade.dispatch.v1.SetRiderSuspendedResponse.rider:type_name -> kade.dispatch.v1.Rider
-	15,  // 116: kade.dispatch.v1.DispatchService.SetAvailability:input_type -> kade.dispatch.v1.SetAvailabilityRequest
-	17,  // 117: kade.dispatch.v1.DispatchService.GetCurrentOffer:input_type -> kade.dispatch.v1.GetCurrentOfferRequest
-	19,  // 118: kade.dispatch.v1.DispatchService.AcceptOffer:input_type -> kade.dispatch.v1.AcceptOfferRequest
-	21,  // 119: kade.dispatch.v1.DispatchService.DeclineOffer:input_type -> kade.dispatch.v1.DeclineOfferRequest
-	23,  // 120: kade.dispatch.v1.DispatchService.GetActiveJob:input_type -> kade.dispatch.v1.GetActiveJobRequest
-	25,  // 121: kade.dispatch.v1.DispatchService.ArriveAtRestaurant:input_type -> kade.dispatch.v1.ArriveAtRestaurantRequest
-	27,  // 122: kade.dispatch.v1.DispatchService.ReportFoodNotReady:input_type -> kade.dispatch.v1.ReportFoodNotReadyRequest
-	29,  // 123: kade.dispatch.v1.DispatchService.ConfirmPickup:input_type -> kade.dispatch.v1.ConfirmPickupRequest
-	31,  // 124: kade.dispatch.v1.DispatchService.ArriveAtCustomer:input_type -> kade.dispatch.v1.ArriveAtCustomerRequest
-	33,  // 125: kade.dispatch.v1.DispatchService.CompleteDelivery:input_type -> kade.dispatch.v1.CompleteDeliveryRequest
-	35,  // 126: kade.dispatch.v1.DispatchService.SendCustomerMessage:input_type -> kade.dispatch.v1.SendCustomerMessageRequest
-	37,  // 127: kade.dispatch.v1.DispatchService.ListTrips:input_type -> kade.dispatch.v1.ListTripsRequest
-	39,  // 128: kade.dispatch.v1.DispatchService.GetTrip:input_type -> kade.dispatch.v1.GetTripRequest
-	41,  // 129: kade.dispatch.v1.DispatchService.ListQuests:input_type -> kade.dispatch.v1.ListQuestsRequest
-	48,  // 130: kade.dispatch.v1.DispatchOpsService.GetLiveSnapshot:input_type -> kade.dispatch.v1.GetLiveSnapshotRequest
-	51,  // 131: kade.dispatch.v1.DispatchOpsService.ListNearbyRiders:input_type -> kade.dispatch.v1.ListNearbyRidersRequest
-	53,  // 132: kade.dispatch.v1.DispatchOpsService.ReassignRider:input_type -> kade.dispatch.v1.ReassignRiderRequest
-	55,  // 133: kade.dispatch.v1.DispatchOpsService.GetDelivery:input_type -> kade.dispatch.v1.GetDeliveryRequest
-	62,  // 134: kade.dispatch.v1.RiderService.GetRiderProfile:input_type -> kade.dispatch.v1.GetRiderProfileRequest
-	59,  // 135: kade.dispatch.v1.RiderService.GetMyRider:input_type -> kade.dispatch.v1.GetMyRiderRequest
-	64,  // 136: kade.dispatch.v1.RiderService.ListRiderDocuments:input_type -> kade.dispatch.v1.ListRiderDocumentsRequest
-	66,  // 137: kade.dispatch.v1.RiderService.SubmitRiderApplication:input_type -> kade.dispatch.v1.SubmitRiderApplicationRequest
-	68,  // 138: kade.dispatch.v1.RiderService.GetRiderApplicationStatus:input_type -> kade.dispatch.v1.GetRiderApplicationStatusRequest
-	70,  // 139: kade.dispatch.v1.RiderService.ResubmitRiderDocument:input_type -> kade.dispatch.v1.ResubmitRiderDocumentRequest
-	72,  // 140: kade.dispatch.v1.RiderService.ListRiders:input_type -> kade.dispatch.v1.ListRidersRequest
-	74,  // 141: kade.dispatch.v1.RiderService.GetRider:input_type -> kade.dispatch.v1.GetRiderRequest
-	76,  // 142: kade.dispatch.v1.RiderService.ListRiderApplications:input_type -> kade.dispatch.v1.ListRiderApplicationsRequest
-	78,  // 143: kade.dispatch.v1.RiderService.ReviewRiderDocument:input_type -> kade.dispatch.v1.ReviewRiderDocumentRequest
-	80,  // 144: kade.dispatch.v1.RiderService.DecideRiderApplication:input_type -> kade.dispatch.v1.DecideRiderApplicationRequest
-	82,  // 145: kade.dispatch.v1.RiderService.SetRiderZones:input_type -> kade.dispatch.v1.SetRiderZonesRequest
-	84,  // 146: kade.dispatch.v1.RiderService.SetRiderSuspended:input_type -> kade.dispatch.v1.SetRiderSuspendedRequest
-	16,  // 147: kade.dispatch.v1.DispatchService.SetAvailability:output_type -> kade.dispatch.v1.SetAvailabilityResponse
-	18,  // 148: kade.dispatch.v1.DispatchService.GetCurrentOffer:output_type -> kade.dispatch.v1.GetCurrentOfferResponse
-	20,  // 149: kade.dispatch.v1.DispatchService.AcceptOffer:output_type -> kade.dispatch.v1.AcceptOfferResponse
-	22,  // 150: kade.dispatch.v1.DispatchService.DeclineOffer:output_type -> kade.dispatch.v1.DeclineOfferResponse
-	24,  // 151: kade.dispatch.v1.DispatchService.GetActiveJob:output_type -> kade.dispatch.v1.GetActiveJobResponse
-	26,  // 152: kade.dispatch.v1.DispatchService.ArriveAtRestaurant:output_type -> kade.dispatch.v1.ArriveAtRestaurantResponse
-	28,  // 153: kade.dispatch.v1.DispatchService.ReportFoodNotReady:output_type -> kade.dispatch.v1.ReportFoodNotReadyResponse
-	30,  // 154: kade.dispatch.v1.DispatchService.ConfirmPickup:output_type -> kade.dispatch.v1.ConfirmPickupResponse
-	32,  // 155: kade.dispatch.v1.DispatchService.ArriveAtCustomer:output_type -> kade.dispatch.v1.ArriveAtCustomerResponse
-	34,  // 156: kade.dispatch.v1.DispatchService.CompleteDelivery:output_type -> kade.dispatch.v1.CompleteDeliveryResponse
-	36,  // 157: kade.dispatch.v1.DispatchService.SendCustomerMessage:output_type -> kade.dispatch.v1.SendCustomerMessageResponse
-	38,  // 158: kade.dispatch.v1.DispatchService.ListTrips:output_type -> kade.dispatch.v1.ListTripsResponse
-	40,  // 159: kade.dispatch.v1.DispatchService.GetTrip:output_type -> kade.dispatch.v1.GetTripResponse
-	42,  // 160: kade.dispatch.v1.DispatchService.ListQuests:output_type -> kade.dispatch.v1.ListQuestsResponse
-	49,  // 161: kade.dispatch.v1.DispatchOpsService.GetLiveSnapshot:output_type -> kade.dispatch.v1.GetLiveSnapshotResponse
-	52,  // 162: kade.dispatch.v1.DispatchOpsService.ListNearbyRiders:output_type -> kade.dispatch.v1.ListNearbyRidersResponse
-	54,  // 163: kade.dispatch.v1.DispatchOpsService.ReassignRider:output_type -> kade.dispatch.v1.ReassignRiderResponse
-	56,  // 164: kade.dispatch.v1.DispatchOpsService.GetDelivery:output_type -> kade.dispatch.v1.GetDeliveryResponse
-	63,  // 165: kade.dispatch.v1.RiderService.GetRiderProfile:output_type -> kade.dispatch.v1.GetRiderProfileResponse
-	60,  // 166: kade.dispatch.v1.RiderService.GetMyRider:output_type -> kade.dispatch.v1.GetMyRiderResponse
-	65,  // 167: kade.dispatch.v1.RiderService.ListRiderDocuments:output_type -> kade.dispatch.v1.ListRiderDocumentsResponse
-	67,  // 168: kade.dispatch.v1.RiderService.SubmitRiderApplication:output_type -> kade.dispatch.v1.SubmitRiderApplicationResponse
-	69,  // 169: kade.dispatch.v1.RiderService.GetRiderApplicationStatus:output_type -> kade.dispatch.v1.GetRiderApplicationStatusResponse
-	71,  // 170: kade.dispatch.v1.RiderService.ResubmitRiderDocument:output_type -> kade.dispatch.v1.ResubmitRiderDocumentResponse
-	73,  // 171: kade.dispatch.v1.RiderService.ListRiders:output_type -> kade.dispatch.v1.ListRidersResponse
-	75,  // 172: kade.dispatch.v1.RiderService.GetRider:output_type -> kade.dispatch.v1.GetRiderResponse
-	77,  // 173: kade.dispatch.v1.RiderService.ListRiderApplications:output_type -> kade.dispatch.v1.ListRiderApplicationsResponse
-	79,  // 174: kade.dispatch.v1.RiderService.ReviewRiderDocument:output_type -> kade.dispatch.v1.ReviewRiderDocumentResponse
-	81,  // 175: kade.dispatch.v1.RiderService.DecideRiderApplication:output_type -> kade.dispatch.v1.DecideRiderApplicationResponse
-	83,  // 176: kade.dispatch.v1.RiderService.SetRiderZones:output_type -> kade.dispatch.v1.SetRiderZonesResponse
-	85,  // 177: kade.dispatch.v1.RiderService.SetRiderSuspended:output_type -> kade.dispatch.v1.SetRiderSuspendedResponse
-	147, // [147:178] is the sub-list for method output_type
-	116, // [116:147] is the sub-list for method input_type
-	116, // [116:116] is the sub-list for extension type_name
-	116, // [116:116] is the sub-list for extension extendee
-	0,   // [0:116] is the sub-list for field type_name
+	90,  // 24: kade.dispatch.v1.Delivery.food_ready_at:type_name -> google.protobuf.Timestamp
+	11,  // 25: kade.dispatch.v1.DeliveryOffer.delivery:type_name -> kade.dispatch.v1.Delivery
+	88,  // 26: kade.dispatch.v1.DeliveryOffer.from:type_name -> kade.common.v1.GeoPoint
+	90,  // 27: kade.dispatch.v1.DeliveryOffer.offered_at:type_name -> google.protobuf.Timestamp
+	90,  // 28: kade.dispatch.v1.DeliveryOffer.expires_at:type_name -> google.protobuf.Timestamp
+	2,   // 29: kade.dispatch.v1.DeliveryOffer.status:type_name -> kade.dispatch.v1.OfferStatus
+	7,   // 30: kade.dispatch.v1.Trip.pay:type_name -> kade.dispatch.v1.RiderPay
+	89,  // 31: kade.dispatch.v1.Trip.payment:type_name -> kade.common.v1.PaymentMethodKind
+	87,  // 32: kade.dispatch.v1.Trip.cash_collected:type_name -> kade.common.v1.Money
+	90,  // 33: kade.dispatch.v1.Trip.accepted_at:type_name -> google.protobuf.Timestamp
+	90,  // 34: kade.dispatch.v1.Trip.arrived_at_restaurant_at:type_name -> google.protobuf.Timestamp
+	90,  // 35: kade.dispatch.v1.Trip.picked_up_at:type_name -> google.protobuf.Timestamp
+	90,  // 36: kade.dispatch.v1.Trip.delivered_at:type_name -> google.protobuf.Timestamp
+	1,   // 37: kade.dispatch.v1.Trip.proof:type_name -> kade.dispatch.v1.ProofKind
+	88,  // 38: kade.dispatch.v1.Trip.from:type_name -> kade.common.v1.GeoPoint
+	88,  // 39: kade.dispatch.v1.Trip.pickup_point:type_name -> kade.common.v1.GeoPoint
+	88,  // 40: kade.dispatch.v1.Trip.dropoff_point:type_name -> kade.common.v1.GeoPoint
+	87,  // 41: kade.dispatch.v1.Quest.bonus:type_name -> kade.common.v1.Money
+	90,  // 42: kade.dispatch.v1.Quest.ends_at:type_name -> google.protobuf.Timestamp
+	88,  // 43: kade.dispatch.v1.SetAvailabilityRequest.position:type_name -> kade.common.v1.GeoPoint
+	58,  // 44: kade.dispatch.v1.SetAvailabilityResponse.rider:type_name -> kade.dispatch.v1.Rider
+	12,  // 45: kade.dispatch.v1.GetCurrentOfferResponse.offer:type_name -> kade.dispatch.v1.DeliveryOffer
+	11,  // 46: kade.dispatch.v1.AcceptOfferResponse.delivery:type_name -> kade.dispatch.v1.Delivery
+	11,  // 47: kade.dispatch.v1.GetActiveJobResponse.delivery:type_name -> kade.dispatch.v1.Delivery
+	11,  // 48: kade.dispatch.v1.ArriveAtRestaurantResponse.delivery:type_name -> kade.dispatch.v1.Delivery
+	90,  // 49: kade.dispatch.v1.ReportFoodNotReadyResponse.ready_at:type_name -> google.protobuf.Timestamp
+	11,  // 50: kade.dispatch.v1.ConfirmPickupResponse.delivery:type_name -> kade.dispatch.v1.Delivery
+	11,  // 51: kade.dispatch.v1.ArriveAtCustomerResponse.delivery:type_name -> kade.dispatch.v1.Delivery
+	1,   // 52: kade.dispatch.v1.CompleteDeliveryRequest.proof:type_name -> kade.dispatch.v1.ProofKind
+	87,  // 53: kade.dispatch.v1.CompleteDeliveryRequest.cash_collected:type_name -> kade.common.v1.Money
+	13,  // 54: kade.dispatch.v1.CompleteDeliveryResponse.trip:type_name -> kade.dispatch.v1.Trip
+	90,  // 55: kade.dispatch.v1.ListTripsRequest.from:type_name -> google.protobuf.Timestamp
+	90,  // 56: kade.dispatch.v1.ListTripsRequest.to:type_name -> google.protobuf.Timestamp
+	91,  // 57: kade.dispatch.v1.ListTripsRequest.page:type_name -> kade.common.v1.PageRequest
+	13,  // 58: kade.dispatch.v1.ListTripsResponse.trips:type_name -> kade.dispatch.v1.Trip
+	92,  // 59: kade.dispatch.v1.ListTripsResponse.page:type_name -> kade.common.v1.PageResponse
+	13,  // 60: kade.dispatch.v1.GetTripResponse.trip:type_name -> kade.dispatch.v1.Trip
+	14,  // 61: kade.dispatch.v1.ListQuestsResponse.quests:type_name -> kade.dispatch.v1.Quest
+	3,   // 62: kade.dispatch.v1.AttentionItem.kind:type_name -> kade.dispatch.v1.AttentionKind
+	4,   // 63: kade.dispatch.v1.MapDot.kind:type_name -> kade.dispatch.v1.DotKind
+	88,  // 64: kade.dispatch.v1.MapDot.location:type_name -> kade.common.v1.GeoPoint
+	90,  // 65: kade.dispatch.v1.LiveSnapshot.at:type_name -> google.protobuf.Timestamp
+	43,  // 66: kade.dispatch.v1.LiveSnapshot.attention:type_name -> kade.dispatch.v1.AttentionItem
+	45,  // 67: kade.dispatch.v1.LiveSnapshot.orders_by_hour:type_name -> kade.dispatch.v1.HourCount
+	44,  // 68: kade.dispatch.v1.LiveSnapshot.dots:type_name -> kade.dispatch.v1.MapDot
+	46,  // 69: kade.dispatch.v1.LiveSnapshot.zones:type_name -> kade.dispatch.v1.ZoneLoad
+	47,  // 70: kade.dispatch.v1.GetLiveSnapshotResponse.snapshot:type_name -> kade.dispatch.v1.LiveSnapshot
+	58,  // 71: kade.dispatch.v1.NearbyRider.rider:type_name -> kade.dispatch.v1.Rider
+	50,  // 72: kade.dispatch.v1.ListNearbyRidersResponse.riders:type_name -> kade.dispatch.v1.NearbyRider
+	11,  // 73: kade.dispatch.v1.ReassignRiderResponse.delivery:type_name -> kade.dispatch.v1.Delivery
+	11,  // 74: kade.dispatch.v1.GetDeliveryResponse.delivery:type_name -> kade.dispatch.v1.Delivery
+	12,  // 75: kade.dispatch.v1.GetDeliveryResponse.offers:type_name -> kade.dispatch.v1.DeliveryOffer
+	5,   // 76: kade.dispatch.v1.Vehicle.type:type_name -> kade.dispatch.v1.VehicleType
+	57,  // 77: kade.dispatch.v1.Rider.vehicle:type_name -> kade.dispatch.v1.Vehicle
+	6,   // 78: kade.dispatch.v1.Rider.status:type_name -> kade.dispatch.v1.RiderStatus
+	87,  // 79: kade.dispatch.v1.Rider.cash_held:type_name -> kade.common.v1.Money
+	87,  // 80: kade.dispatch.v1.Rider.cash_limit:type_name -> kade.common.v1.Money
+	90,  // 81: kade.dispatch.v1.Rider.joined_at:type_name -> google.protobuf.Timestamp
+	93,  // 82: kade.dispatch.v1.Rider.bank:type_name -> kade.common.v1.BankAccount
+	94,  // 83: kade.dispatch.v1.Rider.documents:type_name -> kade.common.v1.PartnerDocument
+	88,  // 84: kade.dispatch.v1.Rider.position:type_name -> kade.common.v1.GeoPoint
+	90,  // 85: kade.dispatch.v1.Rider.last_seen_at:type_name -> google.protobuf.Timestamp
+	58,  // 86: kade.dispatch.v1.GetMyRiderResponse.rider:type_name -> kade.dispatch.v1.Rider
+	5,   // 87: kade.dispatch.v1.RiderApplication.vehicle:type_name -> kade.dispatch.v1.VehicleType
+	94,  // 88: kade.dispatch.v1.RiderApplication.documents:type_name -> kade.common.v1.PartnerDocument
+	93,  // 89: kade.dispatch.v1.RiderApplication.bank:type_name -> kade.common.v1.BankAccount
+	95,  // 90: kade.dispatch.v1.RiderApplication.status:type_name -> kade.common.v1.ApplicationStatus
+	90,  // 91: kade.dispatch.v1.RiderApplication.submitted_at:type_name -> google.protobuf.Timestamp
+	90,  // 92: kade.dispatch.v1.RiderApplication.decided_at:type_name -> google.protobuf.Timestamp
+	58,  // 93: kade.dispatch.v1.GetRiderProfileResponse.rider:type_name -> kade.dispatch.v1.Rider
+	94,  // 94: kade.dispatch.v1.ListRiderDocumentsResponse.documents:type_name -> kade.common.v1.PartnerDocument
+	5,   // 95: kade.dispatch.v1.SubmitRiderApplicationRequest.vehicle:type_name -> kade.dispatch.v1.VehicleType
+	94,  // 96: kade.dispatch.v1.SubmitRiderApplicationRequest.documents:type_name -> kade.common.v1.PartnerDocument
+	93,  // 97: kade.dispatch.v1.SubmitRiderApplicationRequest.bank:type_name -> kade.common.v1.BankAccount
+	61,  // 98: kade.dispatch.v1.SubmitRiderApplicationResponse.application:type_name -> kade.dispatch.v1.RiderApplication
+	61,  // 99: kade.dispatch.v1.GetRiderApplicationStatusResponse.application:type_name -> kade.dispatch.v1.RiderApplication
+	94,  // 100: kade.dispatch.v1.GetRiderApplicationStatusResponse.needs_fix:type_name -> kade.common.v1.PartnerDocument
+	61,  // 101: kade.dispatch.v1.ResubmitRiderDocumentResponse.application:type_name -> kade.dispatch.v1.RiderApplication
+	6,   // 102: kade.dispatch.v1.ListRidersRequest.status:type_name -> kade.dispatch.v1.RiderStatus
+	91,  // 103: kade.dispatch.v1.ListRidersRequest.page:type_name -> kade.common.v1.PageRequest
+	58,  // 104: kade.dispatch.v1.ListRidersResponse.riders:type_name -> kade.dispatch.v1.Rider
+	92,  // 105: kade.dispatch.v1.ListRidersResponse.page:type_name -> kade.common.v1.PageResponse
+	58,  // 106: kade.dispatch.v1.GetRiderResponse.rider:type_name -> kade.dispatch.v1.Rider
+	95,  // 107: kade.dispatch.v1.ListRiderApplicationsRequest.status:type_name -> kade.common.v1.ApplicationStatus
+	91,  // 108: kade.dispatch.v1.ListRiderApplicationsRequest.page:type_name -> kade.common.v1.PageRequest
+	61,  // 109: kade.dispatch.v1.ListRiderApplicationsResponse.applications:type_name -> kade.dispatch.v1.RiderApplication
+	92,  // 110: kade.dispatch.v1.ListRiderApplicationsResponse.page:type_name -> kade.common.v1.PageResponse
+	96,  // 111: kade.dispatch.v1.ReviewRiderDocumentRequest.status:type_name -> kade.common.v1.DocumentStatus
+	94,  // 112: kade.dispatch.v1.ReviewRiderDocumentResponse.documents:type_name -> kade.common.v1.PartnerDocument
+	95,  // 113: kade.dispatch.v1.DecideRiderApplicationRequest.decision:type_name -> kade.common.v1.ApplicationStatus
+	61,  // 114: kade.dispatch.v1.DecideRiderApplicationResponse.application:type_name -> kade.dispatch.v1.RiderApplication
+	58,  // 115: kade.dispatch.v1.SetRiderZonesResponse.rider:type_name -> kade.dispatch.v1.Rider
+	58,  // 116: kade.dispatch.v1.SetRiderSuspendedResponse.rider:type_name -> kade.dispatch.v1.Rider
+	15,  // 117: kade.dispatch.v1.DispatchService.SetAvailability:input_type -> kade.dispatch.v1.SetAvailabilityRequest
+	17,  // 118: kade.dispatch.v1.DispatchService.GetCurrentOffer:input_type -> kade.dispatch.v1.GetCurrentOfferRequest
+	19,  // 119: kade.dispatch.v1.DispatchService.AcceptOffer:input_type -> kade.dispatch.v1.AcceptOfferRequest
+	21,  // 120: kade.dispatch.v1.DispatchService.DeclineOffer:input_type -> kade.dispatch.v1.DeclineOfferRequest
+	23,  // 121: kade.dispatch.v1.DispatchService.GetActiveJob:input_type -> kade.dispatch.v1.GetActiveJobRequest
+	25,  // 122: kade.dispatch.v1.DispatchService.ArriveAtRestaurant:input_type -> kade.dispatch.v1.ArriveAtRestaurantRequest
+	27,  // 123: kade.dispatch.v1.DispatchService.ReportFoodNotReady:input_type -> kade.dispatch.v1.ReportFoodNotReadyRequest
+	29,  // 124: kade.dispatch.v1.DispatchService.ConfirmPickup:input_type -> kade.dispatch.v1.ConfirmPickupRequest
+	31,  // 125: kade.dispatch.v1.DispatchService.ArriveAtCustomer:input_type -> kade.dispatch.v1.ArriveAtCustomerRequest
+	33,  // 126: kade.dispatch.v1.DispatchService.CompleteDelivery:input_type -> kade.dispatch.v1.CompleteDeliveryRequest
+	35,  // 127: kade.dispatch.v1.DispatchService.SendCustomerMessage:input_type -> kade.dispatch.v1.SendCustomerMessageRequest
+	37,  // 128: kade.dispatch.v1.DispatchService.ListTrips:input_type -> kade.dispatch.v1.ListTripsRequest
+	39,  // 129: kade.dispatch.v1.DispatchService.GetTrip:input_type -> kade.dispatch.v1.GetTripRequest
+	41,  // 130: kade.dispatch.v1.DispatchService.ListQuests:input_type -> kade.dispatch.v1.ListQuestsRequest
+	48,  // 131: kade.dispatch.v1.DispatchOpsService.GetLiveSnapshot:input_type -> kade.dispatch.v1.GetLiveSnapshotRequest
+	51,  // 132: kade.dispatch.v1.DispatchOpsService.ListNearbyRiders:input_type -> kade.dispatch.v1.ListNearbyRidersRequest
+	53,  // 133: kade.dispatch.v1.DispatchOpsService.ReassignRider:input_type -> kade.dispatch.v1.ReassignRiderRequest
+	55,  // 134: kade.dispatch.v1.DispatchOpsService.GetDelivery:input_type -> kade.dispatch.v1.GetDeliveryRequest
+	62,  // 135: kade.dispatch.v1.RiderService.GetRiderProfile:input_type -> kade.dispatch.v1.GetRiderProfileRequest
+	59,  // 136: kade.dispatch.v1.RiderService.GetMyRider:input_type -> kade.dispatch.v1.GetMyRiderRequest
+	64,  // 137: kade.dispatch.v1.RiderService.ListRiderDocuments:input_type -> kade.dispatch.v1.ListRiderDocumentsRequest
+	66,  // 138: kade.dispatch.v1.RiderService.SubmitRiderApplication:input_type -> kade.dispatch.v1.SubmitRiderApplicationRequest
+	68,  // 139: kade.dispatch.v1.RiderService.GetRiderApplicationStatus:input_type -> kade.dispatch.v1.GetRiderApplicationStatusRequest
+	70,  // 140: kade.dispatch.v1.RiderService.ResubmitRiderDocument:input_type -> kade.dispatch.v1.ResubmitRiderDocumentRequest
+	72,  // 141: kade.dispatch.v1.RiderService.ListRiders:input_type -> kade.dispatch.v1.ListRidersRequest
+	74,  // 142: kade.dispatch.v1.RiderService.GetRider:input_type -> kade.dispatch.v1.GetRiderRequest
+	76,  // 143: kade.dispatch.v1.RiderService.ListRiderApplications:input_type -> kade.dispatch.v1.ListRiderApplicationsRequest
+	78,  // 144: kade.dispatch.v1.RiderService.ReviewRiderDocument:input_type -> kade.dispatch.v1.ReviewRiderDocumentRequest
+	80,  // 145: kade.dispatch.v1.RiderService.DecideRiderApplication:input_type -> kade.dispatch.v1.DecideRiderApplicationRequest
+	82,  // 146: kade.dispatch.v1.RiderService.SetRiderZones:input_type -> kade.dispatch.v1.SetRiderZonesRequest
+	84,  // 147: kade.dispatch.v1.RiderService.SetRiderSuspended:input_type -> kade.dispatch.v1.SetRiderSuspendedRequest
+	16,  // 148: kade.dispatch.v1.DispatchService.SetAvailability:output_type -> kade.dispatch.v1.SetAvailabilityResponse
+	18,  // 149: kade.dispatch.v1.DispatchService.GetCurrentOffer:output_type -> kade.dispatch.v1.GetCurrentOfferResponse
+	20,  // 150: kade.dispatch.v1.DispatchService.AcceptOffer:output_type -> kade.dispatch.v1.AcceptOfferResponse
+	22,  // 151: kade.dispatch.v1.DispatchService.DeclineOffer:output_type -> kade.dispatch.v1.DeclineOfferResponse
+	24,  // 152: kade.dispatch.v1.DispatchService.GetActiveJob:output_type -> kade.dispatch.v1.GetActiveJobResponse
+	26,  // 153: kade.dispatch.v1.DispatchService.ArriveAtRestaurant:output_type -> kade.dispatch.v1.ArriveAtRestaurantResponse
+	28,  // 154: kade.dispatch.v1.DispatchService.ReportFoodNotReady:output_type -> kade.dispatch.v1.ReportFoodNotReadyResponse
+	30,  // 155: kade.dispatch.v1.DispatchService.ConfirmPickup:output_type -> kade.dispatch.v1.ConfirmPickupResponse
+	32,  // 156: kade.dispatch.v1.DispatchService.ArriveAtCustomer:output_type -> kade.dispatch.v1.ArriveAtCustomerResponse
+	34,  // 157: kade.dispatch.v1.DispatchService.CompleteDelivery:output_type -> kade.dispatch.v1.CompleteDeliveryResponse
+	36,  // 158: kade.dispatch.v1.DispatchService.SendCustomerMessage:output_type -> kade.dispatch.v1.SendCustomerMessageResponse
+	38,  // 159: kade.dispatch.v1.DispatchService.ListTrips:output_type -> kade.dispatch.v1.ListTripsResponse
+	40,  // 160: kade.dispatch.v1.DispatchService.GetTrip:output_type -> kade.dispatch.v1.GetTripResponse
+	42,  // 161: kade.dispatch.v1.DispatchService.ListQuests:output_type -> kade.dispatch.v1.ListQuestsResponse
+	49,  // 162: kade.dispatch.v1.DispatchOpsService.GetLiveSnapshot:output_type -> kade.dispatch.v1.GetLiveSnapshotResponse
+	52,  // 163: kade.dispatch.v1.DispatchOpsService.ListNearbyRiders:output_type -> kade.dispatch.v1.ListNearbyRidersResponse
+	54,  // 164: kade.dispatch.v1.DispatchOpsService.ReassignRider:output_type -> kade.dispatch.v1.ReassignRiderResponse
+	56,  // 165: kade.dispatch.v1.DispatchOpsService.GetDelivery:output_type -> kade.dispatch.v1.GetDeliveryResponse
+	63,  // 166: kade.dispatch.v1.RiderService.GetRiderProfile:output_type -> kade.dispatch.v1.GetRiderProfileResponse
+	60,  // 167: kade.dispatch.v1.RiderService.GetMyRider:output_type -> kade.dispatch.v1.GetMyRiderResponse
+	65,  // 168: kade.dispatch.v1.RiderService.ListRiderDocuments:output_type -> kade.dispatch.v1.ListRiderDocumentsResponse
+	67,  // 169: kade.dispatch.v1.RiderService.SubmitRiderApplication:output_type -> kade.dispatch.v1.SubmitRiderApplicationResponse
+	69,  // 170: kade.dispatch.v1.RiderService.GetRiderApplicationStatus:output_type -> kade.dispatch.v1.GetRiderApplicationStatusResponse
+	71,  // 171: kade.dispatch.v1.RiderService.ResubmitRiderDocument:output_type -> kade.dispatch.v1.ResubmitRiderDocumentResponse
+	73,  // 172: kade.dispatch.v1.RiderService.ListRiders:output_type -> kade.dispatch.v1.ListRidersResponse
+	75,  // 173: kade.dispatch.v1.RiderService.GetRider:output_type -> kade.dispatch.v1.GetRiderResponse
+	77,  // 174: kade.dispatch.v1.RiderService.ListRiderApplications:output_type -> kade.dispatch.v1.ListRiderApplicationsResponse
+	79,  // 175: kade.dispatch.v1.RiderService.ReviewRiderDocument:output_type -> kade.dispatch.v1.ReviewRiderDocumentResponse
+	81,  // 176: kade.dispatch.v1.RiderService.DecideRiderApplication:output_type -> kade.dispatch.v1.DecideRiderApplicationResponse
+	83,  // 177: kade.dispatch.v1.RiderService.SetRiderZones:output_type -> kade.dispatch.v1.SetRiderZonesResponse
+	85,  // 178: kade.dispatch.v1.RiderService.SetRiderSuspended:output_type -> kade.dispatch.v1.SetRiderSuspendedResponse
+	148, // [148:179] is the sub-list for method output_type
+	117, // [117:148] is the sub-list for method input_type
+	117, // [117:117] is the sub-list for extension type_name
+	117, // [117:117] is the sub-list for extension extendee
+	0,   // [0:117] is the sub-list for field type_name
 }
 
 func init() { file_kade_dispatch_v1_dispatch_service_proto_init() }

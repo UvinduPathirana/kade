@@ -155,6 +155,11 @@ func TestBuildDelivery(t *testing.T) {
 	if row.Code != "4821" || row.CustomerID != "c1" || row.NextAttemptAt == nil || !row.DueAt.Equal(t0.Add(40*time.Minute)) {
 		t.Errorf("row = %+v", row)
 	}
+	same := acceptedOrder(commonv1.FulfilmentMode_FULFILMENT_MODE_DELIVERY, commonv1.PaymentMethodKind_PAYMENT_METHOD_KIND_CASH)
+	same.Order.RiderNote = " blue gate "
+	if n := BuildDelivery(same, "d3", t0).D.Dropoff.Note; n != "Blue gate" {
+		t.Errorf("repeated note = %q, want it once", n)
+	}
 	card := BuildDelivery(acceptedOrder(commonv1.FulfilmentMode_FULFILMENT_MODE_DELIVERY, commonv1.PaymentMethodKind_PAYMENT_METHOD_KIND_CARD), "d2", t0)
 	if card.D.CashToCollect.AmountMinor != 0 {
 		t.Error("card orders collect nothing")

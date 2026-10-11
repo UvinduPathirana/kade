@@ -69,6 +69,8 @@ export interface Offer {
   sealed: boolean;
   /** Minutes the kitchen still needs if the rider arrives before the food is ready. */
   notReadyMinutes: number;
+  /** Live job only: when the kitchen marked the food ready (restaurant app); absent until then. */
+  foodReadyAt?: number;
   /** Code shown in the customer's app, read out at the door. */
   deliveryCode: string;
   offeredAt: number;

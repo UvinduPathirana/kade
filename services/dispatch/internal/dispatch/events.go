@@ -3,6 +3,7 @@ package dispatch
 import (
 	"context"
 	"errors"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -52,9 +53,11 @@ func BuildDelivery(e *orderv1.OrderAccepted, id string, now time.Time) *Delivery
 	if tripKm <= 0 {
 		tripKm = RoadKm(rest.GetLocation(), addr.GetLocation())
 	}
+	// The address note and the order's rider note are often the same text (the checkout copies the
+	// saved address note into the rider note): show it once.
 	var notes []string
 	for _, n := range []string{addr.GetNote(), o.GetRiderNote()} {
-		if n = strings.TrimSpace(n); n != "" {
+		if n = strings.TrimSpace(n); n != "" && !slices.ContainsFunc(notes, func(m string) bool { return strings.EqualFold(m, n) }) {
 			notes = append(notes, n)
 		}
 	}

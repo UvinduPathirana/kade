@@ -61,6 +61,12 @@ export async function declineOffer(_input: { offerId: string; reason?: string })
   await latency(150);
 }
 
+/** The mock keeps the job in this browser only, so there is nothing newer to fetch. */
+export async function getActiveJob(): Promise<Offer | null> {
+  await latency(100);
+  return null;
+}
+
 /** Records arrival at the restaurant so waiting time can be paid. */
 export async function arriveAtRestaurant(_jobId: string): Promise<number> {
   void _jobId;

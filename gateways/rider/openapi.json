@@ -189,6 +189,10 @@
           "notReadyMinutes": {
             "type": "integer"
           },
+          "foodReadyAt": {
+            "type": "number",
+            "description": "When the kitchen marked the food ready; absent until then (the job only)."
+          },
           "deliveryCode": {
             "type": "string",
             "description": "Always empty: dispatch checks the code server-side."

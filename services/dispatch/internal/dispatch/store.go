@@ -172,6 +172,11 @@ func scanDelivery(row pgx.Row) (*DeliveryRow, error) {
 	if err := proto.Unmarshal(data, d.D); err != nil {
 		return nil, fmt.Errorf("decode delivery: %w", err)
 	}
+	// The column is the source of truth (OrderReady only touches it).
+	d.D.FoodReadyAt = nil
+	if d.FoodReadyAt != nil {
+		d.D.FoodReadyAt = timestamppb.New(*d.FoodReadyAt)
+	}
 	return d, nil
 }
 

@@ -40,6 +40,8 @@ interface JobState {
   lastTrip?: Trip;
   position: MapPoint;
   missedToday: number;
+  /** Realtime pushed a change to the job: refetch it from dispatch now. */
+  jobNudgeAt?: number;
 
   goOnline: () => void;
   goOffline: () => void;
@@ -50,6 +52,8 @@ interface JobState {
   accept: (offer: Offer) => void;
   arriveRestaurant: (at: number) => void;
   setReadyAt: (at: number | undefined) => void;
+  /** Dispatch's copy of the job: picks up the kitchen marking it ready and the latest note. */
+  syncJob: (server: Offer) => void;
   toggleItem: (id: string) => void;
   setSealed: (sealed: boolean) => void;
   pickedUp: (at: number) => void;
@@ -119,6 +123,25 @@ export const useJob = create<JobState>()(
         ),
       arriveRestaurant: (at) => set((s) => patchJob(s, { arrivedAtRestaurantAt: at })),
       setReadyAt: (at) => set((s) => patchJob(s, { readyAt: at })),
+      syncJob: (server) =>
+        set((s) => {
+          if (!s.job || s.job.id !== server.id) return {};
+          const { foodReadyAt, notReadyMinutes, customer } = server;
+          if (
+            s.job.foodReadyAt === foodReadyAt &&
+            s.job.notReadyMinutes === notReadyMinutes &&
+            s.job.customer.note === customer.note
+          ) {
+            return {};
+          }
+          return patchJob(s, {
+            foodReadyAt,
+            notReadyMinutes,
+            // Ready now: the kitchen's earlier estimate no longer applies.
+            ...(foodReadyAt ? { readyAt: undefined } : {}),
+            customer: { ...s.job.customer, note: customer.note },
+          });
+        }),
       toggleItem: (id) =>
         set((s) =>
           s.job

@@ -123,7 +123,15 @@ function OrderCheck({ job }: { job: ActiveJob }) {
           </p>
         </div>
 
-        {job.readyAt ? (
+        {job.foodReadyAt ? (
+          <div className={styles.waitBox} role="status">
+            <Icon name="check" size={24} />
+            <div>
+              <p className={c.subheading}>Order ready</p>
+              <p>The kitchen marked it ready at {clockTime(job.foodReadyAt)}. Collect it at the counter.</p>
+            </div>
+          </div>
+        ) : job.readyAt ? (
           <div className={styles.waitBox} role="status">
             <Icon name="timer" size={24} />
             <div>

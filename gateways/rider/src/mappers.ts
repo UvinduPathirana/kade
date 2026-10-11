@@ -19,6 +19,7 @@ import {
 } from "@kade/proto/kade/dispatch/v1/dispatch_service";
 import {
   ComparisonTone,
+  EarningsPeriod,
   RiderPayoutStatus,
   type EarningsSummary as ProtoEarnings,
   type RiderCashBalance,
@@ -82,9 +83,23 @@ export interface AppOffer {
   items: { id: string; qty: number; name: string; options?: string }[];
   sealed: boolean;
   notReadyMinutes: number;
+  foodReadyAt?: number;
   deliveryCode: string;
   offeredAt: number;
   expiresAt: number;
+}
+
+/**
+ * Dispatch joins the address note and the order's rider note with " · "; older deliveries can
+ * repeat the same text twice ("Green gate · Green gate"). Show each part once.
+ */
+export function dedupeNote(note: string | undefined): string | undefined {
+  const parts: string[] = [];
+  for (const p of (note ?? "").split(" · ")) {
+    const t = p.trim();
+    if (t && !parts.some((q) => q.toLowerCase() === t.toLowerCase())) parts.push(t);
+  }
+  return parts.length ? parts.join(" · ") : undefined;
 }
 
 /** A delivery as the app's Offer (also the shape of the active job). */
@@ -101,7 +116,9 @@ export function toJob(
   if (!d) throw new Error("upstream returned no delivery");
   const now = Date.now();
   const pickupPoint = toMapPoint(d.pickup?.location);
-  const readyIn = d.readyBy ? Math.max(0, Math.ceil((d.readyBy.getTime() - now) / 60_000)) : 0;
+  const foodReadyAt = ms(d.foodReadyAt);
+  const readyIn =
+    foodReadyAt === undefined && d.readyBy ? Math.max(0, Math.ceil((d.readyBy.getTime() - now) / 60_000)) : 0;
   const isCash = d.payment === PaymentMethodKind.PAYMENT_METHOD_KIND_CASH;
   return {
     id: extra.id ?? d.id,
@@ -117,7 +134,7 @@ export function toJob(
       firstName: d.dropoff?.firstName ?? "",
       area: d.dropoff?.area ?? "",
       address: d.dropoff?.address ?? "",
-      note: d.dropoff?.note || undefined,
+      note: dedupeNote(d.dropoff?.note),
       maskedPhone: d.dropoff?.maskedPhone ?? "",
       point: toMapPoint(d.dropoff?.location, { x: 320, y: 300 }),
     }),
@@ -133,7 +150,8 @@ export function toJob(
       compact({ id: i.id, qty: i.quantity, name: i.name, options: i.options || undefined }),
     ),
     sealed: d.sealed,
-    notReadyMinutes: extra.notReadyMinutes ?? readyIn,
+    notReadyMinutes: foodReadyAt === undefined ? (extra.notReadyMinutes ?? readyIn) : 0,
+    foodReadyAt,
     // Dispatch checks the code server-side; the rider never sees it.
     deliveryCode: "",
     offeredAt: extra.offeredAt ?? ms(d.assignedAt) ?? now,
@@ -276,6 +294,79 @@ export function toEarnings(e: ProtoEarnings | undefined, period: Period) {
     })),
     comparison,
   });
+}
+
+// ---------- Fallback while ledger isn't answering ----------
+
+const COLOMBO_OFFSET_MS = 330 * 60_000; // UTC+05:30, no DST
+const DAY_MS = 86_400_000;
+
+/** Start of today, this week (Monday) or this month in Colombo time. */
+export function periodStart(period: Period, now = Date.now()): Date {
+  const local = new Date(now + COLOMBO_OFFSET_MS); // read with getUTC* = Colombo wall clock
+  let dayStart = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate());
+  if (period === "week") dayStart -= ((local.getUTCDay() + 6) % 7) * DAY_MS;
+  if (period === "month") dayStart = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), 1);
+  return new Date(dayStart - COLOMBO_OFFSET_MS);
+}
+
+const lkr = (amountMinor: number) => ({ amountMinor, currency: "LKR" });
+
+/**
+ * Earnings for the period from dispatch's delivered trips (pay, tips and boosts as dispatch priced
+ * them). Hourly bars from 8 am for today, daily bars otherwise. No online minutes or comparison.
+ */
+export function earningsFromTrips(trips: ProtoTrip[], period: Period, now = Date.now()): ProtoEarnings {
+  const start = periodStart(period, now).getTime();
+  const inPeriod = trips.filter((t) => {
+    const at = ms(t.deliveredAt);
+    return at !== undefined && at >= start && at <= now;
+  });
+  const bucket = period === "today" ? 3_600_000 : DAY_MS;
+  const earliest = Math.min(...inPeriod.map((t) => ms(t.deliveredAt)!));
+  const first =
+    period === "today"
+      ? Math.min(start + 8 * 3_600_000, start + Math.floor((earliest - start) / bucket) * bucket)
+      : start;
+  const last =
+    period === "week"
+      ? start + 6 * DAY_MS
+      : Math.max(first, start + Math.floor((now - start) / bucket) * bucket);
+  const bars: ProtoEarnings["bars"] = [];
+  for (let at = first; at <= last; at += bucket) {
+    const these = inPeriod.filter((t) => {
+      const d = ms(t.deliveredAt)!;
+      return d >= at && d < at + bucket;
+    });
+    bars.push({
+      start: new Date(at),
+      amount: lkr(these.reduce((s, t) => s + (t.pay?.total?.amountMinor ?? 0), 0)),
+      trips: these.length,
+    });
+  }
+  const sum = (f: (p: RiderPay | undefined) => number) => inPeriod.reduce((s, t) => s + f(t.pay), 0);
+  return {
+    period: EarningsPeriod.EARNINGS_PERIOD_UNSPECIFIED,
+    total: lkr(sum((p) => p?.total?.amountMinor ?? 0)),
+    trips: inPeriod.length,
+    onlineMinutes: 0,
+    tips: lkr(sum((p) => p?.tip?.amountMinor ?? 0)),
+    boosts: lkr(sum((p) => p?.boost?.amountMinor ?? 0)),
+    bars,
+    comparisonDelta: undefined,
+    comparisonLabel: "",
+    comparisonTone: ComparisonTone.COMPARISON_TONE_UNSPECIFIED,
+  };
+}
+
+/** Cash held as dispatch last heard it from ledger (RiderCashBalanceChanged; seeded until then). */
+export function cashFromRider(r: Rider | undefined) {
+  return {
+    collected: toRupees(r?.cashHeld),
+    owedToRider: 0,
+    limit: toRupees(r?.cashLimit),
+    lastDepositAt: 0,
+  };
 }
 
 export function toCash(c: RiderCashBalance | undefined) {

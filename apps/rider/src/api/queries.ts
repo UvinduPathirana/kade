@@ -7,6 +7,7 @@ import {
   completeDelivery,
   confirmPickup,
   declineOffer,
+  getActiveJob,
   rateTrip,
   reportNotReady,
   requestOffer,
@@ -30,6 +31,7 @@ export const keys = {
   payouts: ["payouts"] as const,
   help: ["help"] as const,
   application: ["application"] as const,
+  job: ["job"] as const,
 };
 
 // ---------- Rider service ----------
@@ -56,6 +58,19 @@ export const useCashBalance = () => useQuery({ queryKey: keys.cash, queryFn: get
 export const usePayouts = () => useQuery({ queryKey: keys.payouts, queryFn: listPayouts });
 
 // ---------- Dispatch service ----------
+
+/**
+ * Dispatch's view of the active job (kitchen readiness, the drop-off note). Polled every
+ * `pollMs`; the realtime push ("Food is ready") refetches it at once.
+ */
+export const useActiveJob = (enabled: boolean, pollMs: number) =>
+  useQuery({
+    queryKey: keys.job,
+    queryFn: getActiveJob,
+    enabled,
+    refetchInterval: pollMs,
+    refetchIntervalInBackground: false,
+  });
 
 export const useRequestOffer = () => useMutation({ mutationFn: requestOffer });
 export const useAcceptOffer = () => useMutation({ mutationFn: acceptOffer });
