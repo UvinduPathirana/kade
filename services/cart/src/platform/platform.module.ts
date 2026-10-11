@@ -1,19 +1,15 @@
 import { Global, Module, type DynamicModule } from "@nestjs/common";
 import { DiscoveryModule } from "@nestjs/core";
 import { CONFIG, type Config } from "./config.js";
-import { Database } from "./db/database.js";
 import { GrpcServer } from "./grpc/grpc-server.js";
 import { HealthController, Lifecycle } from "./health.js";
-import { IdempotencyStore } from "./idempotency/idempotency.js";
-import { EventConsumerRunner } from "./kafka/event-consumer-runner.js";
-import { KafkaClient } from "./kafka/kafka-client.js";
 import { LOGGER, type Logger } from "./logger.js";
-import { OutboxWriter } from "./outbox/outbox.js";
+import { RedisClient } from "./redis/redis.js";
 
 /**
- * Everything a service gets for free: config, logger, Postgres (+ migrations), outbox, idempotency,
- * Kafka (+ consumer runner), the gRPC server and health/metrics endpoints. Global, so feature
- * modules can inject Database, OutboxWriter, IdempotencyStore, CONFIG and LOGGER without imports.
+ * What cart gets from the platform: config, logger, Redis, the gRPC server and health/metrics
+ * endpoints. Carts live in Redis and cart publishes no events, so the template's Postgres, outbox,
+ * idempotency and Kafka pieces are not part of this service.
  */
 @Global()
 @Module({})
@@ -27,14 +23,10 @@ export class PlatformModule {
         { provide: CONFIG, useValue: config },
         { provide: LOGGER, useValue: logger },
         Lifecycle,
-        Database,
-        OutboxWriter,
-        IdempotencyStore,
-        KafkaClient,
-        EventConsumerRunner,
+        RedisClient,
         GrpcServer,
       ],
-      exports: [CONFIG, LOGGER, Lifecycle, Database, OutboxWriter, IdempotencyStore, KafkaClient, GrpcServer],
+      exports: [CONFIG, LOGGER, Lifecycle, RedisClient, GrpcServer],
     };
   }
 }

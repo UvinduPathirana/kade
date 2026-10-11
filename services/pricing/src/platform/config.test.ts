@@ -2,18 +2,17 @@ import { describe, expect, it } from "vitest";
 import { ConfigError, loadConfig } from "./config.js";
 
 const valid = {
-  SERVICE_NAME: "catalog",
-  GRPC_PORT: "50101",
-  HTTP_PORT: "8101",
-  DATABASE_URL: "postgres://catalog:catalog@postgres:5432/catalog",
-  KAFKA_BROKERS: "kafka:9092, kafka2:9092",
+  SERVICE_NAME: "pricing",
+  GRPC_PORT: "50105",
+  HTTP_PORT: "8105",
+  DATABASE_URL: "postgres://pricing:pricing@postgres:5432/pricing",
 };
 
 describe("loadConfig", () => {
   it("parses and applies defaults", () => {
     expect(loadConfig(valid)).toMatchObject({
-      GRPC_PORT: 50101,
-      KAFKA_BROKERS: ["kafka:9092", "kafka2:9092"],
+      GRPC_PORT: 50105,
+      RULES_CACHE_MS: 2000,
       LOG_LEVEL: "info",
       DB_POOL_MAX: 5,
     });

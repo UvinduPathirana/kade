@@ -1,4 +1,4 @@
-// OpenTelemetry bootstrap. Must run before any instrumented module (pg, @grpc/grpc-js, pino, http)
+// OpenTelemetry bootstrap. Must run before any instrumented module (@grpc/grpc-js, pino, http)
 // is imported, which is why it is loaded with `node --import ./dist/instrumentation.js dist/main.js`
 // rather than imported from main.ts.
 import { register } from "node:module";
@@ -15,7 +15,6 @@ import { BatchLogRecordProcessor } from "@opentelemetry/sdk-logs";
 import { PrometheusExporter } from "@opentelemetry/exporter-prometheus";
 import { HttpInstrumentation } from "@opentelemetry/instrumentation-http";
 import { GrpcInstrumentation } from "@opentelemetry/instrumentation-grpc";
-import { PgInstrumentation } from "@opentelemetry/instrumentation-pg";
 import { PinoInstrumentation } from "@opentelemetry/instrumentation-pino";
 import { telemetry } from "./platform/telemetry.js";
 
@@ -51,7 +50,6 @@ const sdk = new NodeSDK({
       ignoreIncomingRequestHook: (req) => ignoredPaths.has((req.url ?? "").split("?")[0] ?? ""),
     }),
     new GrpcInstrumentation(),
-    new PgInstrumentation({ requireParentSpan: true }),
     new PinoInstrumentation({ disableLogSending: !otlp }),
   ],
 });

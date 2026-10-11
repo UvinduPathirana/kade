@@ -1,21 +1,14 @@
-// Integration test against the SHARED stack (pnpm infra:up): Postgres pricing, Kafka and the
-// Debezium connector outbox-pricing (deploy/compose/connect/register-outbox.sh pricing pricing).
-// Override addresses with DATABASE_URL / KAFKA_BROKERS when your host ports differ.
+// Integration test against the SHARED stack (pnpm infra:up): Postgres database `pricing`.
+// Defaults to this laptop's host port 15432; override with DATABASE_URL.
+// Every rule it changes is put back in a finally block, so the seeded rules survive a run.
 import { credentials, Metadata, status, type ServiceError } from "@grpc/grpc-js";
-import { KafkaJS } from "@confluentinc/kafka-javascript";
 import type { INestApplication } from "@nestjs/common";
-import {
-  NoteCreated,
-  TemplateServiceClient,
-  type CreateNoteRequest,
-  type CreateNoteResponse,
-  type GetNoteResponse,
-} from "@kade/proto/kade/template/v1/template";
+import { FulfilmentMode } from "@kade/proto/kade/common/v1/commerce";
+import * as pricing from "@kade/proto/kade/pricing/v1/pricing_service";
+import type { Server } from "node:http";
 import pg from "pg";
-import { v7 as uuidv7 } from "uuid";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startApp } from "../../src/app.js";
-import { NOTE_CREATED } from "../../src/notes/notes.grpc.js";
 import { loadConfig } from "../../src/platform/config.js";
 import { decodeErrorInfo, STATUS_DETAILS_KEY } from "../../src/platform/grpc/error-details.js";
 import { GrpcServer } from "../../src/platform/grpc/grpc-server.js";
@@ -23,58 +16,58 @@ import { createLogger } from "../../src/platform/logger.js";
 
 const config = loadConfig({
   SERVICE_NAME: "pricing",
-  DATABASE_URL: "postgres://pricing:pricing@localhost:5432/pricing",
-  KAFKA_BROKERS: "localhost:19092",
+  DATABASE_URL: "postgres://pricing:pricing@localhost:15432/pricing",
   LOG_LEVEL: "warn",
   ...process.env,
   GRPC_PORT: "0",
   HTTP_PORT: "0",
+  RULES_CACHE_MS: "0",
   OTEL_EXPORTER_OTLP_ENDPOINT: undefined,
 });
-const TOPIC = "kade.note.events";
 
 let app: INestApplication;
-let client: TemplateServiceClient;
+let client: pricing.PricingServiceClient;
 let pool: pg.Pool;
-let kafka: KafkaJS.Kafka;
-let producer: KafkaJS.Producer;
+let httpBase: string;
 
 beforeAll(async () => {
   app = await startApp(config, createLogger(config));
-  const port = app.get(GrpcServer).port;
-  client = new TemplateServiceClient(`localhost:${port}`, credentials.createInsecure());
+  client = new pricing.PricingServiceClient(
+    `localhost:${app.get(GrpcServer).port}`,
+    credentials.createInsecure(),
+  );
+  const address = (app.getHttpServer() as Server).address();
+  httpBase = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
   pool = new pg.Pool({ connectionString: config.DATABASE_URL, max: 2 });
-  kafka = new KafkaJS.Kafka({ kafkaJS: { brokers: config.KAFKA_BROKERS, logLevel: KafkaJS.logLevel.ERROR } });
-  producer = kafka.producer();
-  await producer.connect();
 });
 
 afterAll(async () => {
   client?.close();
-  await producer?.disconnect();
   await pool?.end();
   await app?.close();
 });
 
-function identity(userId = "user-it-1", roles = "customer"): Metadata {
-  const md = new Metadata();
-  md.set("x-user-id", userId);
-  md.set("x-roles", roles);
-  return md;
+const Rs = (rupees: number) => ({ amountMinor: rupees * 100, currency: "LKR" });
+const KOLLUPITIYA = { lat: 6.91, lng: 79.851 };
+// Monday 2026-10-12, 16:00 in Colombo: no time-window surcharge runs.
+const QUIET = new Date("2026-10-12T16:00:00+05:30");
+
+function md(roles = ""): Metadata {
+  const m = new Metadata();
+  m.set("x-user-id", "ops-it");
+  if (roles) m.set("x-roles", roles);
+  return m;
 }
 
-function createNote(req: Partial<CreateNoteRequest>, md = identity()): Promise<CreateNoteResponse> {
-  const request: CreateNoteRequest = { text: "", idempotencyKey: "", ...req };
+// Promisifies one unary call on the generated client; fills proto3 defaults via fromPartial
+// (the request type is the method name with an upper-case first letter + "Request").
+function call<Req, Res>(method: string, partial: Req, metadata = md()): Promise<Res> {
+  const type = `${method[0]!.toUpperCase()}${method.slice(1)}Request`;
+  const codec = (pricing as unknown as Record<string, { fromPartial(o: unknown): unknown }>)[type]!;
+  const req = codec.fromPartial(partial);
+  const fn = (client as unknown as Record<string, (...args: unknown[]) => unknown>)[method]!.bind(client);
   return new Promise((resolve, reject) =>
-    client.createNote(request, md, { deadline: Date.now() + 5_000 }, (err, res) =>
-      err ? reject(err) : resolve(res),
-    ),
-  );
-}
-
-function getNote(id: string): Promise<GetNoteResponse> {
-  return new Promise((resolve, reject) =>
-    client.getNote({ id }, new Metadata(), { deadline: Date.now() + 2_000 }, (err, res) =>
+    fn(req, metadata, { deadline: Date.now() + 5_000 }, (err: Error | null, res: Res) =>
       err ? reject(err) : resolve(res),
     ),
   );
@@ -89,163 +82,158 @@ async function grpcError(promise: Promise<unknown>): Promise<{ code: status; rea
   return { code: err.code, reason: details ? decodeErrorInfo(details as Buffer)?.reason : undefined };
 }
 
-async function eventually<T>(fn: () => Promise<T | undefined>, timeoutMs = 30_000): Promise<T> {
-  const until = Date.now() + timeoutMs;
-  for (;;) {
-    const value = await fn();
-    if (value !== undefined) return value;
-    if (Date.now() > until) throw new Error("condition not met in time");
-    await new Promise((r) => setTimeout(r, 250));
-  }
-}
+const version = async (): Promise<number> =>
+  Number((await pool.query("select rules_version from pricing_settings where id = 1")).rows[0].rules_version);
 
-async function projection(noteId: string): Promise<{ applied_count: number } | undefined> {
-  const { rows } = await pool.query("select applied_count from note_projections where note_id = $1", [
-    noteId,
-  ]);
-  return rows[0];
-}
+describe("PricingService over gRPC (shared Postgres)", () => {
+  it("is ready and serves the seeded rules", async () => {
+    const ready = await fetch(`${httpBase}/health/ready`);
+    expect(ready.status).toBe(200);
+    expect(await ready.json()).toMatchObject({ status: "ok", checks: { postgres: "ok" } });
 
-describe("TemplateService over gRPC", () => {
-  it("CreateNote writes the note and one outbox row in the same transaction", async () => {
-    const { note } = await createNote({
-      text: "  hello kadé  ",
-      amount: { amountMinor: 115_000, currency: "LKR" },
-    });
-    expect(note).toMatchObject({ text: "hello kadé", amount: { amountMinor: 115_000, currency: "LKR" } });
-
-    const { rows: notes } = await pool.query("select * from notes where id = $1", [note!.id]);
-    expect(notes).toHaveLength(1);
-    expect(notes[0]).toMatchObject({ created_by: "user-it-1", amount_minor: "115000" });
-
-    const { rows: outbox } = await pool.query("select * from outbox where aggregateid = $1", [note!.id]);
-    expect(outbox).toHaveLength(1);
-    expect(outbox[0]).toMatchObject({ aggregatetype: "note", type: NOTE_CREATED });
-    const event = NoteCreated.decode(outbox[0].payload);
-    expect(event).toMatchObject({ noteId: note!.id, text: "hello kadé", amount: { amountMinor: 115_000 } });
-
-    expect((await getNote(note!.id)).note).toEqual(note);
-  });
-
-  it("returns the original result when retried with the same idempotency key", async () => {
-    const key = uuidv7();
-    const first = await createNote({ text: "once", idempotencyKey: key });
-    const again = await createNote({ text: "once", idempotencyKey: key });
-    expect(again.note).toEqual(first.note);
-    const { rows } = await pool.query("select count(*)::int as n from outbox where aggregateid = $1", [
-      first.note!.id,
-    ]);
-    expect(rows[0].n).toBe(1);
-
-    // Concurrent retries serialise on the key's primary key and still yield one note.
-    const key2 = uuidv7();
-    const results = await Promise.all(
-      [1, 2, 3].map(() => createNote({ text: "race", idempotencyKey: key2 })),
+    const { config: cfg } = await call<object, pricing.GetPricingConfigResponse>("getPricingConfig", {});
+    expect(cfg!.zones.map((z: { id: string }) => z.id)).toEqual(
+      expect.arrayContaining(["c01", "c03", "c15", "deh", "raj", "nug", "mtl"]),
     );
-    expect(new Set(results.map((r) => r.note!.id)).size).toBe(1);
-
-    expect(await grpcError(createNote({ text: "different body", idempotencyKey: key }))).toEqual({
-      code: status.FAILED_PRECONDITION,
-      reason: "IDEMPOTENCY_KEY_REUSED",
+    expect(cfg!.zones).toHaveLength(19);
+    expect(cfg!.zones.find((z: { id: string }) => z.id === "c03")).toMatchObject({
+      code: "Colombo 03",
+      name: "Kollupitiya",
+      baseFee: Rs(100),
+      perKm: Rs(30),
+      smallOrderFee: Rs(60),
+      smallOrderUnder: Rs(500),
     });
+    expect(cfg!.surcharges.map((s: { label: string }) => s.label)).toEqual(
+      expect.arrayContaining(["Lunch peak", "Dinner peak", "Weekend late nights", "Poya day"]),
+    );
+    expect(cfg!.plusFreeDeliveryFrom).toEqual(Rs(1500));
   });
 
-  it("maps domain errors to status codes with an ErrorInfo reason", async () => {
-    expect(await grpcError(getNote(uuidv7()))).toEqual({ code: status.NOT_FOUND, reason: "NOTE_NOT_FOUND" });
-    expect(await grpcError(getNote("nope"))).toEqual({
-      code: status.INVALID_ARGUMENT,
-      reason: "NOTE_ID_INVALID",
-    });
-    expect(await grpcError(createNote({ text: "x" }, new Metadata()))).toEqual({
-      code: status.UNAUTHENTICATED,
-      reason: "UNAUTHENTICATED",
-    });
-    expect(await grpcError(createNote({ text: " " }))).toEqual({
-      code: status.INVALID_ARGUMENT,
-      reason: "NOTE_TEXT_REQUIRED",
-    });
-  });
-});
-
-describe("kade.note.events consumer", () => {
-  it("projects a note created over gRPC once, via outbox -> Debezium -> Kafka", async () => {
-    const { note } = await createNote({
-      text: "through the outbox",
-      amount: { amountMinor: 500, currency: "LKR" },
-    });
-    const row = await eventually(() => projection(note!.id), 45_000);
-    expect(row.applied_count).toBe(1);
-  });
-
-  it("handles a replayed event exactly once (processed_events dedup)", async () => {
-    const eventId = uuidv7();
-    const noteId = uuidv7();
-    const message = {
-      key: noteId,
-      value: Buffer.from(
-        NoteCreated.encode({
-          noteId,
-          text: "replayed",
-          amount: { amountMinor: 1, currency: "LKR" },
-        }).finish(),
-      ),
-      headers: { id: eventId, eventType: NOTE_CREATED },
-    };
-    await producer.send({ topic: TOPIC, messages: [message, message, message] });
-
-    await eventually(() => projection(noteId));
-    // Give the duplicates time to arrive and be skipped; they are on the same partition, behind it.
-    const marker = uuidv7();
-    await producer.send({
-      topic: TOPIC,
-      messages: [{ ...message, headers: { id: marker, eventType: NOTE_CREATED } }],
-    });
-    await eventually(async () => {
-      const { rows } = await pool.query("select 1 from processed_events where event_id = $1", [marker]);
-      return rows[0];
-    });
-    expect((await projection(noteId))?.applied_count).toBe(2); // the original + the distinct marker event
-    const { rows } = await pool.query("select count(*)::int as n from processed_events where event_id = $1", [
-      eventId,
-    ]);
-    expect(rows[0].n).toBe(1);
-  });
-
-  it("sends an undecodable event to the DLQ with the error in a header", async () => {
-    const eventId = uuidv7();
-    await producer.send({
-      topic: TOPIC,
-      messages: [
-        {
-          key: "poison",
-          value: Buffer.from([0xff, 0xff, 0xff]),
-          headers: { id: eventId, eventType: NOTE_CREATED },
-        },
+  it("QuoteCart prices the app's seed cart like totals.ts", async () => {
+    const res = await call<object, pricing.QuoteCartResponse>("quoteCart", {
+      restaurantId: "00000000-0000-7000-8000-000000000003",
+      restaurantLocation: KOLLUPITIYA,
+      mode: FulfilmentMode.FULFILMENT_MODE_DELIVERY,
+      lines: [
+        { lineKey: "a", unitPrice: Rs(140), quantity: 4 },
+        { lineKey: "b", unitPrice: Rs(120), quantity: 3 },
+        { lineKey: "c", unitPrice: Rs(160), quantity: 2 },
       ],
+      deliverTo: { lat: 6.9105, lng: 79.8515 },
+      tip: Rs(100),
+      at: QUIET,
     });
+    expect(res.totals).toMatchObject({
+      itemCount: 9,
+      subtotal: Rs(1240),
+      deliveryFee: Rs(100),
+      smallOrderFee: Rs(0),
+      tip: Rs(100),
+      total: Rs(1440),
+    });
+    expect(res.waiver).toBe(pricing.DeliveryFeeWaiver.DELIVERY_FEE_WAIVER_NONE);
+    expect(res.rulesVersion).toBe(await version());
+  });
 
-    const dlq = kafka.consumer({
-      kafkaJS: { groupId: `pricing-it-dlq-${eventId}`, fromBeginning: true },
-    });
-    await dlq.connect();
-    await dlq.subscribe({ topics: [`${TOPIC}.dlq`] });
-    const found = new Promise<KafkaJS.IHeaders>((resolve) => {
-      void dlq.run({
-        eachMessage: async ({ message }) => {
-          if (message.headers?.id?.toString() === eventId) resolve(message.headers);
-        },
-      });
-    });
+  it("rule changes apply to the next quote and bump the rules version", async () => {
+    const before = await version();
     try {
-      const headers = await Promise.race([
-        found,
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("no DLQ message")), 45_000)),
-      ]);
-      expect(headers.error?.toString()).toMatch(/Error/);
-      expect(headers["original-topic"]?.toString()).toBe(TOPIC);
-      expect(headers["failed-by"]?.toString()).toBe("pricing");
+      const rain = await call<object, pricing.SetWeatherSurchargeResponse>(
+        "setWeatherSurcharge",
+        { weather: { enabled: true, amount: Rs(50) } },
+        md("ops"),
+      );
+      expect(rain.weather).toEqual({ enabled: true, amount: Rs(50) });
+      const res = await call<object, pricing.QuoteDeliveryFeeResponse>("quoteDeliveryFee", {
+        zoneId: "c03",
+        distanceKm: 3.5,
+        subtotal: Rs(450),
+        at: QUIET,
+      });
+      expect(res.breakdown?.surcharges).toEqual([{ label: "Heavy rain", amount: Rs(50) }]);
+      expect(res.deliveryTotal).toEqual(Rs(100 + 45 + 50 + 60));
+      expect(await version()).toBe(before + 1);
     } finally {
-      await dlq.disconnect();
+      await call("setWeatherSurcharge", { weather: { enabled: false, amount: Rs(50) } }, md("ops"));
     }
+  });
+
+  it("updates zones and surcharge rules, then restores them", async () => {
+    try {
+      const closed = await call<object, pricing.SetZoneOpenResponse>(
+        "setZoneOpen",
+        { zoneId: "c03", open: false },
+        md("ops"),
+      );
+      expect(closed.zone).toMatchObject({ id: "c03", open: false });
+      const resolved = await call<object, pricing.ResolveZoneResponse>("resolveZone", {
+        location: KOLLUPITIYA,
+      });
+      expect(resolved).toMatchObject({ inZone: false, zone: { id: "c03" } });
+
+      const fees = await call<object, pricing.UpdateZoneFeesResponse>(
+        "updateZoneFees",
+        { zoneId: "c03", baseFee: Rs(110), perKm: Rs(30), smallOrderFee: Rs(60), smallOrderUnder: Rs(500) },
+        md("admin"),
+      );
+      expect(fees.zone?.baseFee).toEqual(Rs(110));
+
+      const rule = await call<object, pricing.SaveSurchargeRuleResponse>(
+        "saveSurchargeRule",
+        {
+          rule: {
+            id: "s4",
+            label: "Poya day",
+            days: pricing.SurchargeDays.SURCHARGE_DAYS_EVERY_DAY,
+            start: "09:00",
+            end: "22:00",
+            amount: Rs(50),
+            enabled: false,
+          },
+        },
+        md("ops"),
+      );
+      expect(rule.rule).toMatchObject({ id: "s4", start: "09:00" });
+    } finally {
+      await call("setZoneOpen", { zoneId: "c03", open: true }, md("ops"));
+      await call(
+        "updateZoneFees",
+        { zoneId: "c03", baseFee: Rs(100), perKm: Rs(30), smallOrderFee: Rs(60), smallOrderUnder: Rs(500) },
+        md("ops"),
+      );
+      await call(
+        "saveSurchargeRule",
+        {
+          rule: {
+            id: "s4",
+            label: "Poya day",
+            days: pricing.SurchargeDays.SURCHARGE_DAYS_EVERY_DAY,
+            start: "10:00",
+            end: "22:00",
+            amount: Rs(50),
+            enabled: false,
+          },
+        },
+        md("ops"),
+      );
+    }
+    const { rows } = await pool.query("select open, base_fee_minor from zones where id = 'c03'");
+    expect(rows[0]).toEqual({ open: true, base_fee_minor: "10000" });
+  });
+
+  it("maps errors to status codes with ErrorInfo reasons", async () => {
+    expect(await grpcError(call("setZoneOpen", { zoneId: "c03", open: false }, md("customer")))).toEqual({
+      code: status.PERMISSION_DENIED,
+      reason: "PERMISSION_DENIED",
+    });
+    expect(await grpcError(call("setZoneOpen", { zoneId: "nope", open: true }, md("ops")))).toEqual({
+      code: status.NOT_FOUND,
+      reason: "ZONE_NOT_FOUND",
+    });
+    expect(await grpcError(call("quoteDeliveryFee", { deliverTo: { lat: 7.29, lng: 80.63 } }))).toEqual({
+      code: status.FAILED_PRECONDITION,
+      reason: "OUT_OF_ZONE",
+    });
   });
 });

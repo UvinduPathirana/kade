@@ -19,11 +19,13 @@ RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
 COPY gen/ts gen/ts
 COPY services/cart services/cart
 RUN pnpm --filter @kade/proto build && pnpm --filter @kade/cart build
-# Production-only node_modules + dist + drizzle/ into /out (workspace deps copied, not symlinked).
+# Production-only node_modules + dist into /out (workspace deps copied, not symlinked).
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
     pnpm --filter @kade/cart deploy --prod --legacy /out \
- # @kade/proto has no "files" field and git-ignores dist/, so deploy skips its build output.
- && cp -R gen/ts/dist "$(readlink -f /out/node_modules/@kade/proto)/" \
+ # Older @kade/proto had no "files" field (deploy skipped dist/); it now ships dist itself, and
+ # copying onto the hard-linked files fails ("are the same file"), so only copy when it's missing.
+ && proto="$(readlink -f /out/node_modules/@kade/proto)" \
+ && { [ -f "$proto/dist/kade/common/v1/money.js" ] || cp -R gen/ts/dist "$proto/"; } \
  # librdkafka sources and object files (~27 MB) are only needed to compile the binding.
  && (cd "$(readlink -f /out/node_modules/@confluentinc/kafka-javascript)" && rm -rf deps src build/Release/obj.target) \
  # Fail the build, not the boot, if the native binding is missing (pnpm onlyBuiltDependencies).

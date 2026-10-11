@@ -5,8 +5,7 @@
   "type": "module",
   "description": "Kadé cart service.",
   "files": [
-    "dist",
-    "drizzle"
+    "dist"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -14,8 +13,7 @@
     "start": "node --enable-source-maps --import ./dist/instrumentation.js dist/main.js",
     "dev": "tsc -p tsconfig.build.json && sh -c 'tsc -p tsconfig.build.json --watch --preserveWatchOutput & node --watch-path=dist --env-file-if-exists=.env --enable-source-maps --import ./dist/instrumentation.js dist/main.js'",
     "test": "vitest run",
-    "test:integration": "vitest run --config vitest.integration.config.ts",
-    "db:generate": "drizzle-kit generate"
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
     "@bufbuild/protobuf": "2.16.0",

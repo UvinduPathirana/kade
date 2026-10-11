@@ -11,7 +11,6 @@ import {
 } from "@nestjs/common";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { Database } from "./db/database.js";
-import { KafkaClient } from "./kafka/kafka-client.js";
 import { telemetry } from "./telemetry.js";
 
 /** Flipped at the start of graceful shutdown so load balancers stop routing before we stop serving. */
@@ -24,7 +23,6 @@ export class Lifecycle {
 export class HealthController {
   constructor(
     @Inject(Database) private readonly database: Database,
-    @Inject(KafkaClient) private readonly kafka: KafkaClient,
     @Inject(Lifecycle) private readonly lifecycle: Lifecycle,
   ) {}
 
@@ -39,9 +37,8 @@ export class HealthController {
   @HttpCode(200)
   async ready(): Promise<{ status: "ok"; checks: Record<string, string> }> {
     const checks: Record<string, string> = {};
-    const [db, kafka] = await Promise.allSettled([this.database.ping(), this.kafka.ping()]);
+    const [db] = await Promise.allSettled([this.database.ping()]);
     checks.postgres = db.status === "fulfilled" ? "ok" : String(db.reason);
-    checks.kafka = kafka.status === "fulfilled" && kafka.value ? "ok" : "unreachable";
     if (this.lifecycle.draining) checks.lifecycle = "draining";
     const ok = Object.values(checks).every((v) => v === "ok");
     if (!ok) throw new ServiceUnavailableException({ status: "unavailable", checks });

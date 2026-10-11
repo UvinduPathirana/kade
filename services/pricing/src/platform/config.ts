@@ -12,19 +12,13 @@ const schema = z.object({
   HTTP_PORT: port,
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/, error: "must be a postgres:// URL" }),
   DB_POOL_MAX: z.coerce.number().int().positive().default(5),
-  KAFKA_BROKERS: z
-    .string()
-    .min(1)
-    .transform((s) =>
-      s
-        .split(",")
-        .map((b) => b.trim())
-        .filter(Boolean),
-    ),
   // Unset = no OTLP export (traces/logs stay local, /metrics still works). Read by instrumentation.ts.
   OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
   SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
+  // How long QuoteCart and friends reuse the rule tables before re-reading them. Writes through
+  // this replica invalidate immediately; other replicas catch up within this window.
+  RULES_CACHE_MS: z.coerce.number().int().min(0).default(2_000),
 });
 
 export type Config = z.infer<typeof schema>;

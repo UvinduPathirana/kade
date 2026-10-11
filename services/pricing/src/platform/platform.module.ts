@@ -5,14 +5,13 @@ import { Database } from "./db/database.js";
 import { GrpcServer } from "./grpc/grpc-server.js";
 import { HealthController, Lifecycle } from "./health.js";
 import { IdempotencyStore } from "./idempotency/idempotency.js";
-import { EventConsumerRunner } from "./kafka/event-consumer-runner.js";
-import { KafkaClient } from "./kafka/kafka-client.js";
 import { LOGGER, type Logger } from "./logger.js";
 import { OutboxWriter } from "./outbox/outbox.js";
 
 /**
  * Everything a service gets for free: config, logger, Postgres (+ migrations), outbox, idempotency,
- * Kafka (+ consumer runner), the gRPC server and health/metrics endpoints. Global, so feature
+ * the gRPC server and health/metrics endpoints. Pricing neither publishes nor consumes events, so
+ * the template's Kafka client and consumer runner are not wired in. Global, so feature
  * modules can inject Database, OutboxWriter, IdempotencyStore, CONFIG and LOGGER without imports.
  */
 @Global()
@@ -30,11 +29,9 @@ export class PlatformModule {
         Database,
         OutboxWriter,
         IdempotencyStore,
-        KafkaClient,
-        EventConsumerRunner,
         GrpcServer,
       ],
-      exports: [CONFIG, LOGGER, Lifecycle, Database, OutboxWriter, IdempotencyStore, KafkaClient, GrpcServer],
+      exports: [CONFIG, LOGGER, Lifecycle, Database, OutboxWriter, IdempotencyStore, GrpcServer],
     };
   }
 }

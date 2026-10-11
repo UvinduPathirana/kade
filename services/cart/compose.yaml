@@ -12,20 +12,24 @@ services:
       SERVICE_NAME: cart
       GRPC_PORT: "50104"
       HTTP_PORT: "8104"
-      DATABASE_URL: postgres://cart:cart@postgres:5432/cart
-      KAFKA_BROKERS: kafka:9092
+      REDIS_URL: redis://redis:6379
+      CART_TTL_SECONDS: "604800"
+      # Dependencies. Cart starts without them; calls that need one fail with <DEP>_UNAVAILABLE.
+      CATALOG_GRPC: catalog:50101
+      PRICING_GRPC: pricing:50105
+      PROMOTION_GRPC: promotion:50106
+      PROFILE_GRPC: profile:50103
+      DOWNSTREAM_DEADLINE_MS: "2000"
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel:4318
       LOG_LEVEL: info
       # V8 sizes its heap from the host's RAM, not the cgroup; cap it well under the 192 MB limit
-      # so GC kicks in before the OOM killer does (native librdkafka + buffers live outside it).
+      # so GC kicks in before the OOM killer does.
       NODE_OPTIONS: --max-old-space-size=96
     ports:
       - "50104:50104"
       - "8104:8104"
     depends_on:
-      postgres: { condition: service_healthy }
-      kafka: { condition: service_healthy }
-      kafka-init: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
     healthcheck:
       # busybox wget: no extra Node process (~40 MB) inside a 192 MB container every 10 s.
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8104/health/ready"]

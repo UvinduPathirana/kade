@@ -1,251 +1,259 @@
-// Integration test against the SHARED stack (pnpm infra:up): Postgres cart, Kafka and the
-// Debezium connector outbox-cart (deploy/compose/connect/register-outbox.sh cart cart).
-// Override addresses with DATABASE_URL / KAFKA_BROKERS when your host ports differ.
-import { credentials, Metadata, status, type ServiceError } from "@grpc/grpc-js";
-import { KafkaJS } from "@confluentinc/kafka-javascript";
-import type { INestApplication } from "@nestjs/common";
+// Integration test against the SHARED stack (pnpm infra:up): Redis on localhost:6379.
+// Catalog and pricing are in-process fake gRPC servers (real protos, real network hop); promotion
+// and profile point at a closed port to exercise the degrade paths. Override REDIS_URL if needed.
 import {
-  NoteCreated,
-  TemplateServiceClient,
-  type CreateNoteRequest,
-  type CreateNoteResponse,
-  type GetNoteResponse,
-} from "@kade/proto/kade/template/v1/template";
-import pg from "pg";
-import { v7 as uuidv7 } from "uuid";
+  credentials,
+  Metadata,
+  Server,
+  ServerCredentials,
+  status,
+  type sendUnaryData,
+  type ServerUnaryCall,
+  type ServiceError,
+} from "@grpc/grpc-js";
+import type { INestApplication } from "@nestjs/common";
+import * as cartApi from "@kade/proto/kade/cart/v1/cart_service";
+import { CatalogServiceService, type ValidateCartRequest } from "@kade/proto/kade/catalog/v1/catalog_service";
+import { FulfilmentMode } from "@kade/proto/kade/common/v1/commerce";
+import { PricingServiceService, type QuoteCartRequest } from "@kade/proto/kade/pricing/v1/pricing_service";
+import { Redis } from "ioredis";
+import { randomUUID } from "node:crypto";
+import type { Server as HttpServer } from "node:http";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startApp } from "../../src/app.js";
-import { NOTE_CREATED } from "../../src/notes/notes.grpc.js";
+import { FakeCatalog, FakePricing, KOMPANNA, KOTTU_HOUSE } from "../../src/cart/fakes.test-helpers.js";
 import { loadConfig } from "../../src/platform/config.js";
 import { decodeErrorInfo, STATUS_DETAILS_KEY } from "../../src/platform/grpc/error-details.js";
 import { GrpcServer } from "../../src/platform/grpc/grpc-server.js";
 import { createLogger } from "../../src/platform/logger.js";
 
-const config = loadConfig({
-  SERVICE_NAME: "cart",
-  DATABASE_URL: "postgres://cart:cart@localhost:5432/cart",
-  KAFKA_BROKERS: "localhost:19092",
-  LOG_LEVEL: "warn",
-  ...process.env,
-  GRPC_PORT: "0",
-  HTTP_PORT: "0",
-  OTEL_EXPORTER_OTLP_ENDPOINT: undefined,
-});
-const TOPIC = "kade.note.events";
+const catalog = new FakeCatalog();
+const pricing = new FakePricing();
+const fakes = new Server();
+
+function unary<Req, Res>(fn: (req: Req) => Promise<Res>) {
+  return (call: ServerUnaryCall<Req, Res>, cb: sendUnaryData<Res>) =>
+    void fn(call.request).then(
+      (res) => cb(null, res),
+      (err: ServiceError) => cb(err),
+    );
+}
 
 let app: INestApplication;
-let client: TemplateServiceClient;
-let pool: pg.Pool;
-let kafka: KafkaJS.Kafka;
-let producer: KafkaJS.Producer;
+let client: cartApi.CartServiceClient;
+let redis: Redis;
+let httpBase: string;
+const customers: string[] = [];
 
 beforeAll(async () => {
+  fakes.addService(CatalogServiceService, {
+    validateCart: unary((r: ValidateCartRequest) => catalog.validateCart(r)),
+  });
+  fakes.addService(PricingServiceService, {
+    quoteCart: unary((r: QuoteCartRequest) => pricing.quoteCart(r)),
+  });
+  const fakePort = await new Promise<number>((resolve, reject) =>
+    fakes.bindAsync("127.0.0.1:0", ServerCredentials.createInsecure(), (err, port) =>
+      err ? reject(err) : resolve(port),
+    ),
+  );
+  const config = loadConfig({
+    SERVICE_NAME: "cart",
+    REDIS_URL: "redis://localhost:6379",
+    LOG_LEVEL: "error",
+    ...process.env,
+    CATALOG_GRPC: `127.0.0.1:${fakePort}`,
+    PRICING_GRPC: `127.0.0.1:${fakePort}`,
+    PROMOTION_GRPC: "127.0.0.1:1",
+    PROFILE_GRPC: "127.0.0.1:1",
+    DOWNSTREAM_DEADLINE_MS: "500",
+    GRPC_PORT: "0",
+    HTTP_PORT: "0",
+    OTEL_EXPORTER_OTLP_ENDPOINT: undefined,
+  });
   app = await startApp(config, createLogger(config));
-  const port = app.get(GrpcServer).port;
-  client = new TemplateServiceClient(`localhost:${port}`, credentials.createInsecure());
-  pool = new pg.Pool({ connectionString: config.DATABASE_URL, max: 2 });
-  kafka = new KafkaJS.Kafka({ kafkaJS: { brokers: config.KAFKA_BROKERS, logLevel: KafkaJS.logLevel.ERROR } });
-  producer = kafka.producer();
-  await producer.connect();
+  client = new cartApi.CartServiceClient(
+    `localhost:${app.get(GrpcServer).port}`,
+    credentials.createInsecure(),
+  );
+  const address = (app.getHttpServer() as HttpServer).address();
+  httpBase = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
+  redis = new Redis(config.REDIS_URL);
 });
 
 afterAll(async () => {
+  if (customers.length) await redis.del(...customers.map((c) => `cart:${c}`));
+  redis?.disconnect();
   client?.close();
-  await producer?.disconnect();
-  await pool?.end();
   await app?.close();
+  fakes.forceShutdown();
 });
 
-function identity(userId = "user-it-1", roles = "customer"): Metadata {
+function customer(): { id: string; md: Metadata } {
+  const id = `it-${randomUUID()}`;
+  customers.push(id);
   const md = new Metadata();
-  md.set("x-user-id", userId);
-  md.set("x-roles", roles);
-  return md;
+  md.set("x-user-id", id);
+  md.set("x-roles", "customer");
+  return { id, md };
 }
 
-function createNote(req: Partial<CreateNoteRequest>, md = identity()): Promise<CreateNoteResponse> {
-  const request: CreateNoteRequest = { text: "", idempotencyKey: "", ...req };
+// Promisified call; the request type is the method name capitalised + "Request" (fromPartial fills defaults).
+function call<Res>(method: string, partial: object, md: Metadata): Promise<Res> {
+  const type = `${method[0]!.toUpperCase()}${method.slice(1)}Request`;
+  const req = (cartApi as unknown as Record<string, { fromPartial(o: object): unknown }>)[type]!.fromPartial(
+    partial,
+  );
+  const fn = (client as unknown as Record<string, (...args: unknown[]) => unknown>)[method]!.bind(client);
   return new Promise((resolve, reject) =>
-    client.createNote(request, md, { deadline: Date.now() + 5_000 }, (err, res) =>
+    fn(req, md, { deadline: Date.now() + 5_000 }, (err: Error | null, res: Res) =>
       err ? reject(err) : resolve(res),
     ),
   );
 }
 
-function getNote(id: string): Promise<GetNoteResponse> {
-  return new Promise((resolve, reject) =>
-    client.getNote({ id }, new Metadata(), { deadline: Date.now() + 2_000 }, (err, res) =>
-      err ? reject(err) : resolve(res),
-    ),
-  );
-}
-
-async function grpcError(promise: Promise<unknown>): Promise<{ code: status; reason: string | undefined }> {
+async function grpcError(
+  promise: Promise<unknown>,
+): Promise<{ code: status; reason: string | undefined; metadata?: Record<string, string> }> {
   const err = (await promise.then(
     () => expect.unreachable("expected the call to fail"),
     (e: unknown) => e,
   )) as ServiceError;
   const details = err.metadata.get(STATUS_DETAILS_KEY)[0];
-  return { code: err.code, reason: details ? decodeErrorInfo(details as Buffer)?.reason : undefined };
+  const info = details ? decodeErrorInfo(details as Buffer) : undefined;
+  return { code: err.code, reason: info?.reason, metadata: info?.metadata };
 }
 
-async function eventually<T>(fn: () => Promise<T | undefined>, timeoutMs = 30_000): Promise<T> {
-  const until = Date.now() + timeoutMs;
-  for (;;) {
-    const value = await fn();
-    if (value !== undefined) return value;
-    if (Date.now() > until) throw new Error("condition not met in time");
-    await new Promise((r) => setTimeout(r, 250));
-  }
-}
+type CartRes = { cart: cartApi.Cart };
 
-async function projection(noteId: string): Promise<{ applied_count: number } | undefined> {
-  const { rows } = await pool.query("select applied_count from note_projections where note_id = $1", [
-    noteId,
-  ]);
-  return rows[0];
-}
-
-describe("TemplateService over gRPC", () => {
-  it("CreateNote writes the note and one outbox row in the same transaction", async () => {
-    const { note } = await createNote({
-      text: "  hello kadé  ",
-      amount: { amountMinor: 115_000, currency: "LKR" },
-    });
-    expect(note).toMatchObject({ text: "hello kadé", amount: { amountMinor: 115_000, currency: "LKR" } });
-
-    const { rows: notes } = await pool.query("select * from notes where id = $1", [note!.id]);
-    expect(notes).toHaveLength(1);
-    expect(notes[0]).toMatchObject({ created_by: "user-it-1", amount_minor: "115000" });
-
-    const { rows: outbox } = await pool.query("select * from outbox where aggregateid = $1", [note!.id]);
-    expect(outbox).toHaveLength(1);
-    expect(outbox[0]).toMatchObject({ aggregatetype: "note", type: NOTE_CREATED });
-    const event = NoteCreated.decode(outbox[0].payload);
-    expect(event).toMatchObject({ noteId: note!.id, text: "hello kadé", amount: { amountMinor: 115_000 } });
-
-    expect((await getNote(note!.id)).note).toEqual(note);
+describe("CartService over gRPC (shared Redis)", () => {
+  it("is ready when Redis is", async () => {
+    const res = await fetch(`${httpBase}/health/ready`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ checks: { redis: "ok" } });
   });
 
-  it("returns the original result when retried with the same idempotency key", async () => {
-    const key = uuidv7();
-    const first = await createNote({ text: "once", idempotencyKey: key });
-    const again = await createNote({ text: "once", idempotencyKey: key });
-    expect(again.note).toEqual(first.note);
-    const { rows } = await pool.query("select count(*)::int as n from outbox where aggregateid = $1", [
-      first.note!.id,
-    ]);
-    expect(rows[0].n).toBe(1);
-
-    // Concurrent retries serialise on the key's primary key and still yield one note.
-    const key2 = uuidv7();
-    const results = await Promise.all(
-      [1, 2, 3].map(() => createNote({ text: "race", idempotencyKey: key2 })),
+  it("builds the seed cart in Redis with a 7-day TTL", async () => {
+    const { id, md } = customer();
+    await call(
+      "addCartLine",
+      { restaurantId: KOMPANNA, itemId: "fish-bun", quantity: 4, note: "No chilli" },
+      md,
     );
-    expect(new Set(results.map((r) => r.note!.id)).size).toBe(1);
-
-    expect(await grpcError(createNote({ text: "different body", idempotencyKey: key }))).toEqual({
-      code: status.FAILED_PRECONDITION,
-      reason: "IDEMPOTENCY_KEY_REUSED",
-    });
-  });
-
-  it("maps domain errors to status codes with an ErrorInfo reason", async () => {
-    expect(await grpcError(getNote(uuidv7()))).toEqual({ code: status.NOT_FOUND, reason: "NOTE_NOT_FOUND" });
-    expect(await grpcError(getNote("nope"))).toEqual({
-      code: status.INVALID_ARGUMENT,
-      reason: "NOTE_ID_INVALID",
-    });
-    expect(await grpcError(createNote({ text: "x" }, new Metadata()))).toEqual({
-      code: status.UNAUTHENTICATED,
-      reason: "UNAUTHENTICATED",
-    });
-    expect(await grpcError(createNote({ text: " " }))).toEqual({
-      code: status.INVALID_ARGUMENT,
-      reason: "NOTE_TEXT_REQUIRED",
-    });
-  });
-});
-
-describe("kade.note.events consumer", () => {
-  it("projects a note created over gRPC once, via outbox -> Debezium -> Kafka", async () => {
-    const { note } = await createNote({
-      text: "through the outbox",
-      amount: { amountMinor: 500, currency: "LKR" },
-    });
-    const row = await eventually(() => projection(note!.id), 45_000);
-    expect(row.applied_count).toBe(1);
-  });
-
-  it("handles a replayed event exactly once (processed_events dedup)", async () => {
-    const eventId = uuidv7();
-    const noteId = uuidv7();
-    const message = {
-      key: noteId,
-      value: Buffer.from(
-        NoteCreated.encode({
-          noteId,
-          text: "replayed",
-          amount: { amountMinor: 1, currency: "LKR" },
-        }).finish(),
-      ),
-      headers: { id: eventId, eventType: NOTE_CREATED },
-    };
-    await producer.send({ topic: TOPIC, messages: [message, message, message] });
-
-    await eventually(() => projection(noteId));
-    // Give the duplicates time to arrive and be skipped; they are on the same partition, behind it.
-    const marker = uuidv7();
-    await producer.send({
-      topic: TOPIC,
-      messages: [{ ...message, headers: { id: marker, eventType: NOTE_CREATED } }],
-    });
-    await eventually(async () => {
-      const { rows } = await pool.query("select 1 from processed_events where event_id = $1", [marker]);
-      return rows[0];
-    });
-    expect((await projection(noteId))?.applied_count).toBe(2); // the original + the distinct marker event
-    const { rows } = await pool.query("select count(*)::int as n from processed_events where event_id = $1", [
-      eventId,
+    await call("addCartLine", { restaurantId: KOMPANNA, itemId: "roti", quantity: 3 }, md);
+    const { cart } = await call<CartRes>(
+      "addCartLine",
+      { restaurantId: KOMPANNA, itemId: "patty", quantity: 2 },
+      md,
+    );
+    expect(cart.lines.map((l) => [l.key, l.name, l.quantity])).toEqual([
+      ["fish-bun|No chilli", "Fish bun", 4],
+      ["roti|", "Vegetable roti", 3],
+      ["patty|", "Chicken patty", 2],
     ]);
-    expect(rows[0].n).toBe(1);
+    expect(cart.expiresAt!.getTime() - cart.updatedAt!.getTime()).toBe(7 * 24 * 3600 * 1000);
+
+    const ttl = await redis.ttl(`cart:${id}`);
+    expect(ttl).toBeGreaterThan(7 * 24 * 3600 - 60);
+    const stored = await call<CartRes>("getCart", {}, md);
+    expect(stored.cart.lines).toHaveLength(3);
+    expect(stored.cart.customerId).toBe(id);
   });
 
-  it("sends an undecodable event to the DLQ with the error in a header", async () => {
-    const eventId = uuidv7();
-    await producer.send({
-      topic: TOPIC,
-      messages: [
-        {
-          key: "poison",
-          value: Buffer.from([0xff, 0xff, 0xff]),
-          headers: { id: eventId, eventType: NOTE_CREATED },
-        },
-      ],
+  it("one restaurant per cart: CART_OTHER_RESTAURANT with the current restaurant, then replace", async () => {
+    const { md } = customer();
+    await call("addCartLine", { restaurantId: KOMPANNA, itemId: "fish-bun" }, md);
+    expect(await grpcError(call("addCartLine", { restaurantId: KOTTU_HOUSE, itemId: "kottu" }, md))).toEqual({
+      code: status.FAILED_PRECONDITION,
+      reason: "CART_OTHER_RESTAURANT",
+      metadata: { restaurant_id: KOMPANNA, restaurant_name: "Kompanna Short Eats" },
     });
+    const { cart } = await call<CartRes>(
+      "addCartLine",
+      { restaurantId: KOTTU_HOUSE, itemId: "kottu", replaceCart: true },
+      md,
+    );
+    expect(cart).toMatchObject({ restaurantId: KOTTU_HOUSE, restaurantName: "Galle Road Kottu House" });
+    expect(cart.lines).toHaveLength(1);
+  });
 
-    const dlq = kafka.consumer({
-      kafkaJS: { groupId: `cart-it-dlq-${eventId}`, fromBeginning: true },
-    });
-    await dlq.connect();
-    await dlq.subscribe({ topics: [`${TOPIC}.dlq`] });
-    const found = new Promise<KafkaJS.IHeaders>((resolve) => {
-      void dlq.run({
-        eachMessage: async ({ message }) => {
-          if (message.headers?.id?.toString() === eventId) resolve(message.headers);
+  it("concurrent adds all land (compare-and-set on Redis)", async () => {
+    const { md } = customer();
+    await Promise.all(
+      Array.from({ length: 15 }, () =>
+        call("addCartLine", { restaurantId: KOMPANNA, itemId: "fish-bun" }, md),
+      ),
+    );
+    const { cart } = await call<CartRes>("getCart", {}, md);
+    expect(cart.lines).toEqual([expect.objectContaining({ key: "fish-bun|", quantity: 15 })]);
+  });
+
+  it("GetCartQuote prices through pricing; profile and promotion being down only degrade", async () => {
+    const { md } = customer();
+    await call("addCartLine", { restaurantId: KOMPANNA, itemId: "fish-bun", quantity: 4 }, md);
+    await call("addCartLine", { restaurantId: KOMPANNA, itemId: "roti", quantity: 3 }, md);
+    await call(
+      "updateCheckoutOptions",
+      {
+        options: {
+          mode: FulfilmentMode.FULFILMENT_MODE_DELIVERY,
+          tip: { amountMinor: 100_00, currency: "LKR" },
+          promoCode: "kade100",
         },
-      });
+      },
+      md,
+    );
+    const q = await call<cartApi.GetCartQuoteResponse>("getCartQuote", {}, md);
+    expect(q.totals).toMatchObject({
+      itemCount: 7,
+      subtotal: { amountMinor: 920_00 },
+      deliveryFee: { amountMinor: 120_00 },
+      tip: { amountMinor: 100_00 },
+      total: { amountMinor: 1_140_00 },
     });
+    expect(q.promo).toMatchObject({ code: "KADE100", ok: false, errorReason: "PROMOTION_UNAVAILABLE" });
+    expect(q.creditBalance).toEqual({ amountMinor: 0, currency: "LKR" });
+  });
+
+  it("update, remove and clear lines", async () => {
+    const { md } = customer();
+    await call("addCartLine", { restaurantId: KOMPANNA, itemId: "fish-bun", quantity: 2 }, md);
+    await call("addCartLine", { restaurantId: KOMPANNA, itemId: "roti" }, md);
+    let { cart } = await call<CartRes>("updateCartLine", { lineKey: "fish-bun|", quantity: 5 }, md);
+    expect(cart.lines[0]?.quantity).toBe(5);
+    ({ cart } = await call<CartRes>("updateCartLine", { lineKey: "roti|", quantity: 0 }, md));
+    expect(cart.lines).toHaveLength(1);
+    ({ cart } = await call<CartRes>("clearCart", {}, md));
+    expect(cart).toMatchObject({ restaurantId: "", lines: [] });
+    expect(await grpcError(call("updateCartLine", { lineKey: "roti|", quantity: 1 }, md))).toMatchObject({
+      code: status.NOT_FOUND,
+      reason: "CART_LINE_NOT_FOUND",
+    });
+  });
+
+  it("catalog down → UNAVAILABLE CATALOG_UNAVAILABLE within the deadline", async () => {
+    const { md } = customer();
+    catalog.down = true;
     try {
-      const headers = await Promise.race([
-        found,
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("no DLQ message")), 45_000)),
-      ]);
-      expect(headers.error?.toString()).toMatch(/Error/);
-      expect(headers["original-topic"]?.toString()).toBe(TOPIC);
-      expect(headers["failed-by"]?.toString()).toBe("cart");
+      const started = Date.now();
+      expect(
+        await grpcError(call("addCartLine", { restaurantId: KOMPANNA, itemId: "fish-bun" }, md)),
+      ).toMatchObject({
+        code: status.UNAVAILABLE,
+        reason: "CATALOG_UNAVAILABLE",
+      });
+      expect(Date.now() - started).toBeLessThan(2_000);
     } finally {
-      await dlq.disconnect();
+      catalog.down = false;
     }
+  });
+
+  it("customers cannot touch other carts", async () => {
+    const a = customer();
+    const b = customer();
+    expect(await grpcError(call("getCart", { customerId: a.id }, b.md))).toMatchObject({
+      code: status.PERMISSION_DENIED,
+      reason: "CART_NOT_YOURS",
+    });
   });
 });
