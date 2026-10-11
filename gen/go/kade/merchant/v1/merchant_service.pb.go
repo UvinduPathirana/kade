@@ -2625,6 +2625,146 @@ func (x *OutletStaffMember) GetPending() bool {
 	return false
 }
 
+type GetMyOutletsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetMyOutletsRequest) Reset() {
+	*x = GetMyOutletsRequest{}
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetMyOutletsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetMyOutletsRequest) ProtoMessage() {}
+
+func (x *GetMyOutletsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetMyOutletsRequest.ProtoReflect.Descriptor instead.
+func (*GetMyOutletsRequest) Descriptor() ([]byte, []int) {
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{37}
+}
+
+type StaffOutlet struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	OutletId      string                 `protobuf:"bytes,1,opt,name=outlet_id,json=outletId,proto3" json:"outlet_id,omitempty"`
+	OutletName    string                 `protobuf:"bytes,2,opt,name=outlet_name,json=outletName,proto3" json:"outlet_name,omitempty"`
+	Role          OutletStaffRole        `protobuf:"varint,3,opt,name=role,proto3,enum=kade.merchant.v1.OutletStaffRole" json:"role,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StaffOutlet) Reset() {
+	*x = StaffOutlet{}
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StaffOutlet) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StaffOutlet) ProtoMessage() {}
+
+func (x *StaffOutlet) ProtoReflect() protoreflect.Message {
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StaffOutlet.ProtoReflect.Descriptor instead.
+func (*StaffOutlet) Descriptor() ([]byte, []int) {
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *StaffOutlet) GetOutletId() string {
+	if x != nil {
+		return x.OutletId
+	}
+	return ""
+}
+
+func (x *StaffOutlet) GetOutletName() string {
+	if x != nil {
+		return x.OutletName
+	}
+	return ""
+}
+
+func (x *StaffOutlet) GetRole() OutletStaffRole {
+	if x != nil {
+		return x.Role
+	}
+	return OutletStaffRole_OUTLET_STAFF_ROLE_UNSPECIFIED
+}
+
+type GetMyOutletsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Outlets       []*StaffOutlet         `protobuf:"bytes,1,rep,name=outlets,proto3" json:"outlets,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetMyOutletsResponse) Reset() {
+	*x = GetMyOutletsResponse{}
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetMyOutletsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetMyOutletsResponse) ProtoMessage() {}
+
+func (x *GetMyOutletsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetMyOutletsResponse.ProtoReflect.Descriptor instead.
+func (*GetMyOutletsResponse) Descriptor() ([]byte, []int) {
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *GetMyOutletsResponse) GetOutlets() []*StaffOutlet {
+	if x != nil {
+		return x.Outlets
+	}
+	return nil
+}
+
 type ListOutletStaffRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	OutletId      string                 `protobuf:"bytes,1,opt,name=outlet_id,json=outletId,proto3" json:"outlet_id,omitempty"`
@@ -2634,7 +2774,7 @@ type ListOutletStaffRequest struct {
 
 func (x *ListOutletStaffRequest) Reset() {
 	*x = ListOutletStaffRequest{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[37]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2646,7 +2786,7 @@ func (x *ListOutletStaffRequest) String() string {
 func (*ListOutletStaffRequest) ProtoMessage() {}
 
 func (x *ListOutletStaffRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[37]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2659,7 +2799,7 @@ func (x *ListOutletStaffRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListOutletStaffRequest.ProtoReflect.Descriptor instead.
 func (*ListOutletStaffRequest) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{37}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *ListOutletStaffRequest) GetOutletId() string {
@@ -2678,7 +2818,7 @@ type ListOutletStaffResponse struct {
 
 func (x *ListOutletStaffResponse) Reset() {
 	*x = ListOutletStaffResponse{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[38]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2690,7 +2830,7 @@ func (x *ListOutletStaffResponse) String() string {
 func (*ListOutletStaffResponse) ProtoMessage() {}
 
 func (x *ListOutletStaffResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[38]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2703,7 +2843,7 @@ func (x *ListOutletStaffResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListOutletStaffResponse.ProtoReflect.Descriptor instead.
 func (*ListOutletStaffResponse) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{38}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *ListOutletStaffResponse) GetStaff() []*OutletStaffMember {
@@ -2725,7 +2865,7 @@ type InviteOutletStaffRequest struct {
 
 func (x *InviteOutletStaffRequest) Reset() {
 	*x = InviteOutletStaffRequest{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[39]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2737,7 +2877,7 @@ func (x *InviteOutletStaffRequest) String() string {
 func (*InviteOutletStaffRequest) ProtoMessage() {}
 
 func (x *InviteOutletStaffRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[39]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2750,7 +2890,7 @@ func (x *InviteOutletStaffRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InviteOutletStaffRequest.ProtoReflect.Descriptor instead.
 func (*InviteOutletStaffRequest) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{39}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *InviteOutletStaffRequest) GetOutletId() string {
@@ -2790,7 +2930,7 @@ type InviteOutletStaffResponse struct {
 
 func (x *InviteOutletStaffResponse) Reset() {
 	*x = InviteOutletStaffResponse{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[40]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2802,7 +2942,7 @@ func (x *InviteOutletStaffResponse) String() string {
 func (*InviteOutletStaffResponse) ProtoMessage() {}
 
 func (x *InviteOutletStaffResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[40]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2815,7 +2955,7 @@ func (x *InviteOutletStaffResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InviteOutletStaffResponse.ProtoReflect.Descriptor instead.
 func (*InviteOutletStaffResponse) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{40}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *InviteOutletStaffResponse) GetMember() *OutletStaffMember {
@@ -2836,7 +2976,7 @@ type ChangeOutletStaffRoleRequest struct {
 
 func (x *ChangeOutletStaffRoleRequest) Reset() {
 	*x = ChangeOutletStaffRoleRequest{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[41]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2848,7 +2988,7 @@ func (x *ChangeOutletStaffRoleRequest) String() string {
 func (*ChangeOutletStaffRoleRequest) ProtoMessage() {}
 
 func (x *ChangeOutletStaffRoleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[41]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2861,7 +3001,7 @@ func (x *ChangeOutletStaffRoleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChangeOutletStaffRoleRequest.ProtoReflect.Descriptor instead.
 func (*ChangeOutletStaffRoleRequest) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{41}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *ChangeOutletStaffRoleRequest) GetOutletId() string {
@@ -2894,7 +3034,7 @@ type ChangeOutletStaffRoleResponse struct {
 
 func (x *ChangeOutletStaffRoleResponse) Reset() {
 	*x = ChangeOutletStaffRoleResponse{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[42]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2906,7 +3046,7 @@ func (x *ChangeOutletStaffRoleResponse) String() string {
 func (*ChangeOutletStaffRoleResponse) ProtoMessage() {}
 
 func (x *ChangeOutletStaffRoleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[42]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2919,7 +3059,7 @@ func (x *ChangeOutletStaffRoleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChangeOutletStaffRoleResponse.ProtoReflect.Descriptor instead.
 func (*ChangeOutletStaffRoleResponse) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{42}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *ChangeOutletStaffRoleResponse) GetStaff() []*OutletStaffMember {
@@ -2939,7 +3079,7 @@ type RemoveOutletStaffRequest struct {
 
 func (x *RemoveOutletStaffRequest) Reset() {
 	*x = RemoveOutletStaffRequest{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[43]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2951,7 +3091,7 @@ func (x *RemoveOutletStaffRequest) String() string {
 func (*RemoveOutletStaffRequest) ProtoMessage() {}
 
 func (x *RemoveOutletStaffRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[43]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2964,7 +3104,7 @@ func (x *RemoveOutletStaffRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveOutletStaffRequest.ProtoReflect.Descriptor instead.
 func (*RemoveOutletStaffRequest) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{43}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *RemoveOutletStaffRequest) GetOutletId() string {
@@ -2990,7 +3130,7 @@ type RemoveOutletStaffResponse struct {
 
 func (x *RemoveOutletStaffResponse) Reset() {
 	*x = RemoveOutletStaffResponse{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[44]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3002,7 +3142,7 @@ func (x *RemoveOutletStaffResponse) String() string {
 func (*RemoveOutletStaffResponse) ProtoMessage() {}
 
 func (x *RemoveOutletStaffResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[44]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3015,7 +3155,7 @@ func (x *RemoveOutletStaffResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveOutletStaffResponse.ProtoReflect.Descriptor instead.
 func (*RemoveOutletStaffResponse) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{44}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *RemoveOutletStaffResponse) GetStaff() []*OutletStaffMember {
@@ -3042,7 +3182,7 @@ type BusinessDetails struct {
 
 func (x *BusinessDetails) Reset() {
 	*x = BusinessDetails{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[45]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3054,7 +3194,7 @@ func (x *BusinessDetails) String() string {
 func (*BusinessDetails) ProtoMessage() {}
 
 func (x *BusinessDetails) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[45]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3067,7 +3207,7 @@ func (x *BusinessDetails) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BusinessDetails.ProtoReflect.Descriptor instead.
 func (*BusinessDetails) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{45}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *BusinessDetails) GetName() string {
@@ -3138,7 +3278,7 @@ type OwnerDetails struct {
 
 func (x *OwnerDetails) Reset() {
 	*x = OwnerDetails{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[46]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3150,7 +3290,7 @@ func (x *OwnerDetails) String() string {
 func (*OwnerDetails) ProtoMessage() {}
 
 func (x *OwnerDetails) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[46]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3163,7 +3303,7 @@ func (x *OwnerDetails) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OwnerDetails.ProtoReflect.Descriptor instead.
 func (*OwnerDetails) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{46}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *OwnerDetails) GetName() string {
@@ -3205,7 +3345,7 @@ type MenuSubmission struct {
 
 func (x *MenuSubmission) Reset() {
 	*x = MenuSubmission{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[47]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3217,7 +3357,7 @@ func (x *MenuSubmission) String() string {
 func (*MenuSubmission) ProtoMessage() {}
 
 func (x *MenuSubmission) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[47]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3230,7 +3370,7 @@ func (x *MenuSubmission) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MenuSubmission.ProtoReflect.Descriptor instead.
 func (*MenuSubmission) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{47}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *MenuSubmission) GetMethod() MenuSubmissionMethod {
@@ -3278,7 +3418,7 @@ type PartnerApplication struct {
 
 func (x *PartnerApplication) Reset() {
 	*x = PartnerApplication{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[48]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3290,7 +3430,7 @@ func (x *PartnerApplication) String() string {
 func (*PartnerApplication) ProtoMessage() {}
 
 func (x *PartnerApplication) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[48]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3303,7 +3443,7 @@ func (x *PartnerApplication) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PartnerApplication.ProtoReflect.Descriptor instead.
 func (*PartnerApplication) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{48}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *PartnerApplication) GetId() string {
@@ -3411,7 +3551,7 @@ type SubmitApplicationRequest struct {
 
 func (x *SubmitApplicationRequest) Reset() {
 	*x = SubmitApplicationRequest{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[49]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3423,7 +3563,7 @@ func (x *SubmitApplicationRequest) String() string {
 func (*SubmitApplicationRequest) ProtoMessage() {}
 
 func (x *SubmitApplicationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[49]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3436,7 +3576,7 @@ func (x *SubmitApplicationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmitApplicationRequest.ProtoReflect.Descriptor instead.
 func (*SubmitApplicationRequest) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{49}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *SubmitApplicationRequest) GetBusiness() *BusinessDetails {
@@ -3490,7 +3630,7 @@ type SubmitApplicationResponse struct {
 
 func (x *SubmitApplicationResponse) Reset() {
 	*x = SubmitApplicationResponse{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[50]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3502,7 +3642,7 @@ func (x *SubmitApplicationResponse) String() string {
 func (*SubmitApplicationResponse) ProtoMessage() {}
 
 func (x *SubmitApplicationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[50]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3515,7 +3655,7 @@ func (x *SubmitApplicationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmitApplicationResponse.ProtoReflect.Descriptor instead.
 func (*SubmitApplicationResponse) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{50}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *SubmitApplicationResponse) GetApplication() *PartnerApplication {
@@ -3534,7 +3674,7 @@ type GetMyApplicationRequest struct {
 
 func (x *GetMyApplicationRequest) Reset() {
 	*x = GetMyApplicationRequest{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[51]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3546,7 +3686,7 @@ func (x *GetMyApplicationRequest) String() string {
 func (*GetMyApplicationRequest) ProtoMessage() {}
 
 func (x *GetMyApplicationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[51]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3559,7 +3699,7 @@ func (x *GetMyApplicationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMyApplicationRequest.ProtoReflect.Descriptor instead.
 func (*GetMyApplicationRequest) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{51}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *GetMyApplicationRequest) GetPhone() string {
@@ -3579,7 +3719,7 @@ type GetMyApplicationResponse struct {
 
 func (x *GetMyApplicationResponse) Reset() {
 	*x = GetMyApplicationResponse{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[52]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3591,7 +3731,7 @@ func (x *GetMyApplicationResponse) String() string {
 func (*GetMyApplicationResponse) ProtoMessage() {}
 
 func (x *GetMyApplicationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[52]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3604,7 +3744,7 @@ func (x *GetMyApplicationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMyApplicationResponse.ProtoReflect.Descriptor instead.
 func (*GetMyApplicationResponse) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{52}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *GetMyApplicationResponse) GetApplication() *PartnerApplication {
@@ -3624,7 +3764,7 @@ type ListApplicationsRequest struct {
 
 func (x *ListApplicationsRequest) Reset() {
 	*x = ListApplicationsRequest{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[53]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3636,7 +3776,7 @@ func (x *ListApplicationsRequest) String() string {
 func (*ListApplicationsRequest) ProtoMessage() {}
 
 func (x *ListApplicationsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[53]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3649,7 +3789,7 @@ func (x *ListApplicationsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListApplicationsRequest.ProtoReflect.Descriptor instead.
 func (*ListApplicationsRequest) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{53}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *ListApplicationsRequest) GetStatus() v1.ApplicationStatus {
@@ -3676,7 +3816,7 @@ type ListApplicationsResponse struct {
 
 func (x *ListApplicationsResponse) Reset() {
 	*x = ListApplicationsResponse{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[54]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3688,7 +3828,7 @@ func (x *ListApplicationsResponse) String() string {
 func (*ListApplicationsResponse) ProtoMessage() {}
 
 func (x *ListApplicationsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[54]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3701,7 +3841,7 @@ func (x *ListApplicationsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListApplicationsResponse.ProtoReflect.Descriptor instead.
 func (*ListApplicationsResponse) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{54}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *ListApplicationsResponse) GetApplications() []*PartnerApplication {
@@ -3727,7 +3867,7 @@ type GetApplicationRequest struct {
 
 func (x *GetApplicationRequest) Reset() {
 	*x = GetApplicationRequest{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[55]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3739,7 +3879,7 @@ func (x *GetApplicationRequest) String() string {
 func (*GetApplicationRequest) ProtoMessage() {}
 
 func (x *GetApplicationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[55]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3752,7 +3892,7 @@ func (x *GetApplicationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetApplicationRequest.ProtoReflect.Descriptor instead.
 func (*GetApplicationRequest) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{55}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *GetApplicationRequest) GetApplicationId() string {
@@ -3771,7 +3911,7 @@ type GetApplicationResponse struct {
 
 func (x *GetApplicationResponse) Reset() {
 	*x = GetApplicationResponse{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[56]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3783,7 +3923,7 @@ func (x *GetApplicationResponse) String() string {
 func (*GetApplicationResponse) ProtoMessage() {}
 
 func (x *GetApplicationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[56]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3796,7 +3936,7 @@ func (x *GetApplicationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetApplicationResponse.ProtoReflect.Descriptor instead.
 func (*GetApplicationResponse) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{56}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *GetApplicationResponse) GetApplication() *PartnerApplication {
@@ -3818,7 +3958,7 @@ type SetApplicationDocumentStatusRequest struct {
 
 func (x *SetApplicationDocumentStatusRequest) Reset() {
 	*x = SetApplicationDocumentStatusRequest{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[57]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3830,7 +3970,7 @@ func (x *SetApplicationDocumentStatusRequest) String() string {
 func (*SetApplicationDocumentStatusRequest) ProtoMessage() {}
 
 func (x *SetApplicationDocumentStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[57]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3843,7 +3983,7 @@ func (x *SetApplicationDocumentStatusRequest) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use SetApplicationDocumentStatusRequest.ProtoReflect.Descriptor instead.
 func (*SetApplicationDocumentStatusRequest) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{57}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *SetApplicationDocumentStatusRequest) GetApplicationId() string {
@@ -3883,7 +4023,7 @@ type SetApplicationDocumentStatusResponse struct {
 
 func (x *SetApplicationDocumentStatusResponse) Reset() {
 	*x = SetApplicationDocumentStatusResponse{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[58]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3895,7 +4035,7 @@ func (x *SetApplicationDocumentStatusResponse) String() string {
 func (*SetApplicationDocumentStatusResponse) ProtoMessage() {}
 
 func (x *SetApplicationDocumentStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[58]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3908,7 +4048,7 @@ func (x *SetApplicationDocumentStatusResponse) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use SetApplicationDocumentStatusResponse.ProtoReflect.Descriptor instead.
 func (*SetApplicationDocumentStatusResponse) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{58}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *SetApplicationDocumentStatusResponse) GetApplication() *PartnerApplication {
@@ -3933,7 +4073,7 @@ type DecideApplicationRequest struct {
 
 func (x *DecideApplicationRequest) Reset() {
 	*x = DecideApplicationRequest{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[59]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3945,7 +4085,7 @@ func (x *DecideApplicationRequest) String() string {
 func (*DecideApplicationRequest) ProtoMessage() {}
 
 func (x *DecideApplicationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[59]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3958,7 +4098,7 @@ func (x *DecideApplicationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DecideApplicationRequest.ProtoReflect.Descriptor instead.
 func (*DecideApplicationRequest) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{59}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *DecideApplicationRequest) GetApplicationId() string {
@@ -4005,7 +4145,7 @@ type DecideApplicationResponse struct {
 
 func (x *DecideApplicationResponse) Reset() {
 	*x = DecideApplicationResponse{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[60]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4017,7 +4157,7 @@ func (x *DecideApplicationResponse) String() string {
 func (*DecideApplicationResponse) ProtoMessage() {}
 
 func (x *DecideApplicationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[60]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4030,7 +4170,7 @@ func (x *DecideApplicationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DecideApplicationResponse.ProtoReflect.Descriptor instead.
 func (*DecideApplicationResponse) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{60}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *DecideApplicationResponse) GetApplication() *PartnerApplication {
@@ -4062,7 +4202,7 @@ type OutletAdminView struct {
 
 func (x *OutletAdminView) Reset() {
 	*x = OutletAdminView{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[61]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4074,7 +4214,7 @@ func (x *OutletAdminView) String() string {
 func (*OutletAdminView) ProtoMessage() {}
 
 func (x *OutletAdminView) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[61]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4087,7 +4227,7 @@ func (x *OutletAdminView) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OutletAdminView.ProtoReflect.Descriptor instead.
 func (*OutletAdminView) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{61}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *OutletAdminView) GetOutlet() *Outlet {
@@ -4186,7 +4326,7 @@ type ListOutletsRequest struct {
 
 func (x *ListOutletsRequest) Reset() {
 	*x = ListOutletsRequest{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[62]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4198,7 +4338,7 @@ func (x *ListOutletsRequest) String() string {
 func (*ListOutletsRequest) ProtoMessage() {}
 
 func (x *ListOutletsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[62]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4211,7 +4351,7 @@ func (x *ListOutletsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListOutletsRequest.ProtoReflect.Descriptor instead.
 func (*ListOutletsRequest) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{62}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *ListOutletsRequest) GetStatus() OutletAdminStatus {
@@ -4252,7 +4392,7 @@ type ListOutletsResponse struct {
 
 func (x *ListOutletsResponse) Reset() {
 	*x = ListOutletsResponse{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[63]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4264,7 +4404,7 @@ func (x *ListOutletsResponse) String() string {
 func (*ListOutletsResponse) ProtoMessage() {}
 
 func (x *ListOutletsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[63]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4277,7 +4417,7 @@ func (x *ListOutletsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListOutletsResponse.ProtoReflect.Descriptor instead.
 func (*ListOutletsResponse) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{63}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *ListOutletsResponse) GetOutlets() []*OutletAdminView {
@@ -4303,7 +4443,7 @@ type GetOutletAdminRequest struct {
 
 func (x *GetOutletAdminRequest) Reset() {
 	*x = GetOutletAdminRequest{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[64]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4315,7 +4455,7 @@ func (x *GetOutletAdminRequest) String() string {
 func (*GetOutletAdminRequest) ProtoMessage() {}
 
 func (x *GetOutletAdminRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[64]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4328,7 +4468,7 @@ func (x *GetOutletAdminRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOutletAdminRequest.ProtoReflect.Descriptor instead.
 func (*GetOutletAdminRequest) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{64}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *GetOutletAdminRequest) GetOutletId() string {
@@ -4347,7 +4487,7 @@ type GetOutletAdminResponse struct {
 
 func (x *GetOutletAdminResponse) Reset() {
 	*x = GetOutletAdminResponse{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[65]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4359,7 +4499,7 @@ func (x *GetOutletAdminResponse) String() string {
 func (*GetOutletAdminResponse) ProtoMessage() {}
 
 func (x *GetOutletAdminResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[65]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4372,7 +4512,7 @@ func (x *GetOutletAdminResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOutletAdminResponse.ProtoReflect.Descriptor instead.
 func (*GetOutletAdminResponse) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{65}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *GetOutletAdminResponse) GetOutlet() *OutletAdminView {
@@ -4392,7 +4532,7 @@ type UpdateCommissionRequest struct {
 
 func (x *UpdateCommissionRequest) Reset() {
 	*x = UpdateCommissionRequest{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[66]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4404,7 +4544,7 @@ func (x *UpdateCommissionRequest) String() string {
 func (*UpdateCommissionRequest) ProtoMessage() {}
 
 func (x *UpdateCommissionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[66]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4417,7 +4557,7 @@ func (x *UpdateCommissionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateCommissionRequest.ProtoReflect.Descriptor instead.
 func (*UpdateCommissionRequest) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{66}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *UpdateCommissionRequest) GetOutletId() string {
@@ -4443,7 +4583,7 @@ type UpdateCommissionResponse struct {
 
 func (x *UpdateCommissionResponse) Reset() {
 	*x = UpdateCommissionResponse{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[67]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4455,7 +4595,7 @@ func (x *UpdateCommissionResponse) String() string {
 func (*UpdateCommissionResponse) ProtoMessage() {}
 
 func (x *UpdateCommissionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[67]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4468,7 +4608,7 @@ func (x *UpdateCommissionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateCommissionResponse.ProtoReflect.Descriptor instead.
 func (*UpdateCommissionResponse) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{67}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *UpdateCommissionResponse) GetOutlet() *OutletAdminView {
@@ -4489,7 +4629,7 @@ type SetOutletStatusRequest struct {
 
 func (x *SetOutletStatusRequest) Reset() {
 	*x = SetOutletStatusRequest{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[68]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4501,7 +4641,7 @@ func (x *SetOutletStatusRequest) String() string {
 func (*SetOutletStatusRequest) ProtoMessage() {}
 
 func (x *SetOutletStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[68]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4514,7 +4654,7 @@ func (x *SetOutletStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetOutletStatusRequest.ProtoReflect.Descriptor instead.
 func (*SetOutletStatusRequest) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{68}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *SetOutletStatusRequest) GetOutletId() string {
@@ -4547,7 +4687,7 @@ type SetOutletStatusResponse struct {
 
 func (x *SetOutletStatusResponse) Reset() {
 	*x = SetOutletStatusResponse{}
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[69]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4559,7 +4699,7 @@ func (x *SetOutletStatusResponse) String() string {
 func (*SetOutletStatusResponse) ProtoMessage() {}
 
 func (x *SetOutletStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[69]
+	mi := &file_kade_merchant_v1_merchant_service_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4572,7 +4712,7 @@ func (x *SetOutletStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetOutletStatusResponse.ProtoReflect.Descriptor instead.
 func (*SetOutletStatusResponse) Descriptor() ([]byte, []int) {
-	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{69}
+	return file_kade_merchant_v1_merchant_service_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *SetOutletStatusResponse) GetOutlet() *OutletAdminView {
@@ -4751,7 +4891,15 @@ const file_kade_merchant_v1_merchant_service_proto_rawDesc = "" +
 	"\x05phone\x18\x04 \x01(\tR\x05phone\x125\n" +
 	"\x04role\x18\x05 \x01(\x0e2!.kade.merchant.v1.OutletStaffRoleR\x04role\x12@\n" +
 	"\x0elast_active_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\flastActiveAt\x12\x18\n" +
-	"\apending\x18\a \x01(\bR\apending\"5\n" +
+	"\apending\x18\a \x01(\bR\apending\"\x15\n" +
+	"\x13GetMyOutletsRequest\"\x82\x01\n" +
+	"\vStaffOutlet\x12\x1b\n" +
+	"\toutlet_id\x18\x01 \x01(\tR\boutletId\x12\x1f\n" +
+	"\voutlet_name\x18\x02 \x01(\tR\n" +
+	"outletName\x125\n" +
+	"\x04role\x18\x03 \x01(\x0e2!.kade.merchant.v1.OutletStaffRoleR\x04role\"O\n" +
+	"\x14GetMyOutletsResponse\x127\n" +
+	"\aoutlets\x18\x01 \x03(\v2\x1d.kade.merchant.v1.StaffOutletR\aoutlets\"5\n" +
 	"\x16ListOutletStaffRequest\x12\x1b\n" +
 	"\toutlet_id\x18\x01 \x01(\tR\boutletId\"T\n" +
 	"\x17ListOutletStaffResponse\x129\n" +
@@ -4939,12 +5087,13 @@ const file_kade_merchant_v1_merchant_service_proto_rawDesc = "" +
 	"\x15ReportTabletHeartbeat\x12..kade.merchant.v1.ReportTabletHeartbeatRequest\x1a/.kade.merchant.v1.ReportTabletHeartbeatResponse\x12l\n" +
 	"\x11GetOutletSettings\x12*.kade.merchant.v1.GetOutletSettingsRequest\x1a+.kade.merchant.v1.GetOutletSettingsResponse\x12u\n" +
 	"\x14UpdateOutletSettings\x12-.kade.merchant.v1.UpdateOutletSettingsRequest\x1a..kade.merchant.v1.UpdateOutletSettingsResponse\x12f\n" +
-	"\x0fPrintTestTicket\x12(.kade.merchant.v1.PrintTestTicketRequest\x1a).kade.merchant.v1.PrintTestTicketResponse2\xd2\x03\n" +
+	"\x0fPrintTestTicket\x12(.kade.merchant.v1.PrintTestTicketRequest\x1a).kade.merchant.v1.PrintTestTicketResponse2\xb1\x04\n" +
 	"\x12OutletStaffService\x12f\n" +
 	"\x0fListOutletStaff\x12(.kade.merchant.v1.ListOutletStaffRequest\x1a).kade.merchant.v1.ListOutletStaffResponse\x12l\n" +
 	"\x11InviteOutletStaff\x12*.kade.merchant.v1.InviteOutletStaffRequest\x1a+.kade.merchant.v1.InviteOutletStaffResponse\x12x\n" +
 	"\x15ChangeOutletStaffRole\x12..kade.merchant.v1.ChangeOutletStaffRoleRequest\x1a/.kade.merchant.v1.ChangeOutletStaffRoleResponse\x12l\n" +
-	"\x11RemoveOutletStaff\x12*.kade.merchant.v1.RemoveOutletStaffRequest\x1a+.kade.merchant.v1.RemoveOutletStaffResponse2\xc2\x05\n" +
+	"\x11RemoveOutletStaff\x12*.kade.merchant.v1.RemoveOutletStaffRequest\x1a+.kade.merchant.v1.RemoveOutletStaffResponse\x12]\n" +
+	"\fGetMyOutlets\x12%.kade.merchant.v1.GetMyOutletsRequest\x1a&.kade.merchant.v1.GetMyOutletsResponse2\xc2\x05\n" +
 	"\x19PartnerApplicationService\x12l\n" +
 	"\x11SubmitApplication\x12*.kade.merchant.v1.SubmitApplicationRequest\x1a+.kade.merchant.v1.SubmitApplicationResponse\x12i\n" +
 	"\x10GetMyApplication\x12).kade.merchant.v1.GetMyApplicationRequest\x1a*.kade.merchant.v1.GetMyApplicationResponse\x12i\n" +
@@ -4972,7 +5121,7 @@ func file_kade_merchant_v1_merchant_service_proto_rawDescGZIP() []byte {
 }
 
 var file_kade_merchant_v1_merchant_service_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
-var file_kade_merchant_v1_merchant_service_proto_msgTypes = make([]protoimpl.MessageInfo, 70)
+var file_kade_merchant_v1_merchant_service_proto_msgTypes = make([]protoimpl.MessageInfo, 73)
 var file_kade_merchant_v1_merchant_service_proto_goTypes = []any{
 	(TicketStatus)(0),                            // 0: kade.merchant.v1.TicketStatus
 	(OutletAdminStatus)(0),                       // 1: kade.merchant.v1.OutletAdminStatus
@@ -5017,87 +5166,90 @@ var file_kade_merchant_v1_merchant_service_proto_goTypes = []any{
 	(*PrintTestTicketRequest)(nil),               // 40: kade.merchant.v1.PrintTestTicketRequest
 	(*PrintTestTicketResponse)(nil),              // 41: kade.merchant.v1.PrintTestTicketResponse
 	(*OutletStaffMember)(nil),                    // 42: kade.merchant.v1.OutletStaffMember
-	(*ListOutletStaffRequest)(nil),               // 43: kade.merchant.v1.ListOutletStaffRequest
-	(*ListOutletStaffResponse)(nil),              // 44: kade.merchant.v1.ListOutletStaffResponse
-	(*InviteOutletStaffRequest)(nil),             // 45: kade.merchant.v1.InviteOutletStaffRequest
-	(*InviteOutletStaffResponse)(nil),            // 46: kade.merchant.v1.InviteOutletStaffResponse
-	(*ChangeOutletStaffRoleRequest)(nil),         // 47: kade.merchant.v1.ChangeOutletStaffRoleRequest
-	(*ChangeOutletStaffRoleResponse)(nil),        // 48: kade.merchant.v1.ChangeOutletStaffRoleResponse
-	(*RemoveOutletStaffRequest)(nil),             // 49: kade.merchant.v1.RemoveOutletStaffRequest
-	(*RemoveOutletStaffResponse)(nil),            // 50: kade.merchant.v1.RemoveOutletStaffResponse
-	(*BusinessDetails)(nil),                      // 51: kade.merchant.v1.BusinessDetails
-	(*OwnerDetails)(nil),                         // 52: kade.merchant.v1.OwnerDetails
-	(*MenuSubmission)(nil),                       // 53: kade.merchant.v1.MenuSubmission
-	(*PartnerApplication)(nil),                   // 54: kade.merchant.v1.PartnerApplication
-	(*SubmitApplicationRequest)(nil),             // 55: kade.merchant.v1.SubmitApplicationRequest
-	(*SubmitApplicationResponse)(nil),            // 56: kade.merchant.v1.SubmitApplicationResponse
-	(*GetMyApplicationRequest)(nil),              // 57: kade.merchant.v1.GetMyApplicationRequest
-	(*GetMyApplicationResponse)(nil),             // 58: kade.merchant.v1.GetMyApplicationResponse
-	(*ListApplicationsRequest)(nil),              // 59: kade.merchant.v1.ListApplicationsRequest
-	(*ListApplicationsResponse)(nil),             // 60: kade.merchant.v1.ListApplicationsResponse
-	(*GetApplicationRequest)(nil),                // 61: kade.merchant.v1.GetApplicationRequest
-	(*GetApplicationResponse)(nil),               // 62: kade.merchant.v1.GetApplicationResponse
-	(*SetApplicationDocumentStatusRequest)(nil),  // 63: kade.merchant.v1.SetApplicationDocumentStatusRequest
-	(*SetApplicationDocumentStatusResponse)(nil), // 64: kade.merchant.v1.SetApplicationDocumentStatusResponse
-	(*DecideApplicationRequest)(nil),             // 65: kade.merchant.v1.DecideApplicationRequest
-	(*DecideApplicationResponse)(nil),            // 66: kade.merchant.v1.DecideApplicationResponse
-	(*OutletAdminView)(nil),                      // 67: kade.merchant.v1.OutletAdminView
-	(*ListOutletsRequest)(nil),                   // 68: kade.merchant.v1.ListOutletsRequest
-	(*ListOutletsResponse)(nil),                  // 69: kade.merchant.v1.ListOutletsResponse
-	(*GetOutletAdminRequest)(nil),                // 70: kade.merchant.v1.GetOutletAdminRequest
-	(*GetOutletAdminResponse)(nil),               // 71: kade.merchant.v1.GetOutletAdminResponse
-	(*UpdateCommissionRequest)(nil),              // 72: kade.merchant.v1.UpdateCommissionRequest
-	(*UpdateCommissionResponse)(nil),             // 73: kade.merchant.v1.UpdateCommissionResponse
-	(*SetOutletStatusRequest)(nil),               // 74: kade.merchant.v1.SetOutletStatusRequest
-	(*SetOutletStatusResponse)(nil),              // 75: kade.merchant.v1.SetOutletStatusResponse
-	(*v1.Money)(nil),                             // 76: kade.common.v1.Money
-	(v1.FulfilmentMode)(0),                       // 77: kade.common.v1.FulfilmentMode
-	(v1.PaymentMethodKind)(0),                    // 78: kade.common.v1.PaymentMethodKind
-	(*timestamppb.Timestamp)(nil),                // 79: google.protobuf.Timestamp
-	(v11.RejectionReason)(0),                     // 80: kade.order.v1.RejectionReason
-	(*v1.BankAccount)(nil),                       // 81: kade.common.v1.BankAccount
-	(*v1.GeoPoint)(nil),                          // 82: kade.common.v1.GeoPoint
-	(*v1.PartnerDocument)(nil),                   // 83: kade.common.v1.PartnerDocument
-	(v1.ApplicationStatus)(0),                    // 84: kade.common.v1.ApplicationStatus
-	(*v1.PageRequest)(nil),                       // 85: kade.common.v1.PageRequest
-	(*v1.PageResponse)(nil),                      // 86: kade.common.v1.PageResponse
-	(v1.DocumentStatus)(0),                       // 87: kade.common.v1.DocumentStatus
-	(*v1.Contact)(nil),                           // 88: kade.common.v1.Contact
+	(*GetMyOutletsRequest)(nil),                  // 43: kade.merchant.v1.GetMyOutletsRequest
+	(*StaffOutlet)(nil),                          // 44: kade.merchant.v1.StaffOutlet
+	(*GetMyOutletsResponse)(nil),                 // 45: kade.merchant.v1.GetMyOutletsResponse
+	(*ListOutletStaffRequest)(nil),               // 46: kade.merchant.v1.ListOutletStaffRequest
+	(*ListOutletStaffResponse)(nil),              // 47: kade.merchant.v1.ListOutletStaffResponse
+	(*InviteOutletStaffRequest)(nil),             // 48: kade.merchant.v1.InviteOutletStaffRequest
+	(*InviteOutletStaffResponse)(nil),            // 49: kade.merchant.v1.InviteOutletStaffResponse
+	(*ChangeOutletStaffRoleRequest)(nil),         // 50: kade.merchant.v1.ChangeOutletStaffRoleRequest
+	(*ChangeOutletStaffRoleResponse)(nil),        // 51: kade.merchant.v1.ChangeOutletStaffRoleResponse
+	(*RemoveOutletStaffRequest)(nil),             // 52: kade.merchant.v1.RemoveOutletStaffRequest
+	(*RemoveOutletStaffResponse)(nil),            // 53: kade.merchant.v1.RemoveOutletStaffResponse
+	(*BusinessDetails)(nil),                      // 54: kade.merchant.v1.BusinessDetails
+	(*OwnerDetails)(nil),                         // 55: kade.merchant.v1.OwnerDetails
+	(*MenuSubmission)(nil),                       // 56: kade.merchant.v1.MenuSubmission
+	(*PartnerApplication)(nil),                   // 57: kade.merchant.v1.PartnerApplication
+	(*SubmitApplicationRequest)(nil),             // 58: kade.merchant.v1.SubmitApplicationRequest
+	(*SubmitApplicationResponse)(nil),            // 59: kade.merchant.v1.SubmitApplicationResponse
+	(*GetMyApplicationRequest)(nil),              // 60: kade.merchant.v1.GetMyApplicationRequest
+	(*GetMyApplicationResponse)(nil),             // 61: kade.merchant.v1.GetMyApplicationResponse
+	(*ListApplicationsRequest)(nil),              // 62: kade.merchant.v1.ListApplicationsRequest
+	(*ListApplicationsResponse)(nil),             // 63: kade.merchant.v1.ListApplicationsResponse
+	(*GetApplicationRequest)(nil),                // 64: kade.merchant.v1.GetApplicationRequest
+	(*GetApplicationResponse)(nil),               // 65: kade.merchant.v1.GetApplicationResponse
+	(*SetApplicationDocumentStatusRequest)(nil),  // 66: kade.merchant.v1.SetApplicationDocumentStatusRequest
+	(*SetApplicationDocumentStatusResponse)(nil), // 67: kade.merchant.v1.SetApplicationDocumentStatusResponse
+	(*DecideApplicationRequest)(nil),             // 68: kade.merchant.v1.DecideApplicationRequest
+	(*DecideApplicationResponse)(nil),            // 69: kade.merchant.v1.DecideApplicationResponse
+	(*OutletAdminView)(nil),                      // 70: kade.merchant.v1.OutletAdminView
+	(*ListOutletsRequest)(nil),                   // 71: kade.merchant.v1.ListOutletsRequest
+	(*ListOutletsResponse)(nil),                  // 72: kade.merchant.v1.ListOutletsResponse
+	(*GetOutletAdminRequest)(nil),                // 73: kade.merchant.v1.GetOutletAdminRequest
+	(*GetOutletAdminResponse)(nil),               // 74: kade.merchant.v1.GetOutletAdminResponse
+	(*UpdateCommissionRequest)(nil),              // 75: kade.merchant.v1.UpdateCommissionRequest
+	(*UpdateCommissionResponse)(nil),             // 76: kade.merchant.v1.UpdateCommissionResponse
+	(*SetOutletStatusRequest)(nil),               // 77: kade.merchant.v1.SetOutletStatusRequest
+	(*SetOutletStatusResponse)(nil),              // 78: kade.merchant.v1.SetOutletStatusResponse
+	(*v1.Money)(nil),                             // 79: kade.common.v1.Money
+	(v1.FulfilmentMode)(0),                       // 80: kade.common.v1.FulfilmentMode
+	(v1.PaymentMethodKind)(0),                    // 81: kade.common.v1.PaymentMethodKind
+	(*timestamppb.Timestamp)(nil),                // 82: google.protobuf.Timestamp
+	(v11.RejectionReason)(0),                     // 83: kade.order.v1.RejectionReason
+	(*v1.BankAccount)(nil),                       // 84: kade.common.v1.BankAccount
+	(*v1.GeoPoint)(nil),                          // 85: kade.common.v1.GeoPoint
+	(*v1.PartnerDocument)(nil),                   // 86: kade.common.v1.PartnerDocument
+	(v1.ApplicationStatus)(0),                    // 87: kade.common.v1.ApplicationStatus
+	(*v1.PageRequest)(nil),                       // 88: kade.common.v1.PageRequest
+	(*v1.PageResponse)(nil),                      // 89: kade.common.v1.PageResponse
+	(v1.DocumentStatus)(0),                       // 90: kade.common.v1.DocumentStatus
+	(*v1.Contact)(nil),                           // 91: kade.common.v1.Contact
 }
 var file_kade_merchant_v1_merchant_service_proto_depIdxs = []int32{
-	76,  // 0: kade.merchant.v1.TicketLine.unit_price:type_name -> kade.common.v1.Money
+	79,  // 0: kade.merchant.v1.TicketLine.unit_price:type_name -> kade.common.v1.Money
 	0,   // 1: kade.merchant.v1.Ticket.status:type_name -> kade.merchant.v1.TicketStatus
-	77,  // 2: kade.merchant.v1.Ticket.mode:type_name -> kade.common.v1.FulfilmentMode
+	80,  // 2: kade.merchant.v1.Ticket.mode:type_name -> kade.common.v1.FulfilmentMode
 	6,   // 3: kade.merchant.v1.Ticket.lines:type_name -> kade.merchant.v1.TicketLine
-	78,  // 4: kade.merchant.v1.Ticket.payment:type_name -> kade.common.v1.PaymentMethodKind
-	76,  // 5: kade.merchant.v1.Ticket.subtotal:type_name -> kade.common.v1.Money
-	79,  // 6: kade.merchant.v1.Ticket.scheduled_for:type_name -> google.protobuf.Timestamp
-	79,  // 7: kade.merchant.v1.Ticket.placed_at:type_name -> google.protobuf.Timestamp
-	79,  // 8: kade.merchant.v1.Ticket.accept_by:type_name -> google.protobuf.Timestamp
-	79,  // 9: kade.merchant.v1.Ticket.accepted_at:type_name -> google.protobuf.Timestamp
-	79,  // 10: kade.merchant.v1.Ticket.ready_by:type_name -> google.protobuf.Timestamp
-	79,  // 11: kade.merchant.v1.Ticket.ready_at:type_name -> google.protobuf.Timestamp
-	79,  // 12: kade.merchant.v1.Ticket.picked_up_at:type_name -> google.protobuf.Timestamp
-	79,  // 13: kade.merchant.v1.Ticket.closed_at:type_name -> google.protobuf.Timestamp
-	80,  // 14: kade.merchant.v1.Ticket.reject_reason:type_name -> kade.order.v1.RejectionReason
+	81,  // 4: kade.merchant.v1.Ticket.payment:type_name -> kade.common.v1.PaymentMethodKind
+	79,  // 5: kade.merchant.v1.Ticket.subtotal:type_name -> kade.common.v1.Money
+	82,  // 6: kade.merchant.v1.Ticket.scheduled_for:type_name -> google.protobuf.Timestamp
+	82,  // 7: kade.merchant.v1.Ticket.placed_at:type_name -> google.protobuf.Timestamp
+	82,  // 8: kade.merchant.v1.Ticket.accept_by:type_name -> google.protobuf.Timestamp
+	82,  // 9: kade.merchant.v1.Ticket.accepted_at:type_name -> google.protobuf.Timestamp
+	82,  // 10: kade.merchant.v1.Ticket.ready_by:type_name -> google.protobuf.Timestamp
+	82,  // 11: kade.merchant.v1.Ticket.ready_at:type_name -> google.protobuf.Timestamp
+	82,  // 12: kade.merchant.v1.Ticket.picked_up_at:type_name -> google.protobuf.Timestamp
+	82,  // 13: kade.merchant.v1.Ticket.closed_at:type_name -> google.protobuf.Timestamp
+	83,  // 14: kade.merchant.v1.Ticket.reject_reason:type_name -> kade.order.v1.RejectionReason
 	7,   // 15: kade.merchant.v1.Ticket.rider:type_name -> kade.merchant.v1.TicketRider
-	79,  // 16: kade.merchant.v1.Ticket.rider_arrives_at:type_name -> google.protobuf.Timestamp
+	82,  // 16: kade.merchant.v1.Ticket.rider_arrives_at:type_name -> google.protobuf.Timestamp
 	8,   // 17: kade.merchant.v1.ListTicketsResponse.tickets:type_name -> kade.merchant.v1.Ticket
 	8,   // 18: kade.merchant.v1.GetTicketResponse.ticket:type_name -> kade.merchant.v1.Ticket
 	8,   // 19: kade.merchant.v1.AcceptOrderResponse.ticket:type_name -> kade.merchant.v1.Ticket
-	80,  // 20: kade.merchant.v1.RejectOrderRequest.reason:type_name -> kade.order.v1.RejectionReason
+	83,  // 20: kade.merchant.v1.RejectOrderRequest.reason:type_name -> kade.order.v1.RejectionReason
 	8,   // 21: kade.merchant.v1.RejectOrderResponse.ticket:type_name -> kade.merchant.v1.Ticket
 	8,   // 22: kade.merchant.v1.MarkOrderReadyResponse.ticket:type_name -> kade.merchant.v1.Ticket
 	8,   // 23: kade.merchant.v1.HandOverOrderResponse.ticket:type_name -> kade.merchant.v1.Ticket
-	79,  // 24: kade.merchant.v1.OutletStatus.paused_until:type_name -> google.protobuf.Timestamp
+	82,  // 24: kade.merchant.v1.OutletStatus.paused_until:type_name -> google.protobuf.Timestamp
 	1,   // 25: kade.merchant.v1.OutletStatus.admin_status:type_name -> kade.merchant.v1.OutletAdminStatus
-	79,  // 26: kade.merchant.v1.OutletStatus.last_heartbeat_at:type_name -> google.protobuf.Timestamp
+	82,  // 26: kade.merchant.v1.OutletStatus.last_heartbeat_at:type_name -> google.protobuf.Timestamp
 	21,  // 27: kade.merchant.v1.Outlet.status:type_name -> kade.merchant.v1.OutletStatus
-	79,  // 28: kade.merchant.v1.Outlet.joined_at:type_name -> google.protobuf.Timestamp
-	81,  // 29: kade.merchant.v1.Outlet.bank:type_name -> kade.common.v1.BankAccount
+	82,  // 28: kade.merchant.v1.Outlet.joined_at:type_name -> google.protobuf.Timestamp
+	84,  // 29: kade.merchant.v1.Outlet.bank:type_name -> kade.common.v1.BankAccount
 	22,  // 30: kade.merchant.v1.GetOutletResponse.outlet:type_name -> kade.merchant.v1.Outlet
 	22,  // 31: kade.merchant.v1.SetBusyModeResponse.outlet:type_name -> kade.merchant.v1.Outlet
-	79,  // 32: kade.merchant.v1.PauseOutletRequest.until:type_name -> google.protobuf.Timestamp
+	82,  // 32: kade.merchant.v1.PauseOutletRequest.until:type_name -> google.protobuf.Timestamp
 	22,  // 33: kade.merchant.v1.PauseOutletResponse.outlet:type_name -> kade.merchant.v1.Outlet
 	22,  // 34: kade.merchant.v1.ResumeOutletResponse.outlet:type_name -> kade.merchant.v1.Outlet
 	2,   // 35: kade.merchant.v1.DeviceSettings.paper_width:type_name -> kade.merchant.v1.PaperWidth
@@ -5107,111 +5259,115 @@ var file_kade_merchant_v1_merchant_service_proto_depIdxs = []int32{
 	35,  // 39: kade.merchant.v1.UpdateOutletSettingsRequest.settings:type_name -> kade.merchant.v1.OutletSettings
 	35,  // 40: kade.merchant.v1.UpdateOutletSettingsResponse.settings:type_name -> kade.merchant.v1.OutletSettings
 	3,   // 41: kade.merchant.v1.OutletStaffMember.role:type_name -> kade.merchant.v1.OutletStaffRole
-	79,  // 42: kade.merchant.v1.OutletStaffMember.last_active_at:type_name -> google.protobuf.Timestamp
-	42,  // 43: kade.merchant.v1.ListOutletStaffResponse.staff:type_name -> kade.merchant.v1.OutletStaffMember
-	3,   // 44: kade.merchant.v1.InviteOutletStaffRequest.role:type_name -> kade.merchant.v1.OutletStaffRole
-	42,  // 45: kade.merchant.v1.InviteOutletStaffResponse.member:type_name -> kade.merchant.v1.OutletStaffMember
-	3,   // 46: kade.merchant.v1.ChangeOutletStaffRoleRequest.role:type_name -> kade.merchant.v1.OutletStaffRole
-	42,  // 47: kade.merchant.v1.ChangeOutletStaffRoleResponse.staff:type_name -> kade.merchant.v1.OutletStaffMember
-	42,  // 48: kade.merchant.v1.RemoveOutletStaffResponse.staff:type_name -> kade.merchant.v1.OutletStaffMember
-	4,   // 49: kade.merchant.v1.BusinessDetails.type:type_name -> kade.merchant.v1.BusinessType
-	82,  // 50: kade.merchant.v1.BusinessDetails.location:type_name -> kade.common.v1.GeoPoint
-	5,   // 51: kade.merchant.v1.MenuSubmission.method:type_name -> kade.merchant.v1.MenuSubmissionMethod
-	51,  // 52: kade.merchant.v1.PartnerApplication.business:type_name -> kade.merchant.v1.BusinessDetails
-	52,  // 53: kade.merchant.v1.PartnerApplication.owner:type_name -> kade.merchant.v1.OwnerDetails
-	83,  // 54: kade.merchant.v1.PartnerApplication.documents:type_name -> kade.common.v1.PartnerDocument
-	81,  // 55: kade.merchant.v1.PartnerApplication.bank:type_name -> kade.common.v1.BankAccount
-	53,  // 56: kade.merchant.v1.PartnerApplication.menu:type_name -> kade.merchant.v1.MenuSubmission
-	84,  // 57: kade.merchant.v1.PartnerApplication.status:type_name -> kade.common.v1.ApplicationStatus
-	79,  // 58: kade.merchant.v1.PartnerApplication.submitted_at:type_name -> google.protobuf.Timestamp
-	79,  // 59: kade.merchant.v1.PartnerApplication.decided_at:type_name -> google.protobuf.Timestamp
-	51,  // 60: kade.merchant.v1.SubmitApplicationRequest.business:type_name -> kade.merchant.v1.BusinessDetails
-	52,  // 61: kade.merchant.v1.SubmitApplicationRequest.owner:type_name -> kade.merchant.v1.OwnerDetails
-	83,  // 62: kade.merchant.v1.SubmitApplicationRequest.documents:type_name -> kade.common.v1.PartnerDocument
-	81,  // 63: kade.merchant.v1.SubmitApplicationRequest.bank:type_name -> kade.common.v1.BankAccount
-	53,  // 64: kade.merchant.v1.SubmitApplicationRequest.menu:type_name -> kade.merchant.v1.MenuSubmission
-	54,  // 65: kade.merchant.v1.SubmitApplicationResponse.application:type_name -> kade.merchant.v1.PartnerApplication
-	54,  // 66: kade.merchant.v1.GetMyApplicationResponse.application:type_name -> kade.merchant.v1.PartnerApplication
-	84,  // 67: kade.merchant.v1.ListApplicationsRequest.status:type_name -> kade.common.v1.ApplicationStatus
-	85,  // 68: kade.merchant.v1.ListApplicationsRequest.page:type_name -> kade.common.v1.PageRequest
-	54,  // 69: kade.merchant.v1.ListApplicationsResponse.applications:type_name -> kade.merchant.v1.PartnerApplication
-	86,  // 70: kade.merchant.v1.ListApplicationsResponse.page:type_name -> kade.common.v1.PageResponse
-	54,  // 71: kade.merchant.v1.GetApplicationResponse.application:type_name -> kade.merchant.v1.PartnerApplication
-	87,  // 72: kade.merchant.v1.SetApplicationDocumentStatusRequest.status:type_name -> kade.common.v1.DocumentStatus
-	54,  // 73: kade.merchant.v1.SetApplicationDocumentStatusResponse.application:type_name -> kade.merchant.v1.PartnerApplication
-	84,  // 74: kade.merchant.v1.DecideApplicationRequest.decision:type_name -> kade.common.v1.ApplicationStatus
-	54,  // 75: kade.merchant.v1.DecideApplicationResponse.application:type_name -> kade.merchant.v1.PartnerApplication
-	22,  // 76: kade.merchant.v1.OutletAdminView.outlet:type_name -> kade.merchant.v1.Outlet
-	88,  // 77: kade.merchant.v1.OutletAdminView.owner:type_name -> kade.common.v1.Contact
-	1,   // 78: kade.merchant.v1.ListOutletsRequest.status:type_name -> kade.merchant.v1.OutletAdminStatus
-	85,  // 79: kade.merchant.v1.ListOutletsRequest.page:type_name -> kade.common.v1.PageRequest
-	67,  // 80: kade.merchant.v1.ListOutletsResponse.outlets:type_name -> kade.merchant.v1.OutletAdminView
-	86,  // 81: kade.merchant.v1.ListOutletsResponse.page:type_name -> kade.common.v1.PageResponse
-	67,  // 82: kade.merchant.v1.GetOutletAdminResponse.outlet:type_name -> kade.merchant.v1.OutletAdminView
-	67,  // 83: kade.merchant.v1.UpdateCommissionResponse.outlet:type_name -> kade.merchant.v1.OutletAdminView
-	1,   // 84: kade.merchant.v1.SetOutletStatusRequest.status:type_name -> kade.merchant.v1.OutletAdminStatus
-	67,  // 85: kade.merchant.v1.SetOutletStatusResponse.outlet:type_name -> kade.merchant.v1.OutletAdminView
-	9,   // 86: kade.merchant.v1.KitchenService.ListTickets:input_type -> kade.merchant.v1.ListTicketsRequest
-	11,  // 87: kade.merchant.v1.KitchenService.GetTicket:input_type -> kade.merchant.v1.GetTicketRequest
-	13,  // 88: kade.merchant.v1.KitchenService.AcceptOrder:input_type -> kade.merchant.v1.AcceptOrderRequest
-	15,  // 89: kade.merchant.v1.KitchenService.RejectOrder:input_type -> kade.merchant.v1.RejectOrderRequest
-	17,  // 90: kade.merchant.v1.KitchenService.MarkOrderReady:input_type -> kade.merchant.v1.MarkOrderReadyRequest
-	19,  // 91: kade.merchant.v1.KitchenService.HandOverOrder:input_type -> kade.merchant.v1.HandOverOrderRequest
-	23,  // 92: kade.merchant.v1.OutletService.GetOutlet:input_type -> kade.merchant.v1.GetOutletRequest
-	25,  // 93: kade.merchant.v1.OutletService.SetBusyMode:input_type -> kade.merchant.v1.SetBusyModeRequest
-	27,  // 94: kade.merchant.v1.OutletService.PauseOutlet:input_type -> kade.merchant.v1.PauseOutletRequest
-	29,  // 95: kade.merchant.v1.OutletService.ResumeOutlet:input_type -> kade.merchant.v1.ResumeOutletRequest
-	31,  // 96: kade.merchant.v1.OutletService.ReportTabletHeartbeat:input_type -> kade.merchant.v1.ReportTabletHeartbeatRequest
-	36,  // 97: kade.merchant.v1.OutletService.GetOutletSettings:input_type -> kade.merchant.v1.GetOutletSettingsRequest
-	38,  // 98: kade.merchant.v1.OutletService.UpdateOutletSettings:input_type -> kade.merchant.v1.UpdateOutletSettingsRequest
-	40,  // 99: kade.merchant.v1.OutletService.PrintTestTicket:input_type -> kade.merchant.v1.PrintTestTicketRequest
-	43,  // 100: kade.merchant.v1.OutletStaffService.ListOutletStaff:input_type -> kade.merchant.v1.ListOutletStaffRequest
-	45,  // 101: kade.merchant.v1.OutletStaffService.InviteOutletStaff:input_type -> kade.merchant.v1.InviteOutletStaffRequest
-	47,  // 102: kade.merchant.v1.OutletStaffService.ChangeOutletStaffRole:input_type -> kade.merchant.v1.ChangeOutletStaffRoleRequest
-	49,  // 103: kade.merchant.v1.OutletStaffService.RemoveOutletStaff:input_type -> kade.merchant.v1.RemoveOutletStaffRequest
-	55,  // 104: kade.merchant.v1.PartnerApplicationService.SubmitApplication:input_type -> kade.merchant.v1.SubmitApplicationRequest
-	57,  // 105: kade.merchant.v1.PartnerApplicationService.GetMyApplication:input_type -> kade.merchant.v1.GetMyApplicationRequest
-	59,  // 106: kade.merchant.v1.PartnerApplicationService.ListApplications:input_type -> kade.merchant.v1.ListApplicationsRequest
-	61,  // 107: kade.merchant.v1.PartnerApplicationService.GetApplication:input_type -> kade.merchant.v1.GetApplicationRequest
-	63,  // 108: kade.merchant.v1.PartnerApplicationService.SetApplicationDocumentStatus:input_type -> kade.merchant.v1.SetApplicationDocumentStatusRequest
-	65,  // 109: kade.merchant.v1.PartnerApplicationService.DecideApplication:input_type -> kade.merchant.v1.DecideApplicationRequest
-	68,  // 110: kade.merchant.v1.OutletAdminService.ListOutlets:input_type -> kade.merchant.v1.ListOutletsRequest
-	70,  // 111: kade.merchant.v1.OutletAdminService.GetOutletAdmin:input_type -> kade.merchant.v1.GetOutletAdminRequest
-	72,  // 112: kade.merchant.v1.OutletAdminService.UpdateCommission:input_type -> kade.merchant.v1.UpdateCommissionRequest
-	74,  // 113: kade.merchant.v1.OutletAdminService.SetOutletStatus:input_type -> kade.merchant.v1.SetOutletStatusRequest
-	10,  // 114: kade.merchant.v1.KitchenService.ListTickets:output_type -> kade.merchant.v1.ListTicketsResponse
-	12,  // 115: kade.merchant.v1.KitchenService.GetTicket:output_type -> kade.merchant.v1.GetTicketResponse
-	14,  // 116: kade.merchant.v1.KitchenService.AcceptOrder:output_type -> kade.merchant.v1.AcceptOrderResponse
-	16,  // 117: kade.merchant.v1.KitchenService.RejectOrder:output_type -> kade.merchant.v1.RejectOrderResponse
-	18,  // 118: kade.merchant.v1.KitchenService.MarkOrderReady:output_type -> kade.merchant.v1.MarkOrderReadyResponse
-	20,  // 119: kade.merchant.v1.KitchenService.HandOverOrder:output_type -> kade.merchant.v1.HandOverOrderResponse
-	24,  // 120: kade.merchant.v1.OutletService.GetOutlet:output_type -> kade.merchant.v1.GetOutletResponse
-	26,  // 121: kade.merchant.v1.OutletService.SetBusyMode:output_type -> kade.merchant.v1.SetBusyModeResponse
-	28,  // 122: kade.merchant.v1.OutletService.PauseOutlet:output_type -> kade.merchant.v1.PauseOutletResponse
-	30,  // 123: kade.merchant.v1.OutletService.ResumeOutlet:output_type -> kade.merchant.v1.ResumeOutletResponse
-	32,  // 124: kade.merchant.v1.OutletService.ReportTabletHeartbeat:output_type -> kade.merchant.v1.ReportTabletHeartbeatResponse
-	37,  // 125: kade.merchant.v1.OutletService.GetOutletSettings:output_type -> kade.merchant.v1.GetOutletSettingsResponse
-	39,  // 126: kade.merchant.v1.OutletService.UpdateOutletSettings:output_type -> kade.merchant.v1.UpdateOutletSettingsResponse
-	41,  // 127: kade.merchant.v1.OutletService.PrintTestTicket:output_type -> kade.merchant.v1.PrintTestTicketResponse
-	44,  // 128: kade.merchant.v1.OutletStaffService.ListOutletStaff:output_type -> kade.merchant.v1.ListOutletStaffResponse
-	46,  // 129: kade.merchant.v1.OutletStaffService.InviteOutletStaff:output_type -> kade.merchant.v1.InviteOutletStaffResponse
-	48,  // 130: kade.merchant.v1.OutletStaffService.ChangeOutletStaffRole:output_type -> kade.merchant.v1.ChangeOutletStaffRoleResponse
-	50,  // 131: kade.merchant.v1.OutletStaffService.RemoveOutletStaff:output_type -> kade.merchant.v1.RemoveOutletStaffResponse
-	56,  // 132: kade.merchant.v1.PartnerApplicationService.SubmitApplication:output_type -> kade.merchant.v1.SubmitApplicationResponse
-	58,  // 133: kade.merchant.v1.PartnerApplicationService.GetMyApplication:output_type -> kade.merchant.v1.GetMyApplicationResponse
-	60,  // 134: kade.merchant.v1.PartnerApplicationService.ListApplications:output_type -> kade.merchant.v1.ListApplicationsResponse
-	62,  // 135: kade.merchant.v1.PartnerApplicationService.GetApplication:output_type -> kade.merchant.v1.GetApplicationResponse
-	64,  // 136: kade.merchant.v1.PartnerApplicationService.SetApplicationDocumentStatus:output_type -> kade.merchant.v1.SetApplicationDocumentStatusResponse
-	66,  // 137: kade.merchant.v1.PartnerApplicationService.DecideApplication:output_type -> kade.merchant.v1.DecideApplicationResponse
-	69,  // 138: kade.merchant.v1.OutletAdminService.ListOutlets:output_type -> kade.merchant.v1.ListOutletsResponse
-	71,  // 139: kade.merchant.v1.OutletAdminService.GetOutletAdmin:output_type -> kade.merchant.v1.GetOutletAdminResponse
-	73,  // 140: kade.merchant.v1.OutletAdminService.UpdateCommission:output_type -> kade.merchant.v1.UpdateCommissionResponse
-	75,  // 141: kade.merchant.v1.OutletAdminService.SetOutletStatus:output_type -> kade.merchant.v1.SetOutletStatusResponse
-	114, // [114:142] is the sub-list for method output_type
-	86,  // [86:114] is the sub-list for method input_type
-	86,  // [86:86] is the sub-list for extension type_name
-	86,  // [86:86] is the sub-list for extension extendee
-	0,   // [0:86] is the sub-list for field type_name
+	82,  // 42: kade.merchant.v1.OutletStaffMember.last_active_at:type_name -> google.protobuf.Timestamp
+	3,   // 43: kade.merchant.v1.StaffOutlet.role:type_name -> kade.merchant.v1.OutletStaffRole
+	44,  // 44: kade.merchant.v1.GetMyOutletsResponse.outlets:type_name -> kade.merchant.v1.StaffOutlet
+	42,  // 45: kade.merchant.v1.ListOutletStaffResponse.staff:type_name -> kade.merchant.v1.OutletStaffMember
+	3,   // 46: kade.merchant.v1.InviteOutletStaffRequest.role:type_name -> kade.merchant.v1.OutletStaffRole
+	42,  // 47: kade.merchant.v1.InviteOutletStaffResponse.member:type_name -> kade.merchant.v1.OutletStaffMember
+	3,   // 48: kade.merchant.v1.ChangeOutletStaffRoleRequest.role:type_name -> kade.merchant.v1.OutletStaffRole
+	42,  // 49: kade.merchant.v1.ChangeOutletStaffRoleResponse.staff:type_name -> kade.merchant.v1.OutletStaffMember
+	42,  // 50: kade.merchant.v1.RemoveOutletStaffResponse.staff:type_name -> kade.merchant.v1.OutletStaffMember
+	4,   // 51: kade.merchant.v1.BusinessDetails.type:type_name -> kade.merchant.v1.BusinessType
+	85,  // 52: kade.merchant.v1.BusinessDetails.location:type_name -> kade.common.v1.GeoPoint
+	5,   // 53: kade.merchant.v1.MenuSubmission.method:type_name -> kade.merchant.v1.MenuSubmissionMethod
+	54,  // 54: kade.merchant.v1.PartnerApplication.business:type_name -> kade.merchant.v1.BusinessDetails
+	55,  // 55: kade.merchant.v1.PartnerApplication.owner:type_name -> kade.merchant.v1.OwnerDetails
+	86,  // 56: kade.merchant.v1.PartnerApplication.documents:type_name -> kade.common.v1.PartnerDocument
+	84,  // 57: kade.merchant.v1.PartnerApplication.bank:type_name -> kade.common.v1.BankAccount
+	56,  // 58: kade.merchant.v1.PartnerApplication.menu:type_name -> kade.merchant.v1.MenuSubmission
+	87,  // 59: kade.merchant.v1.PartnerApplication.status:type_name -> kade.common.v1.ApplicationStatus
+	82,  // 60: kade.merchant.v1.PartnerApplication.submitted_at:type_name -> google.protobuf.Timestamp
+	82,  // 61: kade.merchant.v1.PartnerApplication.decided_at:type_name -> google.protobuf.Timestamp
+	54,  // 62: kade.merchant.v1.SubmitApplicationRequest.business:type_name -> kade.merchant.v1.BusinessDetails
+	55,  // 63: kade.merchant.v1.SubmitApplicationRequest.owner:type_name -> kade.merchant.v1.OwnerDetails
+	86,  // 64: kade.merchant.v1.SubmitApplicationRequest.documents:type_name -> kade.common.v1.PartnerDocument
+	84,  // 65: kade.merchant.v1.SubmitApplicationRequest.bank:type_name -> kade.common.v1.BankAccount
+	56,  // 66: kade.merchant.v1.SubmitApplicationRequest.menu:type_name -> kade.merchant.v1.MenuSubmission
+	57,  // 67: kade.merchant.v1.SubmitApplicationResponse.application:type_name -> kade.merchant.v1.PartnerApplication
+	57,  // 68: kade.merchant.v1.GetMyApplicationResponse.application:type_name -> kade.merchant.v1.PartnerApplication
+	87,  // 69: kade.merchant.v1.ListApplicationsRequest.status:type_name -> kade.common.v1.ApplicationStatus
+	88,  // 70: kade.merchant.v1.ListApplicationsRequest.page:type_name -> kade.common.v1.PageRequest
+	57,  // 71: kade.merchant.v1.ListApplicationsResponse.applications:type_name -> kade.merchant.v1.PartnerApplication
+	89,  // 72: kade.merchant.v1.ListApplicationsResponse.page:type_name -> kade.common.v1.PageResponse
+	57,  // 73: kade.merchant.v1.GetApplicationResponse.application:type_name -> kade.merchant.v1.PartnerApplication
+	90,  // 74: kade.merchant.v1.SetApplicationDocumentStatusRequest.status:type_name -> kade.common.v1.DocumentStatus
+	57,  // 75: kade.merchant.v1.SetApplicationDocumentStatusResponse.application:type_name -> kade.merchant.v1.PartnerApplication
+	87,  // 76: kade.merchant.v1.DecideApplicationRequest.decision:type_name -> kade.common.v1.ApplicationStatus
+	57,  // 77: kade.merchant.v1.DecideApplicationResponse.application:type_name -> kade.merchant.v1.PartnerApplication
+	22,  // 78: kade.merchant.v1.OutletAdminView.outlet:type_name -> kade.merchant.v1.Outlet
+	91,  // 79: kade.merchant.v1.OutletAdminView.owner:type_name -> kade.common.v1.Contact
+	1,   // 80: kade.merchant.v1.ListOutletsRequest.status:type_name -> kade.merchant.v1.OutletAdminStatus
+	88,  // 81: kade.merchant.v1.ListOutletsRequest.page:type_name -> kade.common.v1.PageRequest
+	70,  // 82: kade.merchant.v1.ListOutletsResponse.outlets:type_name -> kade.merchant.v1.OutletAdminView
+	89,  // 83: kade.merchant.v1.ListOutletsResponse.page:type_name -> kade.common.v1.PageResponse
+	70,  // 84: kade.merchant.v1.GetOutletAdminResponse.outlet:type_name -> kade.merchant.v1.OutletAdminView
+	70,  // 85: kade.merchant.v1.UpdateCommissionResponse.outlet:type_name -> kade.merchant.v1.OutletAdminView
+	1,   // 86: kade.merchant.v1.SetOutletStatusRequest.status:type_name -> kade.merchant.v1.OutletAdminStatus
+	70,  // 87: kade.merchant.v1.SetOutletStatusResponse.outlet:type_name -> kade.merchant.v1.OutletAdminView
+	9,   // 88: kade.merchant.v1.KitchenService.ListTickets:input_type -> kade.merchant.v1.ListTicketsRequest
+	11,  // 89: kade.merchant.v1.KitchenService.GetTicket:input_type -> kade.merchant.v1.GetTicketRequest
+	13,  // 90: kade.merchant.v1.KitchenService.AcceptOrder:input_type -> kade.merchant.v1.AcceptOrderRequest
+	15,  // 91: kade.merchant.v1.KitchenService.RejectOrder:input_type -> kade.merchant.v1.RejectOrderRequest
+	17,  // 92: kade.merchant.v1.KitchenService.MarkOrderReady:input_type -> kade.merchant.v1.MarkOrderReadyRequest
+	19,  // 93: kade.merchant.v1.KitchenService.HandOverOrder:input_type -> kade.merchant.v1.HandOverOrderRequest
+	23,  // 94: kade.merchant.v1.OutletService.GetOutlet:input_type -> kade.merchant.v1.GetOutletRequest
+	25,  // 95: kade.merchant.v1.OutletService.SetBusyMode:input_type -> kade.merchant.v1.SetBusyModeRequest
+	27,  // 96: kade.merchant.v1.OutletService.PauseOutlet:input_type -> kade.merchant.v1.PauseOutletRequest
+	29,  // 97: kade.merchant.v1.OutletService.ResumeOutlet:input_type -> kade.merchant.v1.ResumeOutletRequest
+	31,  // 98: kade.merchant.v1.OutletService.ReportTabletHeartbeat:input_type -> kade.merchant.v1.ReportTabletHeartbeatRequest
+	36,  // 99: kade.merchant.v1.OutletService.GetOutletSettings:input_type -> kade.merchant.v1.GetOutletSettingsRequest
+	38,  // 100: kade.merchant.v1.OutletService.UpdateOutletSettings:input_type -> kade.merchant.v1.UpdateOutletSettingsRequest
+	40,  // 101: kade.merchant.v1.OutletService.PrintTestTicket:input_type -> kade.merchant.v1.PrintTestTicketRequest
+	46,  // 102: kade.merchant.v1.OutletStaffService.ListOutletStaff:input_type -> kade.merchant.v1.ListOutletStaffRequest
+	48,  // 103: kade.merchant.v1.OutletStaffService.InviteOutletStaff:input_type -> kade.merchant.v1.InviteOutletStaffRequest
+	50,  // 104: kade.merchant.v1.OutletStaffService.ChangeOutletStaffRole:input_type -> kade.merchant.v1.ChangeOutletStaffRoleRequest
+	52,  // 105: kade.merchant.v1.OutletStaffService.RemoveOutletStaff:input_type -> kade.merchant.v1.RemoveOutletStaffRequest
+	43,  // 106: kade.merchant.v1.OutletStaffService.GetMyOutlets:input_type -> kade.merchant.v1.GetMyOutletsRequest
+	58,  // 107: kade.merchant.v1.PartnerApplicationService.SubmitApplication:input_type -> kade.merchant.v1.SubmitApplicationRequest
+	60,  // 108: kade.merchant.v1.PartnerApplicationService.GetMyApplication:input_type -> kade.merchant.v1.GetMyApplicationRequest
+	62,  // 109: kade.merchant.v1.PartnerApplicationService.ListApplications:input_type -> kade.merchant.v1.ListApplicationsRequest
+	64,  // 110: kade.merchant.v1.PartnerApplicationService.GetApplication:input_type -> kade.merchant.v1.GetApplicationRequest
+	66,  // 111: kade.merchant.v1.PartnerApplicationService.SetApplicationDocumentStatus:input_type -> kade.merchant.v1.SetApplicationDocumentStatusRequest
+	68,  // 112: kade.merchant.v1.PartnerApplicationService.DecideApplication:input_type -> kade.merchant.v1.DecideApplicationRequest
+	71,  // 113: kade.merchant.v1.OutletAdminService.ListOutlets:input_type -> kade.merchant.v1.ListOutletsRequest
+	73,  // 114: kade.merchant.v1.OutletAdminService.GetOutletAdmin:input_type -> kade.merchant.v1.GetOutletAdminRequest
+	75,  // 115: kade.merchant.v1.OutletAdminService.UpdateCommission:input_type -> kade.merchant.v1.UpdateCommissionRequest
+	77,  // 116: kade.merchant.v1.OutletAdminService.SetOutletStatus:input_type -> kade.merchant.v1.SetOutletStatusRequest
+	10,  // 117: kade.merchant.v1.KitchenService.ListTickets:output_type -> kade.merchant.v1.ListTicketsResponse
+	12,  // 118: kade.merchant.v1.KitchenService.GetTicket:output_type -> kade.merchant.v1.GetTicketResponse
+	14,  // 119: kade.merchant.v1.KitchenService.AcceptOrder:output_type -> kade.merchant.v1.AcceptOrderResponse
+	16,  // 120: kade.merchant.v1.KitchenService.RejectOrder:output_type -> kade.merchant.v1.RejectOrderResponse
+	18,  // 121: kade.merchant.v1.KitchenService.MarkOrderReady:output_type -> kade.merchant.v1.MarkOrderReadyResponse
+	20,  // 122: kade.merchant.v1.KitchenService.HandOverOrder:output_type -> kade.merchant.v1.HandOverOrderResponse
+	24,  // 123: kade.merchant.v1.OutletService.GetOutlet:output_type -> kade.merchant.v1.GetOutletResponse
+	26,  // 124: kade.merchant.v1.OutletService.SetBusyMode:output_type -> kade.merchant.v1.SetBusyModeResponse
+	28,  // 125: kade.merchant.v1.OutletService.PauseOutlet:output_type -> kade.merchant.v1.PauseOutletResponse
+	30,  // 126: kade.merchant.v1.OutletService.ResumeOutlet:output_type -> kade.merchant.v1.ResumeOutletResponse
+	32,  // 127: kade.merchant.v1.OutletService.ReportTabletHeartbeat:output_type -> kade.merchant.v1.ReportTabletHeartbeatResponse
+	37,  // 128: kade.merchant.v1.OutletService.GetOutletSettings:output_type -> kade.merchant.v1.GetOutletSettingsResponse
+	39,  // 129: kade.merchant.v1.OutletService.UpdateOutletSettings:output_type -> kade.merchant.v1.UpdateOutletSettingsResponse
+	41,  // 130: kade.merchant.v1.OutletService.PrintTestTicket:output_type -> kade.merchant.v1.PrintTestTicketResponse
+	47,  // 131: kade.merchant.v1.OutletStaffService.ListOutletStaff:output_type -> kade.merchant.v1.ListOutletStaffResponse
+	49,  // 132: kade.merchant.v1.OutletStaffService.InviteOutletStaff:output_type -> kade.merchant.v1.InviteOutletStaffResponse
+	51,  // 133: kade.merchant.v1.OutletStaffService.ChangeOutletStaffRole:output_type -> kade.merchant.v1.ChangeOutletStaffRoleResponse
+	53,  // 134: kade.merchant.v1.OutletStaffService.RemoveOutletStaff:output_type -> kade.merchant.v1.RemoveOutletStaffResponse
+	45,  // 135: kade.merchant.v1.OutletStaffService.GetMyOutlets:output_type -> kade.merchant.v1.GetMyOutletsResponse
+	59,  // 136: kade.merchant.v1.PartnerApplicationService.SubmitApplication:output_type -> kade.merchant.v1.SubmitApplicationResponse
+	61,  // 137: kade.merchant.v1.PartnerApplicationService.GetMyApplication:output_type -> kade.merchant.v1.GetMyApplicationResponse
+	63,  // 138: kade.merchant.v1.PartnerApplicationService.ListApplications:output_type -> kade.merchant.v1.ListApplicationsResponse
+	65,  // 139: kade.merchant.v1.PartnerApplicationService.GetApplication:output_type -> kade.merchant.v1.GetApplicationResponse
+	67,  // 140: kade.merchant.v1.PartnerApplicationService.SetApplicationDocumentStatus:output_type -> kade.merchant.v1.SetApplicationDocumentStatusResponse
+	69,  // 141: kade.merchant.v1.PartnerApplicationService.DecideApplication:output_type -> kade.merchant.v1.DecideApplicationResponse
+	72,  // 142: kade.merchant.v1.OutletAdminService.ListOutlets:output_type -> kade.merchant.v1.ListOutletsResponse
+	74,  // 143: kade.merchant.v1.OutletAdminService.GetOutletAdmin:output_type -> kade.merchant.v1.GetOutletAdminResponse
+	76,  // 144: kade.merchant.v1.OutletAdminService.UpdateCommission:output_type -> kade.merchant.v1.UpdateCommissionResponse
+	78,  // 145: kade.merchant.v1.OutletAdminService.SetOutletStatus:output_type -> kade.merchant.v1.SetOutletStatusResponse
+	117, // [117:146] is the sub-list for method output_type
+	88,  // [88:117] is the sub-list for method input_type
+	88,  // [88:88] is the sub-list for extension type_name
+	88,  // [88:88] is the sub-list for extension extendee
+	0,   // [0:88] is the sub-list for field type_name
 }
 
 func init() { file_kade_merchant_v1_merchant_service_proto_init() }
@@ -5225,7 +5381,7 @@ func file_kade_merchant_v1_merchant_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_kade_merchant_v1_merchant_service_proto_rawDesc), len(file_kade_merchant_v1_merchant_service_proto_rawDesc)),
 			NumEnums:      6,
-			NumMessages:   70,
+			NumMessages:   73,
 			NumExtensions: 0,
 			NumServices:   5,
 		},

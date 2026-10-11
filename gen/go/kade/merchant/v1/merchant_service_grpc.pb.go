@@ -699,6 +699,7 @@ const (
 	OutletStaffService_InviteOutletStaff_FullMethodName     = "/kade.merchant.v1.OutletStaffService/InviteOutletStaff"
 	OutletStaffService_ChangeOutletStaffRole_FullMethodName = "/kade.merchant.v1.OutletStaffService/ChangeOutletStaffRole"
 	OutletStaffService_RemoveOutletStaff_FullMethodName     = "/kade.merchant.v1.OutletStaffService/RemoveOutletStaff"
+	OutletStaffService_GetMyOutlets_FullMethodName          = "/kade.merchant.v1.OutletStaffService/GetMyOutlets"
 )
 
 // OutletStaffServiceClient is the client API for OutletStaffService service.
@@ -711,6 +712,8 @@ type OutletStaffServiceClient interface {
 	// Fails with LAST_OWNER if it would leave no owner.
 	ChangeOutletStaffRole(ctx context.Context, in *ChangeOutletStaffRoleRequest, opts ...grpc.CallOption) (*ChangeOutletStaffRoleResponse, error)
 	RemoveOutletStaff(ctx context.Context, in *RemoveOutletStaffRequest, opts ...grpc.CallOption) (*RemoveOutletStaffResponse, error)
+	// Outlets the caller (x-user-id = Keycloak sub) works at, for the merchant gateway's sign-in.
+	GetMyOutlets(ctx context.Context, in *GetMyOutletsRequest, opts ...grpc.CallOption) (*GetMyOutletsResponse, error)
 }
 
 type outletStaffServiceClient struct {
@@ -761,6 +764,16 @@ func (c *outletStaffServiceClient) RemoveOutletStaff(ctx context.Context, in *Re
 	return out, nil
 }
 
+func (c *outletStaffServiceClient) GetMyOutlets(ctx context.Context, in *GetMyOutletsRequest, opts ...grpc.CallOption) (*GetMyOutletsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetMyOutletsResponse)
+	err := c.cc.Invoke(ctx, OutletStaffService_GetMyOutlets_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // OutletStaffServiceServer is the server API for OutletStaffService service.
 // All implementations must embed UnimplementedOutletStaffServiceServer
 // for forward compatibility.
@@ -771,6 +784,8 @@ type OutletStaffServiceServer interface {
 	// Fails with LAST_OWNER if it would leave no owner.
 	ChangeOutletStaffRole(context.Context, *ChangeOutletStaffRoleRequest) (*ChangeOutletStaffRoleResponse, error)
 	RemoveOutletStaff(context.Context, *RemoveOutletStaffRequest) (*RemoveOutletStaffResponse, error)
+	// Outlets the caller (x-user-id = Keycloak sub) works at, for the merchant gateway's sign-in.
+	GetMyOutlets(context.Context, *GetMyOutletsRequest) (*GetMyOutletsResponse, error)
 	mustEmbedUnimplementedOutletStaffServiceServer()
 }
 
@@ -792,6 +807,9 @@ func (UnimplementedOutletStaffServiceServer) ChangeOutletStaffRole(context.Conte
 }
 func (UnimplementedOutletStaffServiceServer) RemoveOutletStaff(context.Context, *RemoveOutletStaffRequest) (*RemoveOutletStaffResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RemoveOutletStaff not implemented")
+}
+func (UnimplementedOutletStaffServiceServer) GetMyOutlets(context.Context, *GetMyOutletsRequest) (*GetMyOutletsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetMyOutlets not implemented")
 }
 func (UnimplementedOutletStaffServiceServer) mustEmbedUnimplementedOutletStaffServiceServer() {}
 func (UnimplementedOutletStaffServiceServer) testEmbeddedByValue()                            {}
@@ -886,6 +904,24 @@ func _OutletStaffService_RemoveOutletStaff_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
+func _OutletStaffService_GetMyOutlets_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMyOutletsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OutletStaffServiceServer).GetMyOutlets(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OutletStaffService_GetMyOutlets_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OutletStaffServiceServer).GetMyOutlets(ctx, req.(*GetMyOutletsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // OutletStaffService_ServiceDesc is the grpc.ServiceDesc for OutletStaffService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -908,6 +944,10 @@ var OutletStaffService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RemoveOutletStaff",
 			Handler:    _OutletStaffService_RemoveOutletStaff_Handler,
+		},
+		{
+			MethodName: "GetMyOutlets",
+			Handler:    _OutletStaffService_GetMyOutlets_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

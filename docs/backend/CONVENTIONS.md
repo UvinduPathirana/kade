@@ -42,6 +42,8 @@ Ports are fixed so services, gateways and Compose agree. gRPC listens on the gRP
 | support | TS | 50116 | 8116 | `support` | ticket → `kade.ticket.events` |
 | cart (note) | | | | `cart` DB also exists for the template wiring; carts themselves live in Redis | |
 | _template ts / gateway | TS | 50100 | 8100 / 8200 | `template_ts` | note → `kade.note.events` (templates only) |
+| _template go | Go | 50192 | 8192 | `template_go` | `kade.note.views` (registry stream demo) |
+| _template java | Java | 50193 | 8193 | `template_java` | |
 
 | Gateway | App | HTTP | Notes |
 | --- | --- | --- | --- |
@@ -88,6 +90,19 @@ Running a service on the host against the Compose stack: use the host ports (`lo
 - One package per domain: `kade.<domain>.v1`. Service definitions in `<domain>_service.proto`, events in `<domain>_events.proto`.
 - Shared types in `kade.common.v1`: `Money`, `EventEnvelope` metadata, `GeoPoint`, pagination.
 - **Money is `int64` minor units (cents) in LKR** (`kade.common.v1.Money { int64 amount_minor; string currency = "LKR"; }`). Never floats. Gateways convert to whole rupees for the apps, which display `Rs 1,150`.
+- **Seeded ids** are deterministic so every service seeds against the same records: `00000000-0000-7000-<group>-<N zero-padded to 12 decimal digits>`.
+
+  | Group | Entity | Example |
+  | --- | --- | --- |
+  | `8000` | restaurants / outlets (apps' restaurant 1–16) | Galle Road Kottu House = `…-8000-000000000001` |
+  | `8001` | riders (rider app R-101 → 101) | Nimal = `…-8001-000000000101` |
+  | `8002` | seeded customers without logins (admin mock C-2040 → 2040) | `…-8002-000000002040` |
+  | `8003` | seeded orders (KD-4821 → 4821) | `…-8003-000000004821` |
+  | `8005` | Keycloak users (fixed in the realm import) | dilini 1, ruwan 2, kasun 3, nimal 4, ops 5, finance 6, support 7, admin 8 |
+
+  A demo user's customer id **is** their Keycloak sub (dilini = `…-8005-000000000001`). Riders and outlet staff link to users by `user_id` = sub (Nimal's rider `…-8001-000000000101` has `user_id` `…-8005-000000000004`; ruwan owner and kasun kitchen at outlet `…-8000-000000000001`). Gateways resolve them with `merchant.OutletStaffService.GetMyOutlets` and `dispatch.RiderService.GetMyRider`.
+- **Zone ids** are short slugs from the admin console, not UUIDs: `c01`…`c15` (Colombo 01–15), `deh` (Dehiwala), `raj` (Rajagiriya), `nug` (Nugegoda), `mtl` (Mount Lavinia). `pricing.ResolveZone(lat, lng)` is the source of truth (nearest zone centroid within 3.5 km); catalog, order, dispatch and gateways use these ids.
+- **Seeded restaurant ids:** the apps' restaurant N (1–16) is UUID `00000000-0000-7000-8000-` + N zero-padded to 12 decimal digits (restaurant 1 → `00000000-0000-7000-8000-000000000001`, 16 → `…000000000016`). Merchant `outlet_id` = catalog `restaurant_id`. Gateways recover N with `parseInt(id.slice(-12), 10)`; catalog also accepts the bare number.
 - Times are `google.protobuf.Timestamp`. IDs are UUIDv7 strings; human-facing order numbers (`KD-4821`) are a separate `order_number` field.
 - `buf lint` and `buf breaking` (against `main`) must pass. Never reuse or renumber a field; deprecate instead.
 

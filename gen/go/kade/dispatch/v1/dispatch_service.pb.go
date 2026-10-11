@@ -3895,8 +3895,10 @@ type Rider struct {
 	Position       *v1.GeoPoint           `protobuf:"bytes,21,opt,name=position,proto3" json:"position,omitempty"`
 	PositionZoneId string                 `protobuf:"bytes,22,opt,name=position_zone_id,json=positionZoneId,proto3" json:"position_zone_id,omitempty"`
 	LastSeenAt     *timestamppb.Timestamp `protobuf:"bytes,23,opt,name=last_seen_at,json=lastSeenAt,proto3" json:"last_seen_at,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Keycloak user id (sub) of the person behind this rider record.
+	UserId        string `protobuf:"bytes,24,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Rider) Reset() {
@@ -4090,6 +4092,93 @@ func (x *Rider) GetLastSeenAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *Rider) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type GetMyRiderRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetMyRiderRequest) Reset() {
+	*x = GetMyRiderRequest{}
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetMyRiderRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetMyRiderRequest) ProtoMessage() {}
+
+func (x *GetMyRiderRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetMyRiderRequest.ProtoReflect.Descriptor instead.
+func (*GetMyRiderRequest) Descriptor() ([]byte, []int) {
+	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{52}
+}
+
+type GetMyRiderResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Rider         *Rider                 `protobuf:"bytes,1,opt,name=rider,proto3" json:"rider,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetMyRiderResponse) Reset() {
+	*x = GetMyRiderResponse{}
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetMyRiderResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetMyRiderResponse) ProtoMessage() {}
+
+func (x *GetMyRiderResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetMyRiderResponse.ProtoReflect.Descriptor instead.
+func (*GetMyRiderResponse) Descriptor() ([]byte, []int) {
+	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{53}
+}
+
+func (x *GetMyRiderResponse) GetRider() *Rider {
+	if x != nil {
+		return x.Rider
+	}
+	return nil
+}
+
 type RiderApplication struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	Id      string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -4116,7 +4205,7 @@ type RiderApplication struct {
 
 func (x *RiderApplication) Reset() {
 	*x = RiderApplication{}
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[52]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4128,7 +4217,7 @@ func (x *RiderApplication) String() string {
 func (*RiderApplication) ProtoMessage() {}
 
 func (x *RiderApplication) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[52]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4141,7 +4230,7 @@ func (x *RiderApplication) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RiderApplication.ProtoReflect.Descriptor instead.
 func (*RiderApplication) Descriptor() ([]byte, []int) {
-	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{52}
+	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *RiderApplication) GetId() string {
@@ -4258,7 +4347,7 @@ type GetRiderProfileRequest struct {
 
 func (x *GetRiderProfileRequest) Reset() {
 	*x = GetRiderProfileRequest{}
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[53]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4270,7 +4359,7 @@ func (x *GetRiderProfileRequest) String() string {
 func (*GetRiderProfileRequest) ProtoMessage() {}
 
 func (x *GetRiderProfileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[53]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4283,7 +4372,7 @@ func (x *GetRiderProfileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRiderProfileRequest.ProtoReflect.Descriptor instead.
 func (*GetRiderProfileRequest) Descriptor() ([]byte, []int) {
-	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{53}
+	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *GetRiderProfileRequest) GetRiderId() string {
@@ -4302,7 +4391,7 @@ type GetRiderProfileResponse struct {
 
 func (x *GetRiderProfileResponse) Reset() {
 	*x = GetRiderProfileResponse{}
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[54]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4314,7 +4403,7 @@ func (x *GetRiderProfileResponse) String() string {
 func (*GetRiderProfileResponse) ProtoMessage() {}
 
 func (x *GetRiderProfileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[54]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4327,7 +4416,7 @@ func (x *GetRiderProfileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRiderProfileResponse.ProtoReflect.Descriptor instead.
 func (*GetRiderProfileResponse) Descriptor() ([]byte, []int) {
-	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{54}
+	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *GetRiderProfileResponse) GetRider() *Rider {
@@ -4346,7 +4435,7 @@ type ListRiderDocumentsRequest struct {
 
 func (x *ListRiderDocumentsRequest) Reset() {
 	*x = ListRiderDocumentsRequest{}
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[55]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4358,7 +4447,7 @@ func (x *ListRiderDocumentsRequest) String() string {
 func (*ListRiderDocumentsRequest) ProtoMessage() {}
 
 func (x *ListRiderDocumentsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[55]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4371,7 +4460,7 @@ func (x *ListRiderDocumentsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRiderDocumentsRequest.ProtoReflect.Descriptor instead.
 func (*ListRiderDocumentsRequest) Descriptor() ([]byte, []int) {
-	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{55}
+	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *ListRiderDocumentsRequest) GetRiderId() string {
@@ -4390,7 +4479,7 @@ type ListRiderDocumentsResponse struct {
 
 func (x *ListRiderDocumentsResponse) Reset() {
 	*x = ListRiderDocumentsResponse{}
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[56]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4402,7 +4491,7 @@ func (x *ListRiderDocumentsResponse) String() string {
 func (*ListRiderDocumentsResponse) ProtoMessage() {}
 
 func (x *ListRiderDocumentsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[56]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4415,7 +4504,7 @@ func (x *ListRiderDocumentsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRiderDocumentsResponse.ProtoReflect.Descriptor instead.
 func (*ListRiderDocumentsResponse) Descriptor() ([]byte, []int) {
-	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{56}
+	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *ListRiderDocumentsResponse) GetDocuments() []*v1.PartnerDocument {
@@ -4442,7 +4531,7 @@ type SubmitRiderApplicationRequest struct {
 
 func (x *SubmitRiderApplicationRequest) Reset() {
 	*x = SubmitRiderApplicationRequest{}
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[57]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4454,7 +4543,7 @@ func (x *SubmitRiderApplicationRequest) String() string {
 func (*SubmitRiderApplicationRequest) ProtoMessage() {}
 
 func (x *SubmitRiderApplicationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[57]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4467,7 +4556,7 @@ func (x *SubmitRiderApplicationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmitRiderApplicationRequest.ProtoReflect.Descriptor instead.
 func (*SubmitRiderApplicationRequest) Descriptor() ([]byte, []int) {
-	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{57}
+	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *SubmitRiderApplicationRequest) GetName() string {
@@ -4542,7 +4631,7 @@ type SubmitRiderApplicationResponse struct {
 
 func (x *SubmitRiderApplicationResponse) Reset() {
 	*x = SubmitRiderApplicationResponse{}
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[58]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4554,7 +4643,7 @@ func (x *SubmitRiderApplicationResponse) String() string {
 func (*SubmitRiderApplicationResponse) ProtoMessage() {}
 
 func (x *SubmitRiderApplicationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[58]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4567,7 +4656,7 @@ func (x *SubmitRiderApplicationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmitRiderApplicationResponse.ProtoReflect.Descriptor instead.
 func (*SubmitRiderApplicationResponse) Descriptor() ([]byte, []int) {
-	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{58}
+	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *SubmitRiderApplicationResponse) GetApplication() *RiderApplication {
@@ -4586,7 +4675,7 @@ type GetRiderApplicationStatusRequest struct {
 
 func (x *GetRiderApplicationStatusRequest) Reset() {
 	*x = GetRiderApplicationStatusRequest{}
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[59]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4598,7 +4687,7 @@ func (x *GetRiderApplicationStatusRequest) String() string {
 func (*GetRiderApplicationStatusRequest) ProtoMessage() {}
 
 func (x *GetRiderApplicationStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[59]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4611,7 +4700,7 @@ func (x *GetRiderApplicationStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRiderApplicationStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetRiderApplicationStatusRequest) Descriptor() ([]byte, []int) {
-	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{59}
+	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *GetRiderApplicationStatusRequest) GetPhone() string {
@@ -4633,7 +4722,7 @@ type GetRiderApplicationStatusResponse struct {
 
 func (x *GetRiderApplicationStatusResponse) Reset() {
 	*x = GetRiderApplicationStatusResponse{}
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[60]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4645,7 +4734,7 @@ func (x *GetRiderApplicationStatusResponse) String() string {
 func (*GetRiderApplicationStatusResponse) ProtoMessage() {}
 
 func (x *GetRiderApplicationStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[60]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4658,7 +4747,7 @@ func (x *GetRiderApplicationStatusResponse) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use GetRiderApplicationStatusResponse.ProtoReflect.Descriptor instead.
 func (*GetRiderApplicationStatusResponse) Descriptor() ([]byte, []int) {
-	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{60}
+	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *GetRiderApplicationStatusResponse) GetApplication() *RiderApplication {
@@ -4687,7 +4776,7 @@ type ResubmitRiderDocumentRequest struct {
 
 func (x *ResubmitRiderDocumentRequest) Reset() {
 	*x = ResubmitRiderDocumentRequest{}
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[61]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4699,7 +4788,7 @@ func (x *ResubmitRiderDocumentRequest) String() string {
 func (*ResubmitRiderDocumentRequest) ProtoMessage() {}
 
 func (x *ResubmitRiderDocumentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[61]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4712,7 +4801,7 @@ func (x *ResubmitRiderDocumentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResubmitRiderDocumentRequest.ProtoReflect.Descriptor instead.
 func (*ResubmitRiderDocumentRequest) Descriptor() ([]byte, []int) {
-	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{61}
+	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *ResubmitRiderDocumentRequest) GetApplicationId() string {
@@ -4752,7 +4841,7 @@ type ResubmitRiderDocumentResponse struct {
 
 func (x *ResubmitRiderDocumentResponse) Reset() {
 	*x = ResubmitRiderDocumentResponse{}
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[62]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4764,7 +4853,7 @@ func (x *ResubmitRiderDocumentResponse) String() string {
 func (*ResubmitRiderDocumentResponse) ProtoMessage() {}
 
 func (x *ResubmitRiderDocumentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[62]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4777,7 +4866,7 @@ func (x *ResubmitRiderDocumentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResubmitRiderDocumentResponse.ProtoReflect.Descriptor instead.
 func (*ResubmitRiderDocumentResponse) Descriptor() ([]byte, []int) {
-	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{62}
+	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *ResubmitRiderDocumentResponse) GetApplication() *RiderApplication {
@@ -4801,7 +4890,7 @@ type ListRidersRequest struct {
 
 func (x *ListRidersRequest) Reset() {
 	*x = ListRidersRequest{}
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[63]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4813,7 +4902,7 @@ func (x *ListRidersRequest) String() string {
 func (*ListRidersRequest) ProtoMessage() {}
 
 func (x *ListRidersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[63]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4826,7 +4915,7 @@ func (x *ListRidersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRidersRequest.ProtoReflect.Descriptor instead.
 func (*ListRidersRequest) Descriptor() ([]byte, []int) {
-	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{63}
+	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *ListRidersRequest) GetStatus() RiderStatus {
@@ -4874,7 +4963,7 @@ type ListRidersResponse struct {
 
 func (x *ListRidersResponse) Reset() {
 	*x = ListRidersResponse{}
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[64]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4886,7 +4975,7 @@ func (x *ListRidersResponse) String() string {
 func (*ListRidersResponse) ProtoMessage() {}
 
 func (x *ListRidersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[64]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4899,7 +4988,7 @@ func (x *ListRidersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRidersResponse.ProtoReflect.Descriptor instead.
 func (*ListRidersResponse) Descriptor() ([]byte, []int) {
-	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{64}
+	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *ListRidersResponse) GetRiders() []*Rider {
@@ -4925,7 +5014,7 @@ type GetRiderRequest struct {
 
 func (x *GetRiderRequest) Reset() {
 	*x = GetRiderRequest{}
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[65]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4937,7 +5026,7 @@ func (x *GetRiderRequest) String() string {
 func (*GetRiderRequest) ProtoMessage() {}
 
 func (x *GetRiderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[65]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4950,7 +5039,7 @@ func (x *GetRiderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRiderRequest.ProtoReflect.Descriptor instead.
 func (*GetRiderRequest) Descriptor() ([]byte, []int) {
-	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{65}
+	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *GetRiderRequest) GetRiderId() string {
@@ -4969,7 +5058,7 @@ type GetRiderResponse struct {
 
 func (x *GetRiderResponse) Reset() {
 	*x = GetRiderResponse{}
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[66]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4981,7 +5070,7 @@ func (x *GetRiderResponse) String() string {
 func (*GetRiderResponse) ProtoMessage() {}
 
 func (x *GetRiderResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[66]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4994,7 +5083,7 @@ func (x *GetRiderResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRiderResponse.ProtoReflect.Descriptor instead.
 func (*GetRiderResponse) Descriptor() ([]byte, []int) {
-	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{66}
+	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *GetRiderResponse) GetRider() *Rider {
@@ -5014,7 +5103,7 @@ type ListRiderApplicationsRequest struct {
 
 func (x *ListRiderApplicationsRequest) Reset() {
 	*x = ListRiderApplicationsRequest{}
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[67]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5026,7 +5115,7 @@ func (x *ListRiderApplicationsRequest) String() string {
 func (*ListRiderApplicationsRequest) ProtoMessage() {}
 
 func (x *ListRiderApplicationsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[67]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5039,7 +5128,7 @@ func (x *ListRiderApplicationsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRiderApplicationsRequest.ProtoReflect.Descriptor instead.
 func (*ListRiderApplicationsRequest) Descriptor() ([]byte, []int) {
-	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{67}
+	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *ListRiderApplicationsRequest) GetStatus() v1.ApplicationStatus {
@@ -5066,7 +5155,7 @@ type ListRiderApplicationsResponse struct {
 
 func (x *ListRiderApplicationsResponse) Reset() {
 	*x = ListRiderApplicationsResponse{}
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[68]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5078,7 +5167,7 @@ func (x *ListRiderApplicationsResponse) String() string {
 func (*ListRiderApplicationsResponse) ProtoMessage() {}
 
 func (x *ListRiderApplicationsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[68]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5091,7 +5180,7 @@ func (x *ListRiderApplicationsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRiderApplicationsResponse.ProtoReflect.Descriptor instead.
 func (*ListRiderApplicationsResponse) Descriptor() ([]byte, []int) {
-	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{68}
+	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *ListRiderApplicationsResponse) GetApplications() []*RiderApplication {
@@ -5122,7 +5211,7 @@ type ReviewRiderDocumentRequest struct {
 
 func (x *ReviewRiderDocumentRequest) Reset() {
 	*x = ReviewRiderDocumentRequest{}
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[69]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5134,7 +5223,7 @@ func (x *ReviewRiderDocumentRequest) String() string {
 func (*ReviewRiderDocumentRequest) ProtoMessage() {}
 
 func (x *ReviewRiderDocumentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[69]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5147,7 +5236,7 @@ func (x *ReviewRiderDocumentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReviewRiderDocumentRequest.ProtoReflect.Descriptor instead.
 func (*ReviewRiderDocumentRequest) Descriptor() ([]byte, []int) {
-	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{69}
+	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *ReviewRiderDocumentRequest) GetApplicationId() string {
@@ -5194,7 +5283,7 @@ type ReviewRiderDocumentResponse struct {
 
 func (x *ReviewRiderDocumentResponse) Reset() {
 	*x = ReviewRiderDocumentResponse{}
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[70]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5206,7 +5295,7 @@ func (x *ReviewRiderDocumentResponse) String() string {
 func (*ReviewRiderDocumentResponse) ProtoMessage() {}
 
 func (x *ReviewRiderDocumentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[70]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5219,7 +5308,7 @@ func (x *ReviewRiderDocumentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReviewRiderDocumentResponse.ProtoReflect.Descriptor instead.
 func (*ReviewRiderDocumentResponse) Descriptor() ([]byte, []int) {
-	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{70}
+	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *ReviewRiderDocumentResponse) GetDocuments() []*v1.PartnerDocument {
@@ -5241,7 +5330,7 @@ type DecideRiderApplicationRequest struct {
 
 func (x *DecideRiderApplicationRequest) Reset() {
 	*x = DecideRiderApplicationRequest{}
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[71]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5253,7 +5342,7 @@ func (x *DecideRiderApplicationRequest) String() string {
 func (*DecideRiderApplicationRequest) ProtoMessage() {}
 
 func (x *DecideRiderApplicationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[71]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5266,7 +5355,7 @@ func (x *DecideRiderApplicationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DecideRiderApplicationRequest.ProtoReflect.Descriptor instead.
 func (*DecideRiderApplicationRequest) Descriptor() ([]byte, []int) {
-	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{71}
+	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *DecideRiderApplicationRequest) GetApplicationId() string {
@@ -5306,7 +5395,7 @@ type DecideRiderApplicationResponse struct {
 
 func (x *DecideRiderApplicationResponse) Reset() {
 	*x = DecideRiderApplicationResponse{}
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[72]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5318,7 +5407,7 @@ func (x *DecideRiderApplicationResponse) String() string {
 func (*DecideRiderApplicationResponse) ProtoMessage() {}
 
 func (x *DecideRiderApplicationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[72]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5331,7 +5420,7 @@ func (x *DecideRiderApplicationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DecideRiderApplicationResponse.ProtoReflect.Descriptor instead.
 func (*DecideRiderApplicationResponse) Descriptor() ([]byte, []int) {
-	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{72}
+	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *DecideRiderApplicationResponse) GetApplication() *RiderApplication {
@@ -5352,7 +5441,7 @@ type SetRiderZonesRequest struct {
 
 func (x *SetRiderZonesRequest) Reset() {
 	*x = SetRiderZonesRequest{}
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[73]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[75]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5364,7 +5453,7 @@ func (x *SetRiderZonesRequest) String() string {
 func (*SetRiderZonesRequest) ProtoMessage() {}
 
 func (x *SetRiderZonesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[73]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[75]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5377,7 +5466,7 @@ func (x *SetRiderZonesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetRiderZonesRequest.ProtoReflect.Descriptor instead.
 func (*SetRiderZonesRequest) Descriptor() ([]byte, []int) {
-	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{73}
+	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{75}
 }
 
 func (x *SetRiderZonesRequest) GetRiderId() string {
@@ -5403,7 +5492,7 @@ type SetRiderZonesResponse struct {
 
 func (x *SetRiderZonesResponse) Reset() {
 	*x = SetRiderZonesResponse{}
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[74]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[76]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5415,7 +5504,7 @@ func (x *SetRiderZonesResponse) String() string {
 func (*SetRiderZonesResponse) ProtoMessage() {}
 
 func (x *SetRiderZonesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[74]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[76]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5428,7 +5517,7 @@ func (x *SetRiderZonesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetRiderZonesResponse.ProtoReflect.Descriptor instead.
 func (*SetRiderZonesResponse) Descriptor() ([]byte, []int) {
-	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{74}
+	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{76}
 }
 
 func (x *SetRiderZonesResponse) GetRider() *Rider {
@@ -5449,7 +5538,7 @@ type SetRiderSuspendedRequest struct {
 
 func (x *SetRiderSuspendedRequest) Reset() {
 	*x = SetRiderSuspendedRequest{}
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[75]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[77]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5461,7 +5550,7 @@ func (x *SetRiderSuspendedRequest) String() string {
 func (*SetRiderSuspendedRequest) ProtoMessage() {}
 
 func (x *SetRiderSuspendedRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[75]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[77]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5474,7 +5563,7 @@ func (x *SetRiderSuspendedRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetRiderSuspendedRequest.ProtoReflect.Descriptor instead.
 func (*SetRiderSuspendedRequest) Descriptor() ([]byte, []int) {
-	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{75}
+	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{77}
 }
 
 func (x *SetRiderSuspendedRequest) GetRiderId() string {
@@ -5507,7 +5596,7 @@ type SetRiderSuspendedResponse struct {
 
 func (x *SetRiderSuspendedResponse) Reset() {
 	*x = SetRiderSuspendedResponse{}
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[76]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[78]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5519,7 +5608,7 @@ func (x *SetRiderSuspendedResponse) String() string {
 func (*SetRiderSuspendedResponse) ProtoMessage() {}
 
 func (x *SetRiderSuspendedResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[76]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[78]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5532,7 +5621,7 @@ func (x *SetRiderSuspendedResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetRiderSuspendedResponse.ProtoReflect.Descriptor instead.
 func (*SetRiderSuspendedResponse) Descriptor() ([]byte, []int) {
-	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{76}
+	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{78}
 }
 
 func (x *SetRiderSuspendedResponse) GetRider() *Rider {
@@ -5560,7 +5649,7 @@ type RiderCard struct {
 
 func (x *RiderCard) Reset() {
 	*x = RiderCard{}
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[77]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[79]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5572,7 +5661,7 @@ func (x *RiderCard) String() string {
 func (*RiderCard) ProtoMessage() {}
 
 func (x *RiderCard) ProtoReflect() protoreflect.Message {
-	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[77]
+	mi := &file_kade_dispatch_v1_dispatch_service_proto_msgTypes[79]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5585,7 +5674,7 @@ func (x *RiderCard) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RiderCard.ProtoReflect.Descriptor instead.
 func (*RiderCard) Descriptor() ([]byte, []int) {
-	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{77}
+	return file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP(), []int{79}
 }
 
 func (x *RiderCard) GetRiderId() string {
@@ -5921,7 +6010,7 @@ const file_kade_dispatch_v1_dispatch_service_proto_rawDesc = "" +
 	"\aVehicle\x121\n" +
 	"\x04type\x18\x01 \x01(\x0e2\x1d.kade.dispatch.v1.VehicleTypeR\x04type\x12\x14\n" +
 	"\x05model\x18\x02 \x01(\tR\x05model\x12\x14\n" +
-	"\x05plate\x18\x03 \x01(\tR\x05plate\"\xb3\a\n" +
+	"\x05plate\x18\x03 \x01(\tR\x05plate\"\xcc\a\n" +
 	"\x05Rider\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1d\n" +
@@ -5950,7 +6039,11 @@ const file_kade_dispatch_v1_dispatch_service_proto_rawDesc = "" +
 	"\bposition\x18\x15 \x01(\v2\x18.kade.common.v1.GeoPointR\bposition\x12(\n" +
 	"\x10position_zone_id\x18\x16 \x01(\tR\x0epositionZoneId\x12<\n" +
 	"\flast_seen_at\x18\x17 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"lastSeenAt\"\xc5\x04\n" +
+	"lastSeenAt\x12\x17\n" +
+	"\auser_id\x18\x18 \x01(\tR\x06userId\"\x13\n" +
+	"\x11GetMyRiderRequest\"C\n" +
+	"\x12GetMyRiderResponse\x12-\n" +
+	"\x05rider\x18\x01 \x01(\v2\x17.kade.dispatch.v1.RiderR\x05rider\"\xc5\x04\n" +
 	"\x10RiderApplication\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -6122,10 +6215,11 @@ const file_kade_dispatch_v1_dispatch_service_proto_rawDesc = "" +
 	"\x0fGetLiveSnapshot\x12(.kade.dispatch.v1.GetLiveSnapshotRequest\x1a).kade.dispatch.v1.GetLiveSnapshotResponse\x12i\n" +
 	"\x10ListNearbyRiders\x12).kade.dispatch.v1.ListNearbyRidersRequest\x1a*.kade.dispatch.v1.ListNearbyRidersResponse\x12`\n" +
 	"\rReassignRider\x12&.kade.dispatch.v1.ReassignRiderRequest\x1a'.kade.dispatch.v1.ReassignRiderResponse\x12Z\n" +
-	"\vGetDelivery\x12$.kade.dispatch.v1.GetDeliveryRequest\x1a%.kade.dispatch.v1.GetDeliveryResponse2\xcc\n" +
-	"\n" +
+	"\vGetDelivery\x12$.kade.dispatch.v1.GetDeliveryRequest\x1a%.kade.dispatch.v1.GetDeliveryResponse2\xa5\v\n" +
 	"\fRiderService\x12f\n" +
-	"\x0fGetRiderProfile\x12(.kade.dispatch.v1.GetRiderProfileRequest\x1a).kade.dispatch.v1.GetRiderProfileResponse\x12o\n" +
+	"\x0fGetRiderProfile\x12(.kade.dispatch.v1.GetRiderProfileRequest\x1a).kade.dispatch.v1.GetRiderProfileResponse\x12W\n" +
+	"\n" +
+	"GetMyRider\x12#.kade.dispatch.v1.GetMyRiderRequest\x1a$.kade.dispatch.v1.GetMyRiderResponse\x12o\n" +
 	"\x12ListRiderDocuments\x12+.kade.dispatch.v1.ListRiderDocumentsRequest\x1a,.kade.dispatch.v1.ListRiderDocumentsResponse\x12{\n" +
 	"\x16SubmitRiderApplication\x12/.kade.dispatch.v1.SubmitRiderApplicationRequest\x1a0.kade.dispatch.v1.SubmitRiderApplicationResponse\x12\x84\x01\n" +
 	"\x19GetRiderApplicationStatus\x122.kade.dispatch.v1.GetRiderApplicationStatusRequest\x1a3.kade.dispatch.v1.GetRiderApplicationStatusResponse\x12x\n" +
@@ -6153,7 +6247,7 @@ func file_kade_dispatch_v1_dispatch_service_proto_rawDescGZIP() []byte {
 }
 
 var file_kade_dispatch_v1_dispatch_service_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
-var file_kade_dispatch_v1_dispatch_service_proto_msgTypes = make([]protoimpl.MessageInfo, 78)
+var file_kade_dispatch_v1_dispatch_service_proto_msgTypes = make([]protoimpl.MessageInfo, 80)
 var file_kade_dispatch_v1_dispatch_service_proto_goTypes = []any{
 	(DeliveryStatus)(0),                       // 0: kade.dispatch.v1.DeliveryStatus
 	(ProofKind)(0),                            // 1: kade.dispatch.v1.ProofKind
@@ -6214,109 +6308,111 @@ var file_kade_dispatch_v1_dispatch_service_proto_goTypes = []any{
 	(*GetDeliveryResponse)(nil),               // 56: kade.dispatch.v1.GetDeliveryResponse
 	(*Vehicle)(nil),                           // 57: kade.dispatch.v1.Vehicle
 	(*Rider)(nil),                             // 58: kade.dispatch.v1.Rider
-	(*RiderApplication)(nil),                  // 59: kade.dispatch.v1.RiderApplication
-	(*GetRiderProfileRequest)(nil),            // 60: kade.dispatch.v1.GetRiderProfileRequest
-	(*GetRiderProfileResponse)(nil),           // 61: kade.dispatch.v1.GetRiderProfileResponse
-	(*ListRiderDocumentsRequest)(nil),         // 62: kade.dispatch.v1.ListRiderDocumentsRequest
-	(*ListRiderDocumentsResponse)(nil),        // 63: kade.dispatch.v1.ListRiderDocumentsResponse
-	(*SubmitRiderApplicationRequest)(nil),     // 64: kade.dispatch.v1.SubmitRiderApplicationRequest
-	(*SubmitRiderApplicationResponse)(nil),    // 65: kade.dispatch.v1.SubmitRiderApplicationResponse
-	(*GetRiderApplicationStatusRequest)(nil),  // 66: kade.dispatch.v1.GetRiderApplicationStatusRequest
-	(*GetRiderApplicationStatusResponse)(nil), // 67: kade.dispatch.v1.GetRiderApplicationStatusResponse
-	(*ResubmitRiderDocumentRequest)(nil),      // 68: kade.dispatch.v1.ResubmitRiderDocumentRequest
-	(*ResubmitRiderDocumentResponse)(nil),     // 69: kade.dispatch.v1.ResubmitRiderDocumentResponse
-	(*ListRidersRequest)(nil),                 // 70: kade.dispatch.v1.ListRidersRequest
-	(*ListRidersResponse)(nil),                // 71: kade.dispatch.v1.ListRidersResponse
-	(*GetRiderRequest)(nil),                   // 72: kade.dispatch.v1.GetRiderRequest
-	(*GetRiderResponse)(nil),                  // 73: kade.dispatch.v1.GetRiderResponse
-	(*ListRiderApplicationsRequest)(nil),      // 74: kade.dispatch.v1.ListRiderApplicationsRequest
-	(*ListRiderApplicationsResponse)(nil),     // 75: kade.dispatch.v1.ListRiderApplicationsResponse
-	(*ReviewRiderDocumentRequest)(nil),        // 76: kade.dispatch.v1.ReviewRiderDocumentRequest
-	(*ReviewRiderDocumentResponse)(nil),       // 77: kade.dispatch.v1.ReviewRiderDocumentResponse
-	(*DecideRiderApplicationRequest)(nil),     // 78: kade.dispatch.v1.DecideRiderApplicationRequest
-	(*DecideRiderApplicationResponse)(nil),    // 79: kade.dispatch.v1.DecideRiderApplicationResponse
-	(*SetRiderZonesRequest)(nil),              // 80: kade.dispatch.v1.SetRiderZonesRequest
-	(*SetRiderZonesResponse)(nil),             // 81: kade.dispatch.v1.SetRiderZonesResponse
-	(*SetRiderSuspendedRequest)(nil),          // 82: kade.dispatch.v1.SetRiderSuspendedRequest
-	(*SetRiderSuspendedResponse)(nil),         // 83: kade.dispatch.v1.SetRiderSuspendedResponse
-	(*RiderCard)(nil),                         // 84: kade.dispatch.v1.RiderCard
-	(*v1.Money)(nil),                          // 85: kade.common.v1.Money
-	(*v1.GeoPoint)(nil),                       // 86: kade.common.v1.GeoPoint
-	(v1.PaymentMethodKind)(0),                 // 87: kade.common.v1.PaymentMethodKind
-	(*timestamppb.Timestamp)(nil),             // 88: google.protobuf.Timestamp
-	(*v1.PageRequest)(nil),                    // 89: kade.common.v1.PageRequest
-	(*v1.PageResponse)(nil),                   // 90: kade.common.v1.PageResponse
-	(*v1.BankAccount)(nil),                    // 91: kade.common.v1.BankAccount
-	(*v1.PartnerDocument)(nil),                // 92: kade.common.v1.PartnerDocument
-	(v1.ApplicationStatus)(0),                 // 93: kade.common.v1.ApplicationStatus
-	(v1.DocumentStatus)(0),                    // 94: kade.common.v1.DocumentStatus
+	(*GetMyRiderRequest)(nil),                 // 59: kade.dispatch.v1.GetMyRiderRequest
+	(*GetMyRiderResponse)(nil),                // 60: kade.dispatch.v1.GetMyRiderResponse
+	(*RiderApplication)(nil),                  // 61: kade.dispatch.v1.RiderApplication
+	(*GetRiderProfileRequest)(nil),            // 62: kade.dispatch.v1.GetRiderProfileRequest
+	(*GetRiderProfileResponse)(nil),           // 63: kade.dispatch.v1.GetRiderProfileResponse
+	(*ListRiderDocumentsRequest)(nil),         // 64: kade.dispatch.v1.ListRiderDocumentsRequest
+	(*ListRiderDocumentsResponse)(nil),        // 65: kade.dispatch.v1.ListRiderDocumentsResponse
+	(*SubmitRiderApplicationRequest)(nil),     // 66: kade.dispatch.v1.SubmitRiderApplicationRequest
+	(*SubmitRiderApplicationResponse)(nil),    // 67: kade.dispatch.v1.SubmitRiderApplicationResponse
+	(*GetRiderApplicationStatusRequest)(nil),  // 68: kade.dispatch.v1.GetRiderApplicationStatusRequest
+	(*GetRiderApplicationStatusResponse)(nil), // 69: kade.dispatch.v1.GetRiderApplicationStatusResponse
+	(*ResubmitRiderDocumentRequest)(nil),      // 70: kade.dispatch.v1.ResubmitRiderDocumentRequest
+	(*ResubmitRiderDocumentResponse)(nil),     // 71: kade.dispatch.v1.ResubmitRiderDocumentResponse
+	(*ListRidersRequest)(nil),                 // 72: kade.dispatch.v1.ListRidersRequest
+	(*ListRidersResponse)(nil),                // 73: kade.dispatch.v1.ListRidersResponse
+	(*GetRiderRequest)(nil),                   // 74: kade.dispatch.v1.GetRiderRequest
+	(*GetRiderResponse)(nil),                  // 75: kade.dispatch.v1.GetRiderResponse
+	(*ListRiderApplicationsRequest)(nil),      // 76: kade.dispatch.v1.ListRiderApplicationsRequest
+	(*ListRiderApplicationsResponse)(nil),     // 77: kade.dispatch.v1.ListRiderApplicationsResponse
+	(*ReviewRiderDocumentRequest)(nil),        // 78: kade.dispatch.v1.ReviewRiderDocumentRequest
+	(*ReviewRiderDocumentResponse)(nil),       // 79: kade.dispatch.v1.ReviewRiderDocumentResponse
+	(*DecideRiderApplicationRequest)(nil),     // 80: kade.dispatch.v1.DecideRiderApplicationRequest
+	(*DecideRiderApplicationResponse)(nil),    // 81: kade.dispatch.v1.DecideRiderApplicationResponse
+	(*SetRiderZonesRequest)(nil),              // 82: kade.dispatch.v1.SetRiderZonesRequest
+	(*SetRiderZonesResponse)(nil),             // 83: kade.dispatch.v1.SetRiderZonesResponse
+	(*SetRiderSuspendedRequest)(nil),          // 84: kade.dispatch.v1.SetRiderSuspendedRequest
+	(*SetRiderSuspendedResponse)(nil),         // 85: kade.dispatch.v1.SetRiderSuspendedResponse
+	(*RiderCard)(nil),                         // 86: kade.dispatch.v1.RiderCard
+	(*v1.Money)(nil),                          // 87: kade.common.v1.Money
+	(*v1.GeoPoint)(nil),                       // 88: kade.common.v1.GeoPoint
+	(v1.PaymentMethodKind)(0),                 // 89: kade.common.v1.PaymentMethodKind
+	(*timestamppb.Timestamp)(nil),             // 90: google.protobuf.Timestamp
+	(*v1.PageRequest)(nil),                    // 91: kade.common.v1.PageRequest
+	(*v1.PageResponse)(nil),                   // 92: kade.common.v1.PageResponse
+	(*v1.BankAccount)(nil),                    // 93: kade.common.v1.BankAccount
+	(*v1.PartnerDocument)(nil),                // 94: kade.common.v1.PartnerDocument
+	(v1.ApplicationStatus)(0),                 // 95: kade.common.v1.ApplicationStatus
+	(v1.DocumentStatus)(0),                    // 96: kade.common.v1.DocumentStatus
 }
 var file_kade_dispatch_v1_dispatch_service_proto_depIdxs = []int32{
-	85,  // 0: kade.dispatch.v1.RiderPay.base:type_name -> kade.common.v1.Money
-	85,  // 1: kade.dispatch.v1.RiderPay.distance:type_name -> kade.common.v1.Money
-	85,  // 2: kade.dispatch.v1.RiderPay.tip:type_name -> kade.common.v1.Money
-	85,  // 3: kade.dispatch.v1.RiderPay.boost:type_name -> kade.common.v1.Money
-	85,  // 4: kade.dispatch.v1.RiderPay.total:type_name -> kade.common.v1.Money
-	86,  // 5: kade.dispatch.v1.PickupStop.location:type_name -> kade.common.v1.GeoPoint
-	86,  // 6: kade.dispatch.v1.DropoffStop.location:type_name -> kade.common.v1.GeoPoint
+	87,  // 0: kade.dispatch.v1.RiderPay.base:type_name -> kade.common.v1.Money
+	87,  // 1: kade.dispatch.v1.RiderPay.distance:type_name -> kade.common.v1.Money
+	87,  // 2: kade.dispatch.v1.RiderPay.tip:type_name -> kade.common.v1.Money
+	87,  // 3: kade.dispatch.v1.RiderPay.boost:type_name -> kade.common.v1.Money
+	87,  // 4: kade.dispatch.v1.RiderPay.total:type_name -> kade.common.v1.Money
+	88,  // 5: kade.dispatch.v1.PickupStop.location:type_name -> kade.common.v1.GeoPoint
+	88,  // 6: kade.dispatch.v1.DropoffStop.location:type_name -> kade.common.v1.GeoPoint
 	0,   // 7: kade.dispatch.v1.Delivery.status:type_name -> kade.dispatch.v1.DeliveryStatus
 	8,   // 8: kade.dispatch.v1.Delivery.pickup:type_name -> kade.dispatch.v1.PickupStop
 	9,   // 9: kade.dispatch.v1.Delivery.dropoff:type_name -> kade.dispatch.v1.DropoffStop
 	7,   // 10: kade.dispatch.v1.Delivery.pay:type_name -> kade.dispatch.v1.RiderPay
-	87,  // 11: kade.dispatch.v1.Delivery.payment:type_name -> kade.common.v1.PaymentMethodKind
-	85,  // 12: kade.dispatch.v1.Delivery.cash_to_collect:type_name -> kade.common.v1.Money
-	85,  // 13: kade.dispatch.v1.Delivery.customer_pays_with:type_name -> kade.common.v1.Money
+	89,  // 11: kade.dispatch.v1.Delivery.payment:type_name -> kade.common.v1.PaymentMethodKind
+	87,  // 12: kade.dispatch.v1.Delivery.cash_to_collect:type_name -> kade.common.v1.Money
+	87,  // 13: kade.dispatch.v1.Delivery.customer_pays_with:type_name -> kade.common.v1.Money
 	10,  // 14: kade.dispatch.v1.Delivery.items:type_name -> kade.dispatch.v1.DeliveryItem
-	88,  // 15: kade.dispatch.v1.Delivery.ready_by:type_name -> google.protobuf.Timestamp
-	88,  // 16: kade.dispatch.v1.Delivery.requested_at:type_name -> google.protobuf.Timestamp
-	88,  // 17: kade.dispatch.v1.Delivery.assigned_at:type_name -> google.protobuf.Timestamp
-	88,  // 18: kade.dispatch.v1.Delivery.arrived_at_restaurant_at:type_name -> google.protobuf.Timestamp
-	88,  // 19: kade.dispatch.v1.Delivery.picked_up_at:type_name -> google.protobuf.Timestamp
-	88,  // 20: kade.dispatch.v1.Delivery.arrived_at_customer_at:type_name -> google.protobuf.Timestamp
-	88,  // 21: kade.dispatch.v1.Delivery.delivered_at:type_name -> google.protobuf.Timestamp
+	90,  // 15: kade.dispatch.v1.Delivery.ready_by:type_name -> google.protobuf.Timestamp
+	90,  // 16: kade.dispatch.v1.Delivery.requested_at:type_name -> google.protobuf.Timestamp
+	90,  // 17: kade.dispatch.v1.Delivery.assigned_at:type_name -> google.protobuf.Timestamp
+	90,  // 18: kade.dispatch.v1.Delivery.arrived_at_restaurant_at:type_name -> google.protobuf.Timestamp
+	90,  // 19: kade.dispatch.v1.Delivery.picked_up_at:type_name -> google.protobuf.Timestamp
+	90,  // 20: kade.dispatch.v1.Delivery.arrived_at_customer_at:type_name -> google.protobuf.Timestamp
+	90,  // 21: kade.dispatch.v1.Delivery.delivered_at:type_name -> google.protobuf.Timestamp
 	1,   // 22: kade.dispatch.v1.Delivery.proof:type_name -> kade.dispatch.v1.ProofKind
-	85,  // 23: kade.dispatch.v1.Delivery.cash_collected:type_name -> kade.common.v1.Money
+	87,  // 23: kade.dispatch.v1.Delivery.cash_collected:type_name -> kade.common.v1.Money
 	11,  // 24: kade.dispatch.v1.DeliveryOffer.delivery:type_name -> kade.dispatch.v1.Delivery
-	86,  // 25: kade.dispatch.v1.DeliveryOffer.from:type_name -> kade.common.v1.GeoPoint
-	88,  // 26: kade.dispatch.v1.DeliveryOffer.offered_at:type_name -> google.protobuf.Timestamp
-	88,  // 27: kade.dispatch.v1.DeliveryOffer.expires_at:type_name -> google.protobuf.Timestamp
+	88,  // 25: kade.dispatch.v1.DeliveryOffer.from:type_name -> kade.common.v1.GeoPoint
+	90,  // 26: kade.dispatch.v1.DeliveryOffer.offered_at:type_name -> google.protobuf.Timestamp
+	90,  // 27: kade.dispatch.v1.DeliveryOffer.expires_at:type_name -> google.protobuf.Timestamp
 	2,   // 28: kade.dispatch.v1.DeliveryOffer.status:type_name -> kade.dispatch.v1.OfferStatus
 	7,   // 29: kade.dispatch.v1.Trip.pay:type_name -> kade.dispatch.v1.RiderPay
-	87,  // 30: kade.dispatch.v1.Trip.payment:type_name -> kade.common.v1.PaymentMethodKind
-	85,  // 31: kade.dispatch.v1.Trip.cash_collected:type_name -> kade.common.v1.Money
-	88,  // 32: kade.dispatch.v1.Trip.accepted_at:type_name -> google.protobuf.Timestamp
-	88,  // 33: kade.dispatch.v1.Trip.arrived_at_restaurant_at:type_name -> google.protobuf.Timestamp
-	88,  // 34: kade.dispatch.v1.Trip.picked_up_at:type_name -> google.protobuf.Timestamp
-	88,  // 35: kade.dispatch.v1.Trip.delivered_at:type_name -> google.protobuf.Timestamp
+	89,  // 30: kade.dispatch.v1.Trip.payment:type_name -> kade.common.v1.PaymentMethodKind
+	87,  // 31: kade.dispatch.v1.Trip.cash_collected:type_name -> kade.common.v1.Money
+	90,  // 32: kade.dispatch.v1.Trip.accepted_at:type_name -> google.protobuf.Timestamp
+	90,  // 33: kade.dispatch.v1.Trip.arrived_at_restaurant_at:type_name -> google.protobuf.Timestamp
+	90,  // 34: kade.dispatch.v1.Trip.picked_up_at:type_name -> google.protobuf.Timestamp
+	90,  // 35: kade.dispatch.v1.Trip.delivered_at:type_name -> google.protobuf.Timestamp
 	1,   // 36: kade.dispatch.v1.Trip.proof:type_name -> kade.dispatch.v1.ProofKind
-	86,  // 37: kade.dispatch.v1.Trip.from:type_name -> kade.common.v1.GeoPoint
-	86,  // 38: kade.dispatch.v1.Trip.pickup_point:type_name -> kade.common.v1.GeoPoint
-	86,  // 39: kade.dispatch.v1.Trip.dropoff_point:type_name -> kade.common.v1.GeoPoint
-	85,  // 40: kade.dispatch.v1.Quest.bonus:type_name -> kade.common.v1.Money
-	88,  // 41: kade.dispatch.v1.Quest.ends_at:type_name -> google.protobuf.Timestamp
-	86,  // 42: kade.dispatch.v1.SetAvailabilityRequest.position:type_name -> kade.common.v1.GeoPoint
+	88,  // 37: kade.dispatch.v1.Trip.from:type_name -> kade.common.v1.GeoPoint
+	88,  // 38: kade.dispatch.v1.Trip.pickup_point:type_name -> kade.common.v1.GeoPoint
+	88,  // 39: kade.dispatch.v1.Trip.dropoff_point:type_name -> kade.common.v1.GeoPoint
+	87,  // 40: kade.dispatch.v1.Quest.bonus:type_name -> kade.common.v1.Money
+	90,  // 41: kade.dispatch.v1.Quest.ends_at:type_name -> google.protobuf.Timestamp
+	88,  // 42: kade.dispatch.v1.SetAvailabilityRequest.position:type_name -> kade.common.v1.GeoPoint
 	58,  // 43: kade.dispatch.v1.SetAvailabilityResponse.rider:type_name -> kade.dispatch.v1.Rider
 	12,  // 44: kade.dispatch.v1.GetCurrentOfferResponse.offer:type_name -> kade.dispatch.v1.DeliveryOffer
 	11,  // 45: kade.dispatch.v1.AcceptOfferResponse.delivery:type_name -> kade.dispatch.v1.Delivery
 	11,  // 46: kade.dispatch.v1.GetActiveJobResponse.delivery:type_name -> kade.dispatch.v1.Delivery
 	11,  // 47: kade.dispatch.v1.ArriveAtRestaurantResponse.delivery:type_name -> kade.dispatch.v1.Delivery
-	88,  // 48: kade.dispatch.v1.ReportFoodNotReadyResponse.ready_at:type_name -> google.protobuf.Timestamp
+	90,  // 48: kade.dispatch.v1.ReportFoodNotReadyResponse.ready_at:type_name -> google.protobuf.Timestamp
 	11,  // 49: kade.dispatch.v1.ConfirmPickupResponse.delivery:type_name -> kade.dispatch.v1.Delivery
 	11,  // 50: kade.dispatch.v1.ArriveAtCustomerResponse.delivery:type_name -> kade.dispatch.v1.Delivery
 	1,   // 51: kade.dispatch.v1.CompleteDeliveryRequest.proof:type_name -> kade.dispatch.v1.ProofKind
-	85,  // 52: kade.dispatch.v1.CompleteDeliveryRequest.cash_collected:type_name -> kade.common.v1.Money
+	87,  // 52: kade.dispatch.v1.CompleteDeliveryRequest.cash_collected:type_name -> kade.common.v1.Money
 	13,  // 53: kade.dispatch.v1.CompleteDeliveryResponse.trip:type_name -> kade.dispatch.v1.Trip
-	88,  // 54: kade.dispatch.v1.ListTripsRequest.from:type_name -> google.protobuf.Timestamp
-	88,  // 55: kade.dispatch.v1.ListTripsRequest.to:type_name -> google.protobuf.Timestamp
-	89,  // 56: kade.dispatch.v1.ListTripsRequest.page:type_name -> kade.common.v1.PageRequest
+	90,  // 54: kade.dispatch.v1.ListTripsRequest.from:type_name -> google.protobuf.Timestamp
+	90,  // 55: kade.dispatch.v1.ListTripsRequest.to:type_name -> google.protobuf.Timestamp
+	91,  // 56: kade.dispatch.v1.ListTripsRequest.page:type_name -> kade.common.v1.PageRequest
 	13,  // 57: kade.dispatch.v1.ListTripsResponse.trips:type_name -> kade.dispatch.v1.Trip
-	90,  // 58: kade.dispatch.v1.ListTripsResponse.page:type_name -> kade.common.v1.PageResponse
+	92,  // 58: kade.dispatch.v1.ListTripsResponse.page:type_name -> kade.common.v1.PageResponse
 	13,  // 59: kade.dispatch.v1.GetTripResponse.trip:type_name -> kade.dispatch.v1.Trip
 	14,  // 60: kade.dispatch.v1.ListQuestsResponse.quests:type_name -> kade.dispatch.v1.Quest
 	3,   // 61: kade.dispatch.v1.AttentionItem.kind:type_name -> kade.dispatch.v1.AttentionKind
 	4,   // 62: kade.dispatch.v1.MapDot.kind:type_name -> kade.dispatch.v1.DotKind
-	86,  // 63: kade.dispatch.v1.MapDot.location:type_name -> kade.common.v1.GeoPoint
-	88,  // 64: kade.dispatch.v1.LiveSnapshot.at:type_name -> google.protobuf.Timestamp
+	88,  // 63: kade.dispatch.v1.MapDot.location:type_name -> kade.common.v1.GeoPoint
+	90,  // 64: kade.dispatch.v1.LiveSnapshot.at:type_name -> google.protobuf.Timestamp
 	43,  // 65: kade.dispatch.v1.LiveSnapshot.attention:type_name -> kade.dispatch.v1.AttentionItem
 	45,  // 66: kade.dispatch.v1.LiveSnapshot.orders_by_hour:type_name -> kade.dispatch.v1.HourCount
 	44,  // 67: kade.dispatch.v1.LiveSnapshot.dots:type_name -> kade.dispatch.v1.MapDot
@@ -6330,108 +6426,111 @@ var file_kade_dispatch_v1_dispatch_service_proto_depIdxs = []int32{
 	5,   // 75: kade.dispatch.v1.Vehicle.type:type_name -> kade.dispatch.v1.VehicleType
 	57,  // 76: kade.dispatch.v1.Rider.vehicle:type_name -> kade.dispatch.v1.Vehicle
 	6,   // 77: kade.dispatch.v1.Rider.status:type_name -> kade.dispatch.v1.RiderStatus
-	85,  // 78: kade.dispatch.v1.Rider.cash_held:type_name -> kade.common.v1.Money
-	85,  // 79: kade.dispatch.v1.Rider.cash_limit:type_name -> kade.common.v1.Money
-	88,  // 80: kade.dispatch.v1.Rider.joined_at:type_name -> google.protobuf.Timestamp
-	91,  // 81: kade.dispatch.v1.Rider.bank:type_name -> kade.common.v1.BankAccount
-	92,  // 82: kade.dispatch.v1.Rider.documents:type_name -> kade.common.v1.PartnerDocument
-	86,  // 83: kade.dispatch.v1.Rider.position:type_name -> kade.common.v1.GeoPoint
-	88,  // 84: kade.dispatch.v1.Rider.last_seen_at:type_name -> google.protobuf.Timestamp
-	5,   // 85: kade.dispatch.v1.RiderApplication.vehicle:type_name -> kade.dispatch.v1.VehicleType
-	92,  // 86: kade.dispatch.v1.RiderApplication.documents:type_name -> kade.common.v1.PartnerDocument
-	91,  // 87: kade.dispatch.v1.RiderApplication.bank:type_name -> kade.common.v1.BankAccount
-	93,  // 88: kade.dispatch.v1.RiderApplication.status:type_name -> kade.common.v1.ApplicationStatus
-	88,  // 89: kade.dispatch.v1.RiderApplication.submitted_at:type_name -> google.protobuf.Timestamp
-	88,  // 90: kade.dispatch.v1.RiderApplication.decided_at:type_name -> google.protobuf.Timestamp
-	58,  // 91: kade.dispatch.v1.GetRiderProfileResponse.rider:type_name -> kade.dispatch.v1.Rider
-	92,  // 92: kade.dispatch.v1.ListRiderDocumentsResponse.documents:type_name -> kade.common.v1.PartnerDocument
-	5,   // 93: kade.dispatch.v1.SubmitRiderApplicationRequest.vehicle:type_name -> kade.dispatch.v1.VehicleType
-	92,  // 94: kade.dispatch.v1.SubmitRiderApplicationRequest.documents:type_name -> kade.common.v1.PartnerDocument
-	91,  // 95: kade.dispatch.v1.SubmitRiderApplicationRequest.bank:type_name -> kade.common.v1.BankAccount
-	59,  // 96: kade.dispatch.v1.SubmitRiderApplicationResponse.application:type_name -> kade.dispatch.v1.RiderApplication
-	59,  // 97: kade.dispatch.v1.GetRiderApplicationStatusResponse.application:type_name -> kade.dispatch.v1.RiderApplication
-	92,  // 98: kade.dispatch.v1.GetRiderApplicationStatusResponse.needs_fix:type_name -> kade.common.v1.PartnerDocument
-	59,  // 99: kade.dispatch.v1.ResubmitRiderDocumentResponse.application:type_name -> kade.dispatch.v1.RiderApplication
-	6,   // 100: kade.dispatch.v1.ListRidersRequest.status:type_name -> kade.dispatch.v1.RiderStatus
-	89,  // 101: kade.dispatch.v1.ListRidersRequest.page:type_name -> kade.common.v1.PageRequest
-	58,  // 102: kade.dispatch.v1.ListRidersResponse.riders:type_name -> kade.dispatch.v1.Rider
-	90,  // 103: kade.dispatch.v1.ListRidersResponse.page:type_name -> kade.common.v1.PageResponse
-	58,  // 104: kade.dispatch.v1.GetRiderResponse.rider:type_name -> kade.dispatch.v1.Rider
-	93,  // 105: kade.dispatch.v1.ListRiderApplicationsRequest.status:type_name -> kade.common.v1.ApplicationStatus
-	89,  // 106: kade.dispatch.v1.ListRiderApplicationsRequest.page:type_name -> kade.common.v1.PageRequest
-	59,  // 107: kade.dispatch.v1.ListRiderApplicationsResponse.applications:type_name -> kade.dispatch.v1.RiderApplication
-	90,  // 108: kade.dispatch.v1.ListRiderApplicationsResponse.page:type_name -> kade.common.v1.PageResponse
-	94,  // 109: kade.dispatch.v1.ReviewRiderDocumentRequest.status:type_name -> kade.common.v1.DocumentStatus
-	92,  // 110: kade.dispatch.v1.ReviewRiderDocumentResponse.documents:type_name -> kade.common.v1.PartnerDocument
-	93,  // 111: kade.dispatch.v1.DecideRiderApplicationRequest.decision:type_name -> kade.common.v1.ApplicationStatus
-	59,  // 112: kade.dispatch.v1.DecideRiderApplicationResponse.application:type_name -> kade.dispatch.v1.RiderApplication
-	58,  // 113: kade.dispatch.v1.SetRiderZonesResponse.rider:type_name -> kade.dispatch.v1.Rider
-	58,  // 114: kade.dispatch.v1.SetRiderSuspendedResponse.rider:type_name -> kade.dispatch.v1.Rider
-	15,  // 115: kade.dispatch.v1.DispatchService.SetAvailability:input_type -> kade.dispatch.v1.SetAvailabilityRequest
-	17,  // 116: kade.dispatch.v1.DispatchService.GetCurrentOffer:input_type -> kade.dispatch.v1.GetCurrentOfferRequest
-	19,  // 117: kade.dispatch.v1.DispatchService.AcceptOffer:input_type -> kade.dispatch.v1.AcceptOfferRequest
-	21,  // 118: kade.dispatch.v1.DispatchService.DeclineOffer:input_type -> kade.dispatch.v1.DeclineOfferRequest
-	23,  // 119: kade.dispatch.v1.DispatchService.GetActiveJob:input_type -> kade.dispatch.v1.GetActiveJobRequest
-	25,  // 120: kade.dispatch.v1.DispatchService.ArriveAtRestaurant:input_type -> kade.dispatch.v1.ArriveAtRestaurantRequest
-	27,  // 121: kade.dispatch.v1.DispatchService.ReportFoodNotReady:input_type -> kade.dispatch.v1.ReportFoodNotReadyRequest
-	29,  // 122: kade.dispatch.v1.DispatchService.ConfirmPickup:input_type -> kade.dispatch.v1.ConfirmPickupRequest
-	31,  // 123: kade.dispatch.v1.DispatchService.ArriveAtCustomer:input_type -> kade.dispatch.v1.ArriveAtCustomerRequest
-	33,  // 124: kade.dispatch.v1.DispatchService.CompleteDelivery:input_type -> kade.dispatch.v1.CompleteDeliveryRequest
-	35,  // 125: kade.dispatch.v1.DispatchService.SendCustomerMessage:input_type -> kade.dispatch.v1.SendCustomerMessageRequest
-	37,  // 126: kade.dispatch.v1.DispatchService.ListTrips:input_type -> kade.dispatch.v1.ListTripsRequest
-	39,  // 127: kade.dispatch.v1.DispatchService.GetTrip:input_type -> kade.dispatch.v1.GetTripRequest
-	41,  // 128: kade.dispatch.v1.DispatchService.ListQuests:input_type -> kade.dispatch.v1.ListQuestsRequest
-	48,  // 129: kade.dispatch.v1.DispatchOpsService.GetLiveSnapshot:input_type -> kade.dispatch.v1.GetLiveSnapshotRequest
-	51,  // 130: kade.dispatch.v1.DispatchOpsService.ListNearbyRiders:input_type -> kade.dispatch.v1.ListNearbyRidersRequest
-	53,  // 131: kade.dispatch.v1.DispatchOpsService.ReassignRider:input_type -> kade.dispatch.v1.ReassignRiderRequest
-	55,  // 132: kade.dispatch.v1.DispatchOpsService.GetDelivery:input_type -> kade.dispatch.v1.GetDeliveryRequest
-	60,  // 133: kade.dispatch.v1.RiderService.GetRiderProfile:input_type -> kade.dispatch.v1.GetRiderProfileRequest
-	62,  // 134: kade.dispatch.v1.RiderService.ListRiderDocuments:input_type -> kade.dispatch.v1.ListRiderDocumentsRequest
-	64,  // 135: kade.dispatch.v1.RiderService.SubmitRiderApplication:input_type -> kade.dispatch.v1.SubmitRiderApplicationRequest
-	66,  // 136: kade.dispatch.v1.RiderService.GetRiderApplicationStatus:input_type -> kade.dispatch.v1.GetRiderApplicationStatusRequest
-	68,  // 137: kade.dispatch.v1.RiderService.ResubmitRiderDocument:input_type -> kade.dispatch.v1.ResubmitRiderDocumentRequest
-	70,  // 138: kade.dispatch.v1.RiderService.ListRiders:input_type -> kade.dispatch.v1.ListRidersRequest
-	72,  // 139: kade.dispatch.v1.RiderService.GetRider:input_type -> kade.dispatch.v1.GetRiderRequest
-	74,  // 140: kade.dispatch.v1.RiderService.ListRiderApplications:input_type -> kade.dispatch.v1.ListRiderApplicationsRequest
-	76,  // 141: kade.dispatch.v1.RiderService.ReviewRiderDocument:input_type -> kade.dispatch.v1.ReviewRiderDocumentRequest
-	78,  // 142: kade.dispatch.v1.RiderService.DecideRiderApplication:input_type -> kade.dispatch.v1.DecideRiderApplicationRequest
-	80,  // 143: kade.dispatch.v1.RiderService.SetRiderZones:input_type -> kade.dispatch.v1.SetRiderZonesRequest
-	82,  // 144: kade.dispatch.v1.RiderService.SetRiderSuspended:input_type -> kade.dispatch.v1.SetRiderSuspendedRequest
-	16,  // 145: kade.dispatch.v1.DispatchService.SetAvailability:output_type -> kade.dispatch.v1.SetAvailabilityResponse
-	18,  // 146: kade.dispatch.v1.DispatchService.GetCurrentOffer:output_type -> kade.dispatch.v1.GetCurrentOfferResponse
-	20,  // 147: kade.dispatch.v1.DispatchService.AcceptOffer:output_type -> kade.dispatch.v1.AcceptOfferResponse
-	22,  // 148: kade.dispatch.v1.DispatchService.DeclineOffer:output_type -> kade.dispatch.v1.DeclineOfferResponse
-	24,  // 149: kade.dispatch.v1.DispatchService.GetActiveJob:output_type -> kade.dispatch.v1.GetActiveJobResponse
-	26,  // 150: kade.dispatch.v1.DispatchService.ArriveAtRestaurant:output_type -> kade.dispatch.v1.ArriveAtRestaurantResponse
-	28,  // 151: kade.dispatch.v1.DispatchService.ReportFoodNotReady:output_type -> kade.dispatch.v1.ReportFoodNotReadyResponse
-	30,  // 152: kade.dispatch.v1.DispatchService.ConfirmPickup:output_type -> kade.dispatch.v1.ConfirmPickupResponse
-	32,  // 153: kade.dispatch.v1.DispatchService.ArriveAtCustomer:output_type -> kade.dispatch.v1.ArriveAtCustomerResponse
-	34,  // 154: kade.dispatch.v1.DispatchService.CompleteDelivery:output_type -> kade.dispatch.v1.CompleteDeliveryResponse
-	36,  // 155: kade.dispatch.v1.DispatchService.SendCustomerMessage:output_type -> kade.dispatch.v1.SendCustomerMessageResponse
-	38,  // 156: kade.dispatch.v1.DispatchService.ListTrips:output_type -> kade.dispatch.v1.ListTripsResponse
-	40,  // 157: kade.dispatch.v1.DispatchService.GetTrip:output_type -> kade.dispatch.v1.GetTripResponse
-	42,  // 158: kade.dispatch.v1.DispatchService.ListQuests:output_type -> kade.dispatch.v1.ListQuestsResponse
-	49,  // 159: kade.dispatch.v1.DispatchOpsService.GetLiveSnapshot:output_type -> kade.dispatch.v1.GetLiveSnapshotResponse
-	52,  // 160: kade.dispatch.v1.DispatchOpsService.ListNearbyRiders:output_type -> kade.dispatch.v1.ListNearbyRidersResponse
-	54,  // 161: kade.dispatch.v1.DispatchOpsService.ReassignRider:output_type -> kade.dispatch.v1.ReassignRiderResponse
-	56,  // 162: kade.dispatch.v1.DispatchOpsService.GetDelivery:output_type -> kade.dispatch.v1.GetDeliveryResponse
-	61,  // 163: kade.dispatch.v1.RiderService.GetRiderProfile:output_type -> kade.dispatch.v1.GetRiderProfileResponse
-	63,  // 164: kade.dispatch.v1.RiderService.ListRiderDocuments:output_type -> kade.dispatch.v1.ListRiderDocumentsResponse
-	65,  // 165: kade.dispatch.v1.RiderService.SubmitRiderApplication:output_type -> kade.dispatch.v1.SubmitRiderApplicationResponse
-	67,  // 166: kade.dispatch.v1.RiderService.GetRiderApplicationStatus:output_type -> kade.dispatch.v1.GetRiderApplicationStatusResponse
-	69,  // 167: kade.dispatch.v1.RiderService.ResubmitRiderDocument:output_type -> kade.dispatch.v1.ResubmitRiderDocumentResponse
-	71,  // 168: kade.dispatch.v1.RiderService.ListRiders:output_type -> kade.dispatch.v1.ListRidersResponse
-	73,  // 169: kade.dispatch.v1.RiderService.GetRider:output_type -> kade.dispatch.v1.GetRiderResponse
-	75,  // 170: kade.dispatch.v1.RiderService.ListRiderApplications:output_type -> kade.dispatch.v1.ListRiderApplicationsResponse
-	77,  // 171: kade.dispatch.v1.RiderService.ReviewRiderDocument:output_type -> kade.dispatch.v1.ReviewRiderDocumentResponse
-	79,  // 172: kade.dispatch.v1.RiderService.DecideRiderApplication:output_type -> kade.dispatch.v1.DecideRiderApplicationResponse
-	81,  // 173: kade.dispatch.v1.RiderService.SetRiderZones:output_type -> kade.dispatch.v1.SetRiderZonesResponse
-	83,  // 174: kade.dispatch.v1.RiderService.SetRiderSuspended:output_type -> kade.dispatch.v1.SetRiderSuspendedResponse
-	145, // [145:175] is the sub-list for method output_type
-	115, // [115:145] is the sub-list for method input_type
-	115, // [115:115] is the sub-list for extension type_name
-	115, // [115:115] is the sub-list for extension extendee
-	0,   // [0:115] is the sub-list for field type_name
+	87,  // 78: kade.dispatch.v1.Rider.cash_held:type_name -> kade.common.v1.Money
+	87,  // 79: kade.dispatch.v1.Rider.cash_limit:type_name -> kade.common.v1.Money
+	90,  // 80: kade.dispatch.v1.Rider.joined_at:type_name -> google.protobuf.Timestamp
+	93,  // 81: kade.dispatch.v1.Rider.bank:type_name -> kade.common.v1.BankAccount
+	94,  // 82: kade.dispatch.v1.Rider.documents:type_name -> kade.common.v1.PartnerDocument
+	88,  // 83: kade.dispatch.v1.Rider.position:type_name -> kade.common.v1.GeoPoint
+	90,  // 84: kade.dispatch.v1.Rider.last_seen_at:type_name -> google.protobuf.Timestamp
+	58,  // 85: kade.dispatch.v1.GetMyRiderResponse.rider:type_name -> kade.dispatch.v1.Rider
+	5,   // 86: kade.dispatch.v1.RiderApplication.vehicle:type_name -> kade.dispatch.v1.VehicleType
+	94,  // 87: kade.dispatch.v1.RiderApplication.documents:type_name -> kade.common.v1.PartnerDocument
+	93,  // 88: kade.dispatch.v1.RiderApplication.bank:type_name -> kade.common.v1.BankAccount
+	95,  // 89: kade.dispatch.v1.RiderApplication.status:type_name -> kade.common.v1.ApplicationStatus
+	90,  // 90: kade.dispatch.v1.RiderApplication.submitted_at:type_name -> google.protobuf.Timestamp
+	90,  // 91: kade.dispatch.v1.RiderApplication.decided_at:type_name -> google.protobuf.Timestamp
+	58,  // 92: kade.dispatch.v1.GetRiderProfileResponse.rider:type_name -> kade.dispatch.v1.Rider
+	94,  // 93: kade.dispatch.v1.ListRiderDocumentsResponse.documents:type_name -> kade.common.v1.PartnerDocument
+	5,   // 94: kade.dispatch.v1.SubmitRiderApplicationRequest.vehicle:type_name -> kade.dispatch.v1.VehicleType
+	94,  // 95: kade.dispatch.v1.SubmitRiderApplicationRequest.documents:type_name -> kade.common.v1.PartnerDocument
+	93,  // 96: kade.dispatch.v1.SubmitRiderApplicationRequest.bank:type_name -> kade.common.v1.BankAccount
+	61,  // 97: kade.dispatch.v1.SubmitRiderApplicationResponse.application:type_name -> kade.dispatch.v1.RiderApplication
+	61,  // 98: kade.dispatch.v1.GetRiderApplicationStatusResponse.application:type_name -> kade.dispatch.v1.RiderApplication
+	94,  // 99: kade.dispatch.v1.GetRiderApplicationStatusResponse.needs_fix:type_name -> kade.common.v1.PartnerDocument
+	61,  // 100: kade.dispatch.v1.ResubmitRiderDocumentResponse.application:type_name -> kade.dispatch.v1.RiderApplication
+	6,   // 101: kade.dispatch.v1.ListRidersRequest.status:type_name -> kade.dispatch.v1.RiderStatus
+	91,  // 102: kade.dispatch.v1.ListRidersRequest.page:type_name -> kade.common.v1.PageRequest
+	58,  // 103: kade.dispatch.v1.ListRidersResponse.riders:type_name -> kade.dispatch.v1.Rider
+	92,  // 104: kade.dispatch.v1.ListRidersResponse.page:type_name -> kade.common.v1.PageResponse
+	58,  // 105: kade.dispatch.v1.GetRiderResponse.rider:type_name -> kade.dispatch.v1.Rider
+	95,  // 106: kade.dispatch.v1.ListRiderApplicationsRequest.status:type_name -> kade.common.v1.ApplicationStatus
+	91,  // 107: kade.dispatch.v1.ListRiderApplicationsRequest.page:type_name -> kade.common.v1.PageRequest
+	61,  // 108: kade.dispatch.v1.ListRiderApplicationsResponse.applications:type_name -> kade.dispatch.v1.RiderApplication
+	92,  // 109: kade.dispatch.v1.ListRiderApplicationsResponse.page:type_name -> kade.common.v1.PageResponse
+	96,  // 110: kade.dispatch.v1.ReviewRiderDocumentRequest.status:type_name -> kade.common.v1.DocumentStatus
+	94,  // 111: kade.dispatch.v1.ReviewRiderDocumentResponse.documents:type_name -> kade.common.v1.PartnerDocument
+	95,  // 112: kade.dispatch.v1.DecideRiderApplicationRequest.decision:type_name -> kade.common.v1.ApplicationStatus
+	61,  // 113: kade.dispatch.v1.DecideRiderApplicationResponse.application:type_name -> kade.dispatch.v1.RiderApplication
+	58,  // 114: kade.dispatch.v1.SetRiderZonesResponse.rider:type_name -> kade.dispatch.v1.Rider
+	58,  // 115: kade.dispatch.v1.SetRiderSuspendedResponse.rider:type_name -> kade.dispatch.v1.Rider
+	15,  // 116: kade.dispatch.v1.DispatchService.SetAvailability:input_type -> kade.dispatch.v1.SetAvailabilityRequest
+	17,  // 117: kade.dispatch.v1.DispatchService.GetCurrentOffer:input_type -> kade.dispatch.v1.GetCurrentOfferRequest
+	19,  // 118: kade.dispatch.v1.DispatchService.AcceptOffer:input_type -> kade.dispatch.v1.AcceptOfferRequest
+	21,  // 119: kade.dispatch.v1.DispatchService.DeclineOffer:input_type -> kade.dispatch.v1.DeclineOfferRequest
+	23,  // 120: kade.dispatch.v1.DispatchService.GetActiveJob:input_type -> kade.dispatch.v1.GetActiveJobRequest
+	25,  // 121: kade.dispatch.v1.DispatchService.ArriveAtRestaurant:input_type -> kade.dispatch.v1.ArriveAtRestaurantRequest
+	27,  // 122: kade.dispatch.v1.DispatchService.ReportFoodNotReady:input_type -> kade.dispatch.v1.ReportFoodNotReadyRequest
+	29,  // 123: kade.dispatch.v1.DispatchService.ConfirmPickup:input_type -> kade.dispatch.v1.ConfirmPickupRequest
+	31,  // 124: kade.dispatch.v1.DispatchService.ArriveAtCustomer:input_type -> kade.dispatch.v1.ArriveAtCustomerRequest
+	33,  // 125: kade.dispatch.v1.DispatchService.CompleteDelivery:input_type -> kade.dispatch.v1.CompleteDeliveryRequest
+	35,  // 126: kade.dispatch.v1.DispatchService.SendCustomerMessage:input_type -> kade.dispatch.v1.SendCustomerMessageRequest
+	37,  // 127: kade.dispatch.v1.DispatchService.ListTrips:input_type -> kade.dispatch.v1.ListTripsRequest
+	39,  // 128: kade.dispatch.v1.DispatchService.GetTrip:input_type -> kade.dispatch.v1.GetTripRequest
+	41,  // 129: kade.dispatch.v1.DispatchService.ListQuests:input_type -> kade.dispatch.v1.ListQuestsRequest
+	48,  // 130: kade.dispatch.v1.DispatchOpsService.GetLiveSnapshot:input_type -> kade.dispatch.v1.GetLiveSnapshotRequest
+	51,  // 131: kade.dispatch.v1.DispatchOpsService.ListNearbyRiders:input_type -> kade.dispatch.v1.ListNearbyRidersRequest
+	53,  // 132: kade.dispatch.v1.DispatchOpsService.ReassignRider:input_type -> kade.dispatch.v1.ReassignRiderRequest
+	55,  // 133: kade.dispatch.v1.DispatchOpsService.GetDelivery:input_type -> kade.dispatch.v1.GetDeliveryRequest
+	62,  // 134: kade.dispatch.v1.RiderService.GetRiderProfile:input_type -> kade.dispatch.v1.GetRiderProfileRequest
+	59,  // 135: kade.dispatch.v1.RiderService.GetMyRider:input_type -> kade.dispatch.v1.GetMyRiderRequest
+	64,  // 136: kade.dispatch.v1.RiderService.ListRiderDocuments:input_type -> kade.dispatch.v1.ListRiderDocumentsRequest
+	66,  // 137: kade.dispatch.v1.RiderService.SubmitRiderApplication:input_type -> kade.dispatch.v1.SubmitRiderApplicationRequest
+	68,  // 138: kade.dispatch.v1.RiderService.GetRiderApplicationStatus:input_type -> kade.dispatch.v1.GetRiderApplicationStatusRequest
+	70,  // 139: kade.dispatch.v1.RiderService.ResubmitRiderDocument:input_type -> kade.dispatch.v1.ResubmitRiderDocumentRequest
+	72,  // 140: kade.dispatch.v1.RiderService.ListRiders:input_type -> kade.dispatch.v1.ListRidersRequest
+	74,  // 141: kade.dispatch.v1.RiderService.GetRider:input_type -> kade.dispatch.v1.GetRiderRequest
+	76,  // 142: kade.dispatch.v1.RiderService.ListRiderApplications:input_type -> kade.dispatch.v1.ListRiderApplicationsRequest
+	78,  // 143: kade.dispatch.v1.RiderService.ReviewRiderDocument:input_type -> kade.dispatch.v1.ReviewRiderDocumentRequest
+	80,  // 144: kade.dispatch.v1.RiderService.DecideRiderApplication:input_type -> kade.dispatch.v1.DecideRiderApplicationRequest
+	82,  // 145: kade.dispatch.v1.RiderService.SetRiderZones:input_type -> kade.dispatch.v1.SetRiderZonesRequest
+	84,  // 146: kade.dispatch.v1.RiderService.SetRiderSuspended:input_type -> kade.dispatch.v1.SetRiderSuspendedRequest
+	16,  // 147: kade.dispatch.v1.DispatchService.SetAvailability:output_type -> kade.dispatch.v1.SetAvailabilityResponse
+	18,  // 148: kade.dispatch.v1.DispatchService.GetCurrentOffer:output_type -> kade.dispatch.v1.GetCurrentOfferResponse
+	20,  // 149: kade.dispatch.v1.DispatchService.AcceptOffer:output_type -> kade.dispatch.v1.AcceptOfferResponse
+	22,  // 150: kade.dispatch.v1.DispatchService.DeclineOffer:output_type -> kade.dispatch.v1.DeclineOfferResponse
+	24,  // 151: kade.dispatch.v1.DispatchService.GetActiveJob:output_type -> kade.dispatch.v1.GetActiveJobResponse
+	26,  // 152: kade.dispatch.v1.DispatchService.ArriveAtRestaurant:output_type -> kade.dispatch.v1.ArriveAtRestaurantResponse
+	28,  // 153: kade.dispatch.v1.DispatchService.ReportFoodNotReady:output_type -> kade.dispatch.v1.ReportFoodNotReadyResponse
+	30,  // 154: kade.dispatch.v1.DispatchService.ConfirmPickup:output_type -> kade.dispatch.v1.ConfirmPickupResponse
+	32,  // 155: kade.dispatch.v1.DispatchService.ArriveAtCustomer:output_type -> kade.dispatch.v1.ArriveAtCustomerResponse
+	34,  // 156: kade.dispatch.v1.DispatchService.CompleteDelivery:output_type -> kade.dispatch.v1.CompleteDeliveryResponse
+	36,  // 157: kade.dispatch.v1.DispatchService.SendCustomerMessage:output_type -> kade.dispatch.v1.SendCustomerMessageResponse
+	38,  // 158: kade.dispatch.v1.DispatchService.ListTrips:output_type -> kade.dispatch.v1.ListTripsResponse
+	40,  // 159: kade.dispatch.v1.DispatchService.GetTrip:output_type -> kade.dispatch.v1.GetTripResponse
+	42,  // 160: kade.dispatch.v1.DispatchService.ListQuests:output_type -> kade.dispatch.v1.ListQuestsResponse
+	49,  // 161: kade.dispatch.v1.DispatchOpsService.GetLiveSnapshot:output_type -> kade.dispatch.v1.GetLiveSnapshotResponse
+	52,  // 162: kade.dispatch.v1.DispatchOpsService.ListNearbyRiders:output_type -> kade.dispatch.v1.ListNearbyRidersResponse
+	54,  // 163: kade.dispatch.v1.DispatchOpsService.ReassignRider:output_type -> kade.dispatch.v1.ReassignRiderResponse
+	56,  // 164: kade.dispatch.v1.DispatchOpsService.GetDelivery:output_type -> kade.dispatch.v1.GetDeliveryResponse
+	63,  // 165: kade.dispatch.v1.RiderService.GetRiderProfile:output_type -> kade.dispatch.v1.GetRiderProfileResponse
+	60,  // 166: kade.dispatch.v1.RiderService.GetMyRider:output_type -> kade.dispatch.v1.GetMyRiderResponse
+	65,  // 167: kade.dispatch.v1.RiderService.ListRiderDocuments:output_type -> kade.dispatch.v1.ListRiderDocumentsResponse
+	67,  // 168: kade.dispatch.v1.RiderService.SubmitRiderApplication:output_type -> kade.dispatch.v1.SubmitRiderApplicationResponse
+	69,  // 169: kade.dispatch.v1.RiderService.GetRiderApplicationStatus:output_type -> kade.dispatch.v1.GetRiderApplicationStatusResponse
+	71,  // 170: kade.dispatch.v1.RiderService.ResubmitRiderDocument:output_type -> kade.dispatch.v1.ResubmitRiderDocumentResponse
+	73,  // 171: kade.dispatch.v1.RiderService.ListRiders:output_type -> kade.dispatch.v1.ListRidersResponse
+	75,  // 172: kade.dispatch.v1.RiderService.GetRider:output_type -> kade.dispatch.v1.GetRiderResponse
+	77,  // 173: kade.dispatch.v1.RiderService.ListRiderApplications:output_type -> kade.dispatch.v1.ListRiderApplicationsResponse
+	79,  // 174: kade.dispatch.v1.RiderService.ReviewRiderDocument:output_type -> kade.dispatch.v1.ReviewRiderDocumentResponse
+	81,  // 175: kade.dispatch.v1.RiderService.DecideRiderApplication:output_type -> kade.dispatch.v1.DecideRiderApplicationResponse
+	83,  // 176: kade.dispatch.v1.RiderService.SetRiderZones:output_type -> kade.dispatch.v1.SetRiderZonesResponse
+	85,  // 177: kade.dispatch.v1.RiderService.SetRiderSuspended:output_type -> kade.dispatch.v1.SetRiderSuspendedResponse
+	147, // [147:178] is the sub-list for method output_type
+	116, // [116:147] is the sub-list for method input_type
+	116, // [116:116] is the sub-list for extension type_name
+	116, // [116:116] is the sub-list for extension extendee
+	0,   // [0:116] is the sub-list for field type_name
 }
 
 func init() { file_kade_dispatch_v1_dispatch_service_proto_init() }
@@ -6445,7 +6544,7 @@ func file_kade_dispatch_v1_dispatch_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_kade_dispatch_v1_dispatch_service_proto_rawDesc), len(file_kade_dispatch_v1_dispatch_service_proto_rawDesc)),
 			NumEnums:      7,
-			NumMessages:   78,
+			NumMessages:   80,
 			NumExtensions: 0,
 			NumServices:   3,
 		},

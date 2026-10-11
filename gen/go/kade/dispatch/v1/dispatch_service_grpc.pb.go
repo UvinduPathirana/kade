@@ -858,6 +858,7 @@ var DispatchOpsService_ServiceDesc = grpc.ServiceDesc{
 
 const (
 	RiderService_GetRiderProfile_FullMethodName           = "/kade.dispatch.v1.RiderService/GetRiderProfile"
+	RiderService_GetMyRider_FullMethodName                = "/kade.dispatch.v1.RiderService/GetMyRider"
 	RiderService_ListRiderDocuments_FullMethodName        = "/kade.dispatch.v1.RiderService/ListRiderDocuments"
 	RiderService_SubmitRiderApplication_FullMethodName    = "/kade.dispatch.v1.RiderService/SubmitRiderApplication"
 	RiderService_GetRiderApplicationStatus_FullMethodName = "/kade.dispatch.v1.RiderService/GetRiderApplicationStatus"
@@ -878,6 +879,9 @@ const (
 // Riders: profile, documents, onboarding, and the admin fleet screens.
 type RiderServiceClient interface {
 	GetRiderProfile(ctx context.Context, in *GetRiderProfileRequest, opts ...grpc.CallOption) (*GetRiderProfileResponse, error)
+	// The rider record for the caller (x-user-id = Keycloak sub), for the rider gateway's sign-in.
+	// NOT_FOUND (reason RIDER_NOT_FOUND) when the user has no approved rider record.
+	GetMyRider(ctx context.Context, in *GetMyRiderRequest, opts ...grpc.CallOption) (*GetMyRiderResponse, error)
 	ListRiderDocuments(ctx context.Context, in *ListRiderDocumentsRequest, opts ...grpc.CallOption) (*ListRiderDocumentsResponse, error)
 	SubmitRiderApplication(ctx context.Context, in *SubmitRiderApplicationRequest, opts ...grpc.CallOption) (*SubmitRiderApplicationResponse, error)
 	GetRiderApplicationStatus(ctx context.Context, in *GetRiderApplicationStatusRequest, opts ...grpc.CallOption) (*GetRiderApplicationStatusResponse, error)
@@ -906,6 +910,16 @@ func (c *riderServiceClient) GetRiderProfile(ctx context.Context, in *GetRiderPr
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetRiderProfileResponse)
 	err := c.cc.Invoke(ctx, RiderService_GetRiderProfile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *riderServiceClient) GetMyRider(ctx context.Context, in *GetMyRiderRequest, opts ...grpc.CallOption) (*GetMyRiderResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetMyRiderResponse)
+	err := c.cc.Invoke(ctx, RiderService_GetMyRider_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1029,6 +1043,9 @@ func (c *riderServiceClient) SetRiderSuspended(ctx context.Context, in *SetRider
 // Riders: profile, documents, onboarding, and the admin fleet screens.
 type RiderServiceServer interface {
 	GetRiderProfile(context.Context, *GetRiderProfileRequest) (*GetRiderProfileResponse, error)
+	// The rider record for the caller (x-user-id = Keycloak sub), for the rider gateway's sign-in.
+	// NOT_FOUND (reason RIDER_NOT_FOUND) when the user has no approved rider record.
+	GetMyRider(context.Context, *GetMyRiderRequest) (*GetMyRiderResponse, error)
 	ListRiderDocuments(context.Context, *ListRiderDocumentsRequest) (*ListRiderDocumentsResponse, error)
 	SubmitRiderApplication(context.Context, *SubmitRiderApplicationRequest) (*SubmitRiderApplicationResponse, error)
 	GetRiderApplicationStatus(context.Context, *GetRiderApplicationStatusRequest) (*GetRiderApplicationStatusResponse, error)
@@ -1055,6 +1072,9 @@ type UnimplementedRiderServiceServer struct{}
 
 func (UnimplementedRiderServiceServer) GetRiderProfile(context.Context, *GetRiderProfileRequest) (*GetRiderProfileResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetRiderProfile not implemented")
+}
+func (UnimplementedRiderServiceServer) GetMyRider(context.Context, *GetMyRiderRequest) (*GetMyRiderResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetMyRider not implemented")
 }
 func (UnimplementedRiderServiceServer) ListRiderDocuments(context.Context, *ListRiderDocumentsRequest) (*ListRiderDocumentsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListRiderDocuments not implemented")
@@ -1124,6 +1144,24 @@ func _RiderService_GetRiderProfile_Handler(srv interface{}, ctx context.Context,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RiderServiceServer).GetRiderProfile(ctx, req.(*GetRiderProfileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RiderService_GetMyRider_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMyRiderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RiderServiceServer).GetMyRider(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RiderService_GetMyRider_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RiderServiceServer).GetMyRider(ctx, req.(*GetMyRiderRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1336,6 +1374,10 @@ var RiderService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetRiderProfile",
 			Handler:    _RiderService_GetRiderProfile_Handler,
+		},
+		{
+			MethodName: "GetMyRider",
+			Handler:    _RiderService_GetMyRider_Handler,
 		},
 		{
 			MethodName: "ListRiderDocuments",

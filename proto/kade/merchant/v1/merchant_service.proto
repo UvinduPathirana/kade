@@ -57,6 +57,8 @@ service OutletStaffService {
   // Fails with LAST_OWNER if it would leave no owner.
   rpc ChangeOutletStaffRole(ChangeOutletStaffRoleRequest) returns (ChangeOutletStaffRoleResponse);
   rpc RemoveOutletStaff(RemoveOutletStaffRequest) returns (RemoveOutletStaffResponse);
+  // Outlets the caller (x-user-id = Keycloak sub) works at, for the merchant gateway's sign-in.
+  rpc GetMyOutlets(GetMyOutletsRequest) returns (GetMyOutletsResponse);
 }
 
 service PartnerApplicationService {
@@ -368,6 +370,18 @@ message OutletStaffMember {
   // Unset while the invite is pending.
   google.protobuf.Timestamp last_active_at = 6;
   bool pending = 7;
+}
+
+message GetMyOutletsRequest {}
+
+message StaffOutlet {
+  string outlet_id = 1;
+  string outlet_name = 2;
+  OutletStaffRole role = 3;
+}
+
+message GetMyOutletsResponse {
+  repeated StaffOutlet outlets = 1;
 }
 
 message ListOutletStaffRequest {

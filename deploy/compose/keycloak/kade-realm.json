@@ -237,7 +237,8 @@
         "default-roles-kade",
         "customer"
       ],
-      "requiredActions": []
+      "requiredActions": [],
+      "id": "00000000-0000-7000-8005-000000000001"
     },
     {
       "username": "ruwan",
@@ -258,7 +259,8 @@
         "merchant_owner",
         "merchant_staff"
       ],
-      "requiredActions": []
+      "requiredActions": [],
+      "id": "00000000-0000-7000-8005-000000000002"
     },
     {
       "username": "kasun",
@@ -278,7 +280,8 @@
         "default-roles-kade",
         "merchant_staff"
       ],
-      "requiredActions": []
+      "requiredActions": [],
+      "id": "00000000-0000-7000-8005-000000000003"
     },
     {
       "username": "nimal",
@@ -298,7 +301,8 @@
         "default-roles-kade",
         "rider"
       ],
-      "requiredActions": []
+      "requiredActions": [],
+      "id": "00000000-0000-7000-8005-000000000004"
     },
     {
       "username": "ops",
@@ -318,7 +322,8 @@
         "default-roles-kade",
         "ops"
       ],
-      "requiredActions": []
+      "requiredActions": [],
+      "id": "00000000-0000-7000-8005-000000000005"
     },
     {
       "username": "finance",
@@ -338,7 +343,8 @@
         "default-roles-kade",
         "finance"
       ],
-      "requiredActions": []
+      "requiredActions": [],
+      "id": "00000000-0000-7000-8005-000000000006"
     },
     {
       "username": "support",
@@ -358,7 +364,8 @@
         "default-roles-kade",
         "support"
       ],
-      "requiredActions": []
+      "requiredActions": [],
+      "id": "00000000-0000-7000-8005-000000000007"
     },
     {
       "username": "admin",
@@ -381,7 +388,8 @@
         "finance",
         "support"
       ],
-      "requiredActions": []
+      "requiredActions": [],
+      "id": "00000000-0000-7000-8005-000000000008"
     }
   ]
 }

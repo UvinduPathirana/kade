@@ -31,6 +31,7 @@ for a in "${AGGREGATES[@]}"; do
 done
 # High-volume GPS stream, produced directly with the Schema Registry serializer.
 create kade.rider.locations 12 retention.ms=86400000 # 1 day
+create kade.note.views 6 retention.ms=86400000 # Go template registry stream demo
 create kade.rider.locations.dlq 1 retention.ms=1209600000
 
 echo "done: $("$KT" --bootstrap-server "$BOOTSTRAP" --list | grep -c '^kade\.') kade.* topics"

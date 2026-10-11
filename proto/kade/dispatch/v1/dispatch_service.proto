@@ -57,6 +57,9 @@ service DispatchOpsService {
 // Riders: profile, documents, onboarding, and the admin fleet screens.
 service RiderService {
   rpc GetRiderProfile(GetRiderProfileRequest) returns (GetRiderProfileResponse);
+  // The rider record for the caller (x-user-id = Keycloak sub), for the rider gateway's sign-in.
+  // NOT_FOUND (reason RIDER_NOT_FOUND) when the user has no approved rider record.
+  rpc GetMyRider(GetMyRiderRequest) returns (GetMyRiderResponse);
   rpc ListRiderDocuments(ListRiderDocumentsRequest) returns (ListRiderDocumentsResponse);
   rpc SubmitRiderApplication(SubmitRiderApplicationRequest) returns (SubmitRiderApplicationResponse);
   rpc GetRiderApplicationStatus(GetRiderApplicationStatusRequest) returns (GetRiderApplicationStatusResponse);
@@ -556,6 +559,14 @@ message Rider {
   kade.common.v1.GeoPoint position = 21;
   string position_zone_id = 22;
   google.protobuf.Timestamp last_seen_at = 23;
+  // Keycloak user id (sub) of the person behind this rider record.
+  string user_id = 24;
+}
+
+message GetMyRiderRequest {}
+
+message GetMyRiderResponse {
+  Rider rider = 1;
 }
 
 message RiderApplication {

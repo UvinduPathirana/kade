@@ -840,7 +840,18 @@ export interface Rider {
   /** Last known position (location) and its zone. */
   position?: GeoPoint | undefined;
   positionZoneId: string;
-  lastSeenAt?: Date | undefined;
+  lastSeenAt?:
+    | Date
+    | undefined;
+  /** Keycloak user id (sub) of the person behind this rider record. */
+  userId: string;
+}
+
+export interface GetMyRiderRequest {
+}
+
+export interface GetMyRiderResponse {
+  rider?: Rider | undefined;
 }
 
 export interface RiderApplication {
@@ -7396,6 +7407,7 @@ function createBaseRider(): Rider {
     position: undefined,
     positionZoneId: "",
     lastSeenAt: undefined,
+    userId: "",
   };
 }
 
@@ -7469,6 +7481,9 @@ export const Rider: MessageFns<Rider> = {
     }
     if (message.lastSeenAt !== undefined) {
       Timestamp.encode(toTimestamp(message.lastSeenAt), writer.uint32(186).fork()).join();
+    }
+    if (message.userId !== "") {
+      writer.uint32(194).string(message.userId);
     }
     return writer;
   },
@@ -7670,6 +7685,14 @@ export const Rider: MessageFns<Rider> = {
             message.lastSeenAt = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
             continue;
           }
+          case 24: {
+            if (tag !== 194) {
+              break;
+            }
+
+            message.userId = reader.string();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -7765,6 +7788,11 @@ export const Rider: MessageFns<Rider> = {
         : isSet(object.last_seen_at)
         ? fromJsonTimestamp(object.last_seen_at)
         : undefined,
+      userId: isSet(object.userId)
+        ? globalThis.String(object.userId)
+        : isSet(object.user_id)
+        ? globalThis.String(object.user_id)
+        : "",
     };
   },
 
@@ -7839,6 +7867,9 @@ export const Rider: MessageFns<Rider> = {
     if (message.lastSeenAt !== undefined) {
       obj.lastSeenAt = message.lastSeenAt.toISOString();
     }
+    if (message.userId !== "") {
+      obj.userId = message.userId;
+    }
     return obj;
   },
 
@@ -7880,6 +7911,126 @@ export const Rider: MessageFns<Rider> = {
       : undefined;
     message.positionZoneId = object.positionZoneId ?? "";
     message.lastSeenAt = object.lastSeenAt ?? undefined;
+    message.userId = object.userId ?? "";
+    return message;
+  },
+};
+
+function createBaseGetMyRiderRequest(): GetMyRiderRequest {
+  return {};
+}
+
+export const GetMyRiderRequest: MessageFns<GetMyRiderRequest> = {
+  encode(_: GetMyRiderRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): GetMyRiderRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseGetMyRiderRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(_: any): GetMyRiderRequest {
+    return {};
+  },
+
+  toJSON(_: GetMyRiderRequest): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<GetMyRiderRequest>, I>>(base?: I): GetMyRiderRequest {
+    return GetMyRiderRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<GetMyRiderRequest>, I>>(_: I): GetMyRiderRequest {
+    const message = createBaseGetMyRiderRequest();
+    return message;
+  },
+};
+
+function createBaseGetMyRiderResponse(): GetMyRiderResponse {
+  return { rider: undefined };
+}
+
+export const GetMyRiderResponse: MessageFns<GetMyRiderResponse> = {
+  encode(message: GetMyRiderResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.rider !== undefined) {
+      Rider.encode(message.rider, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): GetMyRiderResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseGetMyRiderResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.rider = Rider.decode(reader, reader.uint32());
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): GetMyRiderResponse {
+    return { rider: isSet(object.rider) ? Rider.fromJSON(object.rider) : undefined };
+  },
+
+  toJSON(message: GetMyRiderResponse): unknown {
+    const obj: any = {};
+    if (message.rider !== undefined) {
+      obj.rider = Rider.toJSON(message.rider);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<GetMyRiderResponse>, I>>(base?: I): GetMyRiderResponse {
+    return GetMyRiderResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<GetMyRiderResponse>, I>>(object: I): GetMyRiderResponse {
+    const message = createBaseGetMyRiderResponse();
+    message.rider = (object.rider !== undefined && object.rider !== null) ? Rider.fromPartial(object.rider) : undefined;
     return message;
   },
 };
@@ -11205,6 +11356,19 @@ export const RiderServiceService = {
       Buffer.from(GetRiderProfileResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): GetRiderProfileResponse => GetRiderProfileResponse.decode(value),
   },
+  /**
+   * The rider record for the caller (x-user-id = Keycloak sub), for the rider gateway's sign-in.
+   * NOT_FOUND (reason RIDER_NOT_FOUND) when the user has no approved rider record.
+   */
+  getMyRider: {
+    path: "/kade.dispatch.v1.RiderService/GetMyRider" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: GetMyRiderRequest): Buffer => Buffer.from(GetMyRiderRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): GetMyRiderRequest => GetMyRiderRequest.decode(value),
+    responseSerialize: (value: GetMyRiderResponse): Buffer => Buffer.from(GetMyRiderResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): GetMyRiderResponse => GetMyRiderResponse.decode(value),
+  },
   listRiderDocuments: {
     path: "/kade.dispatch.v1.RiderService/ListRiderDocuments" as const,
     requestStream: false as const,
@@ -11332,6 +11496,11 @@ export const RiderServiceService = {
 
 export interface RiderServiceServer extends UntypedServiceImplementation {
   getRiderProfile: handleUnaryCall<GetRiderProfileRequest, GetRiderProfileResponse>;
+  /**
+   * The rider record for the caller (x-user-id = Keycloak sub), for the rider gateway's sign-in.
+   * NOT_FOUND (reason RIDER_NOT_FOUND) when the user has no approved rider record.
+   */
+  getMyRider: handleUnaryCall<GetMyRiderRequest, GetMyRiderResponse>;
   listRiderDocuments: handleUnaryCall<ListRiderDocumentsRequest, ListRiderDocumentsResponse>;
   submitRiderApplication: handleUnaryCall<SubmitRiderApplicationRequest, SubmitRiderApplicationResponse>;
   getRiderApplicationStatus: handleUnaryCall<GetRiderApplicationStatusRequest, GetRiderApplicationStatusResponse>;
@@ -11363,6 +11532,25 @@ export interface RiderServiceClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: GetRiderProfileResponse) => void,
+  ): ClientUnaryCall;
+  /**
+   * The rider record for the caller (x-user-id = Keycloak sub), for the rider gateway's sign-in.
+   * NOT_FOUND (reason RIDER_NOT_FOUND) when the user has no approved rider record.
+   */
+  getMyRider(
+    request: GetMyRiderRequest,
+    callback: (error: ServiceError | null, response: GetMyRiderResponse) => void,
+  ): ClientUnaryCall;
+  getMyRider(
+    request: GetMyRiderRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: GetMyRiderResponse) => void,
+  ): ClientUnaryCall;
+  getMyRider(
+    request: GetMyRiderRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: GetMyRiderResponse) => void,
   ): ClientUnaryCall;
   listRiderDocuments(
     request: ListRiderDocumentsRequest,

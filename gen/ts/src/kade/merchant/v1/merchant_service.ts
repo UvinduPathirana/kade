@@ -599,6 +599,19 @@ export interface OutletStaffMember {
   pending: boolean;
 }
 
+export interface GetMyOutletsRequest {
+}
+
+export interface StaffOutlet {
+  outletId: string;
+  outletName: string;
+  role: OutletStaffRole;
+}
+
+export interface GetMyOutletsResponse {
+  outlets: StaffOutlet[];
+}
+
 export interface ListOutletStaffRequest {
   outletId: string;
 }
@@ -4946,6 +4959,236 @@ export const OutletStaffMember: MessageFns<OutletStaffMember> = {
   },
 };
 
+function createBaseGetMyOutletsRequest(): GetMyOutletsRequest {
+  return {};
+}
+
+export const GetMyOutletsRequest: MessageFns<GetMyOutletsRequest> = {
+  encode(_: GetMyOutletsRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): GetMyOutletsRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseGetMyOutletsRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(_: any): GetMyOutletsRequest {
+    return {};
+  },
+
+  toJSON(_: GetMyOutletsRequest): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<GetMyOutletsRequest>, I>>(base?: I): GetMyOutletsRequest {
+    return GetMyOutletsRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<GetMyOutletsRequest>, I>>(_: I): GetMyOutletsRequest {
+    const message = createBaseGetMyOutletsRequest();
+    return message;
+  },
+};
+
+function createBaseStaffOutlet(): StaffOutlet {
+  return { outletId: "", outletName: "", role: 0 };
+}
+
+export const StaffOutlet: MessageFns<StaffOutlet> = {
+  encode(message: StaffOutlet, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.outletId !== "") {
+      writer.uint32(10).string(message.outletId);
+    }
+    if (message.outletName !== "") {
+      writer.uint32(18).string(message.outletName);
+    }
+    if (message.role !== 0) {
+      writer.uint32(24).int32(message.role);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): StaffOutlet {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseStaffOutlet();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.outletId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.outletName = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 24) {
+              break;
+            }
+
+            message.role = reader.int32() as any;
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): StaffOutlet {
+    return {
+      outletId: isSet(object.outletId)
+        ? globalThis.String(object.outletId)
+        : isSet(object.outlet_id)
+        ? globalThis.String(object.outlet_id)
+        : "",
+      outletName: isSet(object.outletName)
+        ? globalThis.String(object.outletName)
+        : isSet(object.outlet_name)
+        ? globalThis.String(object.outlet_name)
+        : "",
+      role: isSet(object.role) ? outletStaffRoleFromJSON(object.role) : 0,
+    };
+  },
+
+  toJSON(message: StaffOutlet): unknown {
+    const obj: any = {};
+    if (message.outletId !== "") {
+      obj.outletId = message.outletId;
+    }
+    if (message.outletName !== "") {
+      obj.outletName = message.outletName;
+    }
+    if (message.role !== 0) {
+      obj.role = outletStaffRoleToJSON(message.role);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<StaffOutlet>, I>>(base?: I): StaffOutlet {
+    return StaffOutlet.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<StaffOutlet>, I>>(object: I): StaffOutlet {
+    const message = createBaseStaffOutlet();
+    message.outletId = object.outletId ?? "";
+    message.outletName = object.outletName ?? "";
+    message.role = object.role ?? 0;
+    return message;
+  },
+};
+
+function createBaseGetMyOutletsResponse(): GetMyOutletsResponse {
+  return { outlets: [] };
+}
+
+export const GetMyOutletsResponse: MessageFns<GetMyOutletsResponse> = {
+  encode(message: GetMyOutletsResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    for (const v of message.outlets) {
+      StaffOutlet.encode(v!, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): GetMyOutletsResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseGetMyOutletsResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.outlets.push(StaffOutlet.decode(reader, reader.uint32()));
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  fromJSON(object: any): GetMyOutletsResponse {
+    return {
+      outlets: globalThis.Array.isArray(object?.outlets) ? object.outlets.map((e: any) => StaffOutlet.fromJSON(e)) : [],
+    };
+  },
+
+  toJSON(message: GetMyOutletsResponse): unknown {
+    const obj: any = {};
+    if (message.outlets?.length) {
+      obj.outlets = message.outlets.map((e) => StaffOutlet.toJSON(e));
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<GetMyOutletsResponse>, I>>(base?: I): GetMyOutletsResponse {
+    return GetMyOutletsResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<GetMyOutletsResponse>, I>>(object: I): GetMyOutletsResponse {
+    const message = createBaseGetMyOutletsResponse();
+    message.outlets = object.outlets?.map((e) => StaffOutlet.fromPartial(e)) || [];
+    return message;
+  },
+};
+
 function createBaseListOutletStaffRequest(): ListOutletStaffRequest {
   return { outletId: "" };
 }
@@ -8900,6 +9143,17 @@ export const OutletStaffServiceService = {
       Buffer.from(RemoveOutletStaffResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer): RemoveOutletStaffResponse => RemoveOutletStaffResponse.decode(value),
   },
+  /** Outlets the caller (x-user-id = Keycloak sub) works at, for the merchant gateway's sign-in. */
+  getMyOutlets: {
+    path: "/kade.merchant.v1.OutletStaffService/GetMyOutlets" as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: GetMyOutletsRequest): Buffer => Buffer.from(GetMyOutletsRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): GetMyOutletsRequest => GetMyOutletsRequest.decode(value),
+    responseSerialize: (value: GetMyOutletsResponse): Buffer =>
+      Buffer.from(GetMyOutletsResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): GetMyOutletsResponse => GetMyOutletsResponse.decode(value),
+  },
 } as const;
 
 export interface OutletStaffServiceServer extends UntypedServiceImplementation {
@@ -8909,6 +9163,8 @@ export interface OutletStaffServiceServer extends UntypedServiceImplementation {
   /** Fails with LAST_OWNER if it would leave no owner. */
   changeOutletStaffRole: handleUnaryCall<ChangeOutletStaffRoleRequest, ChangeOutletStaffRoleResponse>;
   removeOutletStaff: handleUnaryCall<RemoveOutletStaffRequest, RemoveOutletStaffResponse>;
+  /** Outlets the caller (x-user-id = Keycloak sub) works at, for the merchant gateway's sign-in. */
+  getMyOutlets: handleUnaryCall<GetMyOutletsRequest, GetMyOutletsResponse>;
 }
 
 export interface OutletStaffServiceClient extends Client {
@@ -8973,6 +9229,22 @@ export interface OutletStaffServiceClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: RemoveOutletStaffResponse) => void,
+  ): ClientUnaryCall;
+  /** Outlets the caller (x-user-id = Keycloak sub) works at, for the merchant gateway's sign-in. */
+  getMyOutlets(
+    request: GetMyOutletsRequest,
+    callback: (error: ServiceError | null, response: GetMyOutletsResponse) => void,
+  ): ClientUnaryCall;
+  getMyOutlets(
+    request: GetMyOutletsRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: GetMyOutletsResponse) => void,
+  ): ClientUnaryCall;
+  getMyOutlets(
+    request: GetMyOutletsRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: GetMyOutletsResponse) => void,
   ): ClientUnaryCall;
 }
 
