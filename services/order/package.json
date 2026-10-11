@@ -3,13 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Kadé order service.",
+  "description": "Kad\u00e9 order service.",
   "files": [
     "dist",
     "drizzle"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && node dist/temporal/bundle-workflows.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "start": "node --enable-source-maps --import ./dist/instrumentation.js dist/main.js",
     "dev": "tsc -p tsconfig.build.json && sh -c 'tsc -p tsconfig.build.json --watch --preserveWatchOutput & node --watch-path=dist --env-file-if-exists=.env --enable-source-maps --import ./dist/instrumentation.js dist/main.js'",
@@ -55,6 +55,7 @@
     "zod": "^4.6.6"
   },
   "devDependencies": {
+    "@temporalio/testing": "1.24.0",
     "@types/node": "^24.19.2",
     "@types/pg": "^8.23.1",
     "drizzle-kit": "^0.31.11",

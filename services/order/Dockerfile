@@ -1,10 +1,12 @@
 # syntax=docker/dockerfile:1.7
 # Build context is the REPO ROOT (the service needs gen/ts and the workspace lockfile):
 #   docker build -f services/order/Dockerfile -t kade/order .
-# new-service.mjs rewrites the paths and package name below when copying the template.
+#
+# glibc (Debian bookworm), not Alpine: the Temporal worker's native core (@temporalio/core-bridge)
+# ships Linux binaries for glibc only, so it cannot load on musl.
 
-ARG NODE_IMAGE=node:24.21.0-alpine3.24
-ARG ALPINE_IMAGE=alpine:3.24
+ARG NODE_IMAGE=node:24.21.0-bookworm-slim
+ARG RUNTIME_IMAGE=debian:bookworm-slim
 
 # ---------------------------------------------------------------- build
 FROM ${NODE_IMAGE} AS build
@@ -14,26 +16,36 @@ WORKDIR /repo
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY gen/ts/package.json gen/ts/
 COPY services/order/package.json services/order/
-RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
-    pnpm install --frozen-lockfile --filter "@kade/order..."
+# Own store cache (not the Alpine services' one): pnpm's side-effects cache would otherwise hand us
+# librdkafka built for musl.
+RUN --mount=type=cache,id=pnpm-store-glibc,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile --config.side-effects-cache=false --filter "@kade/order..."
 COPY gen/ts gen/ts
 COPY services/order services/order
+# `build` also bundles the workflow code into dist/workflow-bundle.js (no webpack run at boot).
 RUN pnpm --filter @kade/proto build && pnpm --filter @kade/order build
 # Production-only node_modules + dist + drizzle/ into /out (workspace deps copied, not symlinked).
-RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+RUN --mount=type=cache,id=pnpm-store-glibc,target=/root/.local/share/pnpm/store \
     pnpm --filter @kade/order deploy --prod --legacy /out \
- # @kade/proto has no "files" field and git-ignores dist/, so deploy skips its build output.
- && cp -R gen/ts/dist "$(readlink -f /out/node_modules/@kade/proto)/" \
  # librdkafka sources and object files (~27 MB) are only needed to compile the binding.
  && (cd "$(readlink -f /out/node_modules/@confluentinc/kafka-javascript)" && rm -rf deps src build/Release/obj.target) \
- # Fail the build, not the boot, if the native binding is missing (pnpm onlyBuiltDependencies).
- && node -e "require('/out/node_modules/@confluentinc/kafka-javascript')"
+ # Temporal core: keep only this platform's native library (the package ships five).
+ && arch="$(uname -m | sed 's/arm64/aarch64/')" \
+ && find /out/node_modules/.pnpm -path '*@temporalio/core-bridge/releases/*' -maxdepth 6 -mindepth 6 -type d \
+      ! -name "${arch}-unknown-linux-gnu" -exec rm -rf {} + \
+ # The workflow bundle is prebuilt, so the bundler's compilers are never run: drop swc and esbuild
+ # binaries (webpack itself stays; @temporalio/worker requires it at load time).
+ && rm -rf /out/node_modules/.pnpm/@swc+core-* /out/node_modules/.pnpm/@esbuild+* \
+ # Fail the build, not the boot, if a native binding is missing.
+ && cd /out && node -e "require('@confluentinc/kafka-javascript'); require('@temporalio/worker'); console.log('native modules ok')"
 
 # ---------------------------------------------------------------- runtime
-# Plain Alpine plus the node binary: no npm, corepack or yarn (~40 MB less than the node image).
-FROM ${ALPINE_IMAGE}
-RUN apk add --no-cache libstdc++ \
- && addgroup -S -g 10001 app && adduser -S -u 10001 -G app app
+# Debian slim plus the node binary: no npm, corepack or yarn. wget is for the Compose healthcheck.
+FROM ${RUNTIME_IMAGE}
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends wget \
+ && rm -rf /var/lib/apt/lists/* \
+ && groupadd -g 10001 app && useradd -u 10001 -g app -M -s /usr/sbin/nologin app
 COPY --from=build /usr/local/bin/node /usr/local/bin/node
 WORKDIR /app
 # Owned by root, run as app: the process cannot modify its own code.

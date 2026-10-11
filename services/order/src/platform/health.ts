@@ -20,12 +20,25 @@ export class Lifecycle {
   draining = false;
 }
 
+/**
+ * Extra readiness checks registered by feature modules (e.g. the Temporal worker). A probe returns
+ * true when healthy; anything else fails /health/ready.
+ */
+@Injectable()
+export class ReadinessProbes {
+  readonly probes = new Map<string, () => boolean | Promise<boolean>>();
+  register(name: string, probe: () => boolean | Promise<boolean>): void {
+    this.probes.set(name, probe);
+  }
+}
+
 @Controller()
 export class HealthController {
   constructor(
     @Inject(Database) private readonly database: Database,
     @Inject(KafkaClient) private readonly kafka: KafkaClient,
     @Inject(Lifecycle) private readonly lifecycle: Lifecycle,
+    @Inject(ReadinessProbes) private readonly extra: ReadinessProbes,
   ) {}
 
   /** Process is up. Never checks dependencies: a DB outage must not get every replica restarted. */
@@ -42,6 +55,12 @@ export class HealthController {
     const [db, kafka] = await Promise.allSettled([this.database.ping(), this.kafka.ping()]);
     checks.postgres = db.status === "fulfilled" ? "ok" : String(db.reason);
     checks.kafka = kafka.status === "fulfilled" && kafka.value ? "ok" : "unreachable";
+    for (const [name, probe] of this.extra.probes) {
+      const ok = await Promise.resolve()
+        .then(probe)
+        .catch(() => false);
+      checks[name] = ok ? "ok" : "unavailable";
+    }
     if (this.lifecycle.draining) checks.lifecycle = "draining";
     const ok = Object.values(checks).every((v) => v === "ok");
     if (!ok) throw new ServiceUnavailableException({ status: "unavailable", checks });

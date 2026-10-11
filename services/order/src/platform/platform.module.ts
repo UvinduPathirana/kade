@@ -3,7 +3,7 @@ import { DiscoveryModule } from "@nestjs/core";
 import { CONFIG, type Config } from "./config.js";
 import { Database } from "./db/database.js";
 import { GrpcServer } from "./grpc/grpc-server.js";
-import { HealthController, Lifecycle } from "./health.js";
+import { HealthController, Lifecycle, ReadinessProbes } from "./health.js";
 import { IdempotencyStore } from "./idempotency/idempotency.js";
 import { EventConsumerRunner } from "./kafka/event-consumer-runner.js";
 import { KafkaClient } from "./kafka/kafka-client.js";
@@ -27,6 +27,7 @@ export class PlatformModule {
         { provide: CONFIG, useValue: config },
         { provide: LOGGER, useValue: logger },
         Lifecycle,
+        ReadinessProbes,
         Database,
         OutboxWriter,
         IdempotencyStore,
@@ -34,7 +35,17 @@ export class PlatformModule {
         EventConsumerRunner,
         GrpcServer,
       ],
-      exports: [CONFIG, LOGGER, Lifecycle, Database, OutboxWriter, IdempotencyStore, KafkaClient, GrpcServer],
+      exports: [
+        CONFIG,
+        LOGGER,
+        Lifecycle,
+        ReadinessProbes,
+        Database,
+        OutboxWriter,
+        IdempotencyStore,
+        KafkaClient,
+        GrpcServer,
+      ],
     };
   }
 }

@@ -32,3 +32,4 @@ include:
   - ../../gateways/rider/compose.yaml
   - ../../services/catalog/compose.yaml
   - ../../services/search/compose.yaml
+  - ../../services/order/compose.yaml
