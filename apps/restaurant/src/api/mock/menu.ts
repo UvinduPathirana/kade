@@ -1,224 +1,83 @@
-// Galle Road Kottu House's menu, the same dishes, prices and ids customers see in the customer app
-// (restaurant 1). Only api/menu.ts and the order simulation read this.
-import { photos as P } from "@/lib/images";
-import type { Menu, MenuItem, OptionGroup } from "../types";
+// Mock menu service (VITE_API_MODE=mock), kept in localStorage. Live: catalog via gateway-merchant.
+// Changes here are what customers see on the restaurant page.
+import { latency, readJson, ServiceError, writeJson } from "../storage";
+import type { Menu, MenuItem, MenuItemInput } from "../types";
+import { seedMenu } from "./menuSeed";
 
-export const seedOptionGroups: OptionGroup[] = [
-  {
-    id: "spice",
-    name: "Spice level",
-    required: true,
-    max: 1,
-    choices: [
-      { name: "Mild", price: 0 },
-      { name: "Medium", price: 0 },
-      { name: "Sri Lankan hot", price: 0 },
-    ],
-  },
-  {
-    id: "kottuExtras",
-    name: "Extras",
-    required: false,
-    max: 4,
-    choices: [
-      { name: "Extra egg", price: 150 },
-      { name: "Extra cheese", price: 250 },
-      { name: "Extra chicken", price: 350 },
-      { name: "Curry gravy on the side", price: 0 },
-    ],
-  },
-  {
-    id: "portion",
-    name: "Portion",
-    required: true,
-    max: 1,
-    choices: [
-      { name: "Regular", price: 0 },
-      { name: "Large", price: 400 },
-    ],
-  },
-  {
-    id: "sugar",
-    name: "Sweetness",
-    required: true,
-    max: 1,
-    choices: [
-      { name: "Normal", price: 0 },
-      { name: "Less sugar", price: 0 },
-      { name: "No sugar", price: 0 },
-    ],
-  },
-];
+const KEY = "kade.partner.menu.v1";
 
-type Seed = [
-  name: string,
-  price: number,
-  description: string,
-  imageId?: string,
-  extra?: Partial<Pick<MenuItem, "tags" | "optionGroupIds" | "soldOut">>,
-];
+const read = () => readJson<Menu>(KEY, seedMenu);
 
-const sections: Array<[string, Seed[]]> = [
-  [
-    "Kottu",
-    [
-      [
-        "Chicken kottu",
-        1150,
-        "Chopped godamba roti on the griddle with chicken curry, egg, leeks and carrot.",
-        P.kottu,
-        { optionGroupIds: ["spice", "kottuExtras"], tags: ["Spicy"] },
-      ],
-      [
-        "Cheese kottu",
-        1450,
-        "Chicken kottu folded through with melted cheese. The house favourite.",
-        P.kottu,
-        { optionGroupIds: ["spice", "kottuExtras"] },
-      ],
-      [
-        "Dolphin kottu",
-        1650,
-        "Whole roti in soft strips, chicken curry gravy poured over at the table.",
-        undefined,
-        { optionGroupIds: ["spice", "kottuExtras"] },
-      ],
-      [
-        "Egg kottu",
-        950,
-        "Roti, egg, cabbage and leeks with a little curry gravy.",
-        undefined,
-        { optionGroupIds: ["spice", "kottuExtras"] },
-      ],
-      [
-        "Vegetable kottu",
-        850,
-        "Roti with carrot, leeks, cabbage and dhal curry.",
-        undefined,
-        { optionGroupIds: ["spice", "kottuExtras"], tags: ["Vegetarian"] },
-      ],
-      [
-        "Beef kottu",
-        1350,
-        "Slow-cooked beef curry chopped through roti.",
-        undefined,
-        { optionGroupIds: ["spice", "kottuExtras"], tags: ["Spicy"] },
-      ],
-      [
-        "String hopper kottu",
-        1250,
-        "String hoppers chopped with chicken, egg and onion.",
-        undefined,
-        { optionGroupIds: ["spice"], soldOut: true },
-      ],
-    ],
-  ],
-  [
-    "Rice and noodles",
-    [
-      [
-        "Chicken fried rice",
-        1100,
-        "Basmati fried with egg, vegetables and chilli paste on the side.",
-        P.friedRice,
-        { optionGroupIds: ["portion"] },
-      ],
-      [
-        "Nasi goreng",
-        1350,
-        "Sweet-spicy fried rice with a fried egg and chicken satay.",
-        P.tomatoDish,
-        { optionGroupIds: ["portion"] },
-      ],
-      [
-        "Seafood noodles",
-        1500,
-        "Egg noodles with prawns, cuttlefish and spring onion.",
-        P.noodleSoup,
-        { optionGroupIds: ["spice"] },
-      ],
-    ],
-  ],
-  [
-    "Devilled",
-    [
-      [
-        "Devilled chicken",
-        1400,
-        "Crispy chicken tossed with onion, capsicum and chilli sauce.",
-        P.chicken,
-        { optionGroupIds: ["spice"], tags: ["Spicy"] },
-      ],
-      [
-        "Hot butter cuttlefish",
-        1650,
-        "Battered cuttlefish fried with butter, garlic and dried chilli.",
-        P.sizzler,
-        { optionGroupIds: ["spice"] },
-      ],
-      [
-        "Devilled prawns",
-        1900,
-        "Tiger prawns in a sticky tomato and chilli sauce.",
-        P.gravy,
-        { optionGroupIds: ["spice"], tags: ["Spicy"] },
-      ],
-    ],
-  ],
-  [
-    "Short eats",
-    [
-      ["Fish roll", 180, "Crumbed pancake roll filled with spiced fish and potato.", P.samosa],
-      ["Chicken patty", 160, "Flaky pastry half-moon with curried chicken.", P.buns],
-      ["Egg roti", 220, "Thin roti folded around an egg, with lunu miris."],
-    ],
-  ],
-  [
-    "Drinks and dessert",
-    [
-      [
-        "Faluda",
-        450,
-        "Rose syrup, milk, basil seeds and a scoop of ice cream.",
-        P.pudding,
-        { optionGroupIds: ["sugar"] },
-      ],
-      ["Iced Milo", 400, "Made strong, the way the kades do it.", undefined, { optionGroupIds: ["sugar"] }],
-      [
-        "Woodapple juice",
-        380,
-        "Fresh woodapple blended with jaggery.",
-        undefined,
-        { optionGroupIds: ["sugar"], tags: ["Vegetarian"] },
-      ],
-      [
-        "Watalappan",
-        350,
-        "Kithul jaggery and coconut custard with cashews.",
-        undefined,
-        { tags: ["Vegetarian"] },
-      ],
-    ],
-  ],
-];
+function save(change: (menu: Menu) => void): Menu {
+  const menu = read();
+  change(menu);
+  writeJson(KEY, menu);
+  return structuredClone(menu);
+}
 
-/** Ids follow the customer app ("1-<section>-<item>") so a dish is the same product on both sides. */
-export function seedMenu(): Menu {
-  return {
-    optionGroups: seedOptionGroups,
-    sections: sections.map(([name, seeds], s) => ({
-      id: `s${s}`,
-      name,
-      items: seeds.map(([itemName, price, description, imageId, extra = {}], i) => ({
-        id: `1-${s}-${i}`,
-        name: itemName,
-        price,
-        description,
-        imageId,
-        tags: extra.tags ?? [],
-        optionGroupIds: extra.optionGroupIds ?? [],
-        soldOut: extra.soldOut ?? false,
-      })),
-    })),
-  };
+export async function getMenu(): Promise<Menu> {
+  await latency(150);
+  return structuredClone(read());
+}
+
+/** Synchronous read for the order simulation, which builds orders from the live menu. */
+export const readMenuNow = (): Menu => read();
+
+export async function setSoldOut(itemId: string, soldOut: boolean): Promise<Menu> {
+  await latency(150);
+  return save((menu) => {
+    const item = menu.sections.flatMap((s) => s.items).find((i) => i.id === itemId);
+    if (!item) throw new ServiceError("This dish is no longer on the menu.");
+    item.soldOut = soldOut;
+  });
+}
+
+/** Creates the item when it has no id; otherwise updates it and moves it if the section changed. */
+export async function saveItem(input: MenuItemInput): Promise<Menu> {
+  await latency();
+  return save((menu) => {
+    const { sectionId, id, ...fields } = input;
+    const target = menu.sections.find((s) => s.id === sectionId);
+    if (!target) throw new ServiceError("Choose a section for this dish.");
+    if (!id) {
+      const item: MenuItem = { ...fields, id: `1-new-${Date.now().toString(36)}`, soldOut: false };
+      target.items.push(item);
+      return;
+    }
+    const from = menu.sections.find((s) => s.items.some((i) => i.id === id));
+    if (!from) throw new ServiceError("This dish is no longer on the menu.");
+    const index = from.items.findIndex((i) => i.id === id);
+    const updated = { ...from.items[index]!, ...fields };
+    if (from === target) from.items[index] = updated;
+    else {
+      from.items.splice(index, 1);
+      target.items.push(updated);
+    }
+  });
+}
+
+export async function deleteItem(itemId: string): Promise<Menu> {
+  await latency();
+  return save((menu) => {
+    for (const s of menu.sections) s.items = s.items.filter((i) => i.id !== itemId);
+  });
+}
+
+export async function moveSection(sectionId: string, direction: -1 | 1): Promise<Menu> {
+  await latency(100);
+  return save((menu) => {
+    const i = menu.sections.findIndex((s) => s.id === sectionId);
+    const j = i + direction;
+    if (i < 0 || j < 0 || j >= menu.sections.length) return;
+    [menu.sections[i], menu.sections[j]] = [menu.sections[j]!, menu.sections[i]!];
+  });
+}
+
+export async function addSection(name: string): Promise<Menu> {
+  await latency();
+  return save((menu) => {
+    if (menu.sections.some((s) => s.name.toLowerCase() === name.trim().toLowerCase()))
+      throw new ServiceError(`There's already a section called ${name.trim()}.`);
+    menu.sections.push({ id: `s-${Date.now().toString(36)}`, name: name.trim(), items: [] });
+  });
 }

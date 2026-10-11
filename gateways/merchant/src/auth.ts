@@ -6,6 +6,12 @@ export interface Identity {
   userId: string;
   roles: string[];
   outletId?: string;
+  /** Rider id in dispatch (rider gateway; resolved from the user id). */
+  riderId?: string;
+  /** Keycloak preferred_username (e.g. "ruwan"); used for dev outlet/rider mappings. */
+  username?: string;
+  /** Display name from the token, e.g. "Ruwan Fernando". */
+  name?: string;
   /** True for AUTH_DEV_BYPASS identities; logged so they are never mistaken for real ones. */
   dev: boolean;
 }
@@ -37,6 +43,9 @@ interface KeycloakClaims {
   realm_access?: { roles?: string[] };
   /** Custom claim (user attribute mapper) for merchant staff. */
   outlet_id?: string;
+  preferred_username?: string;
+  name?: string;
+  given_name?: string;
 }
 
 export function createAuthenticator(
@@ -72,6 +81,8 @@ export function createAuthenticator(
         userId: claims.sub,
         roles: (claims.realm_access?.roles ?? []).filter((r) => KADE_ROLES.has(r)),
         outletId: claims.outlet_id,
+        username: claims.preferred_username,
+        name: claims.name ?? claims.given_name,
         dev: false,
       };
     },
@@ -86,6 +97,8 @@ function parseDevToken(token: string): Identity {
     userId,
     roles: roles.split(",").filter((r) => KADE_ROLES.has(r)),
     outletId: outletId || undefined,
+    username: userId,
+    name: userId.charAt(0).toUpperCase() + userId.slice(1),
     dev: true,
   };
 }

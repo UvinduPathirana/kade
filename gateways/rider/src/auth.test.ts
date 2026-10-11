@@ -71,6 +71,8 @@ describe("createAuthenticator", () => {
       userId: "ruwan",
       roles: ["merchant_owner"],
       outletId: "o-1",
+      username: "ruwan",
+      name: "Ruwan",
       dev: true,
     });
   });

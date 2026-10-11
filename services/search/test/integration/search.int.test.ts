@@ -1,251 +1,250 @@
-// Integration test against the SHARED stack (pnpm infra:up): Postgres search, Kafka and the
-// Debezium connector outbox-search (deploy/compose/connect/register-outbox.sh search search).
-// Override addresses with DATABASE_URL / KAFKA_BROKERS when your host ports differ.
-import { credentials, Metadata, status, type ServiceError } from "@grpc/grpc-js";
+// Integration test against the SHARED stack and a running catalog (localhost:50101, or CATALOG_GRPC):
+// catalog -> outbox -> Debezium -> kade.restaurant.events / kade.menu.events -> this projection.
+// The test restaurant is suspended at the end (through a merchant event, as catalog's own test does),
+// which also removes it from search results.
+import { credentials, Metadata, type Client, type ServiceError } from "@grpc/grpc-js";
 import { KafkaJS } from "@confluentinc/kafka-javascript";
 import type { INestApplication } from "@nestjs/common";
-import {
-  NoteCreated,
-  TemplateServiceClient,
-  type CreateNoteRequest,
-  type CreateNoteResponse,
-  type GetNoteResponse,
-} from "@kade/proto/kade/template/v1/template";
+import * as C from "@kade/proto/kade/catalog/v1/catalog_service";
+import { OutletStatusChanged } from "@kade/proto/kade/merchant/v1/merchant_events";
+import { OutletAdminStatus } from "@kade/proto/kade/merchant/v1/merchant_service";
+import * as S from "@kade/proto/kade/search/v1/search_service";
+import { sql } from "drizzle-orm";
 import pg from "pg";
 import { v7 as uuidv7 } from "uuid";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startApp } from "../../src/app.js";
-import { NOTE_CREATED } from "../../src/notes/notes.grpc.js";
+import { Backfill } from "../../src/search/backfill.js";
+import { Projection } from "../../src/search/projection.js";
 import { loadConfig } from "../../src/platform/config.js";
-import { decodeErrorInfo, STATUS_DETAILS_KEY } from "../../src/platform/grpc/error-details.js";
+import { Database } from "../../src/platform/db/database.js";
 import { GrpcServer } from "../../src/platform/grpc/grpc-server.js";
 import { createLogger } from "../../src/platform/logger.js";
 
 const config = loadConfig({
   SERVICE_NAME: "search",
-  DATABASE_URL: "postgres://search:search@localhost:5432/search",
+  DATABASE_URL: "postgres://search:search@localhost:15432/search",
   KAFKA_BROKERS: "localhost:19092",
+  CATALOG_GRPC: "localhost:50101",
   LOG_LEVEL: "warn",
   ...process.env,
   GRPC_PORT: "0",
   HTTP_PORT: "0",
   OTEL_EXPORTER_OTLP_ENDPOINT: undefined,
+  PRICING_GRPC: undefined,
 });
-const TOPIC = "kade.note.events";
 
 let app: INestApplication;
-let client: TemplateServiceClient;
+let search: S.SearchServiceClient;
+let catalog: C.CatalogServiceClient;
+let restaurants: C.RestaurantManagementServiceClient;
+let menus: C.MenuManagementServiceClient;
 let pool: pg.Pool;
-let kafka: KafkaJS.Kafka;
 let producer: KafkaJS.Producer;
+const created: string[] = [];
 
 beforeAll(async () => {
   app = await startApp(config, createLogger(config));
-  const port = app.get(GrpcServer).port;
-  client = new TemplateServiceClient(`localhost:${port}`, credentials.createInsecure());
+  search = new S.SearchServiceClient(`localhost:${app.get(GrpcServer).port}`, credentials.createInsecure());
+  catalog = new C.CatalogServiceClient(config.CATALOG_GRPC!, credentials.createInsecure());
+  restaurants = new C.RestaurantManagementServiceClient(config.CATALOG_GRPC!, credentials.createInsecure());
+  menus = new C.MenuManagementServiceClient(config.CATALOG_GRPC!, credentials.createInsecure());
   pool = new pg.Pool({ connectionString: config.DATABASE_URL, max: 2 });
-  kafka = new KafkaJS.Kafka({ kafkaJS: { brokers: config.KAFKA_BROKERS, logLevel: KafkaJS.logLevel.ERROR } });
+  const kafka = new KafkaJS.Kafka({
+    kafkaJS: { brokers: config.KAFKA_BROKERS, logLevel: KafkaJS.logLevel.ERROR },
+  });
   producer = kafka.producer();
   await producer.connect();
 });
 
 afterAll(async () => {
-  client?.close();
+  for (const id of created) await suspend(id);
+  await app?.get(Backfill).idle();
+  for (const c of [search, catalog, restaurants, menus]) c?.close();
   await producer?.disconnect();
   await pool?.end();
   await app?.close();
 });
 
-function identity(userId = "user-it-1", roles = "customer"): Metadata {
-  const md = new Metadata();
-  md.set("x-user-id", userId);
-  md.set("x-roles", roles);
-  return md;
-}
-
-function createNote(req: Partial<CreateNoteRequest>, md = identity()): Promise<CreateNoteResponse> {
-  const request: CreateNoteRequest = { text: "", idempotencyKey: "", ...req };
+type Codec<T> = { fromPartial(p: unknown): T };
+function call<Res>(client: Client, method: string, codec: Codec<unknown>, req: unknown): Promise<Res> {
   return new Promise((resolve, reject) =>
-    client.createNote(request, md, { deadline: Date.now() + 5_000 }, (err, res) =>
+    (
+      client as unknown as Record<
+        string,
+        (r: unknown, m: Metadata, o: object, cb: (e: ServiceError | null, r: Res) => void) => void
+      >
+    )[method]!(codec.fromPartial(req), new Metadata(), { deadline: Date.now() + 5_000 }, (err, res) =>
       err ? reject(err) : resolve(res),
     ),
   );
 }
+const find = (query: string) => call<S.SearchResponse>(search, "search", S.SearchRequest, { query });
 
-function getNote(id: string): Promise<GetNoteResponse> {
-  return new Promise((resolve, reject) =>
-    client.getNote({ id }, new Metadata(), { deadline: Date.now() + 2_000 }, (err, res) =>
-      err ? reject(err) : resolve(res),
-    ),
-  );
-}
-
-async function grpcError(promise: Promise<unknown>): Promise<{ code: status; reason: string | undefined }> {
-  const err = (await promise.then(
-    () => expect.unreachable("expected the call to fail"),
-    (e: unknown) => e,
-  )) as ServiceError;
-  const details = err.metadata.get(STATUS_DETAILS_KEY)[0];
-  return { code: err.code, reason: details ? decodeErrorInfo(details as Buffer)?.reason : undefined };
-}
-
-async function eventually<T>(fn: () => Promise<T | undefined>, timeoutMs = 30_000): Promise<T> {
+async function eventually<T>(fn: () => Promise<T | undefined>, timeoutMs = 45_000): Promise<T> {
   const until = Date.now() + timeoutMs;
   for (;;) {
     const value = await fn();
     if (value !== undefined) return value;
     if (Date.now() > until) throw new Error("condition not met in time");
-    await new Promise((r) => setTimeout(r, 250));
+    await new Promise((r) => setTimeout(r, 300));
   }
 }
 
-async function projection(noteId: string): Promise<{ applied_count: number } | undefined> {
-  const { rows } = await pool.query("select applied_count from note_projections where note_id = $1", [
-    noteId,
-  ]);
-  return rows[0];
+async function suspend(outletId: string): Promise<void> {
+  const value = OutletStatusChanged.encode(
+    OutletStatusChanged.fromPartial({
+      outletId,
+      status: { adminStatus: OutletAdminStatus.OUTLET_ADMIN_STATUS_SUSPENDED },
+    }),
+  ).finish();
+  await producer.send({
+    topic: "kade.merchant.events",
+    messages: [
+      {
+        key: outletId,
+        value: Buffer.from(value),
+        headers: { id: uuidv7(), eventType: "kade.merchant.v1.OutletStatusChanged" },
+      },
+    ],
+  });
 }
 
-describe("TemplateService over gRPC", () => {
-  it("CreateNote writes the note and one outbox row in the same transaction", async () => {
-    const { note } = await createNote({
-      text: "  hello kadé  ",
-      amount: { amountMinor: 115_000, currency: "LKR" },
+/** A word nothing else in the catalogue contains. */
+const token = () =>
+  `zq${Math.random()
+    .toString(36)
+    .replace(/[^a-z]/g, "")
+    .slice(0, 6)}`;
+
+describe("projection from catalog events", () => {
+  it("indexes a new restaurant and dish, then follows sold-out and suspension", async () => {
+    const word = token();
+    const rid = uuidv7();
+    created.push(rid);
+    await call(restaurants, "createRestaurant", C.CreateRestaurantRequest, {
+      restaurantId: rid,
+      details: {
+        name: `IT Search ${word}`,
+        categoryId: "kottu",
+        cuisine: "Kottu",
+        area: "Kollupitiya",
+        location: { lat: 6.91, lng: 79.852 },
+      },
     });
-    expect(note).toMatchObject({ text: "hello kadé", amount: { amountMinor: 115_000, currency: "LKR" } });
-
-    const { rows: notes } = await pool.query("select * from notes where id = $1", [note!.id]);
-    expect(notes).toHaveLength(1);
-    expect(notes[0]).toMatchObject({ created_by: "user-it-1", amount_minor: "115000" });
-
-    const { rows: outbox } = await pool.query("select * from outbox where aggregateid = $1", [note!.id]);
-    expect(outbox).toHaveLength(1);
-    expect(outbox[0]).toMatchObject({ aggregatetype: "note", type: NOTE_CREATED });
-    const event = NoteCreated.decode(outbox[0].payload);
-    expect(event).toMatchObject({ noteId: note!.id, text: "hello kadé", amount: { amountMinor: 115_000 } });
-
-    expect((await getNote(note!.id)).note).toEqual(note);
-  });
-
-  it("returns the original result when retried with the same idempotency key", async () => {
-    const key = uuidv7();
-    const first = await createNote({ text: "once", idempotencyKey: key });
-    const again = await createNote({ text: "once", idempotencyKey: key });
-    expect(again.note).toEqual(first.note);
-    const { rows } = await pool.query("select count(*)::int as n from outbox where aggregateid = $1", [
-      first.note!.id,
-    ]);
-    expect(rows[0].n).toBe(1);
-
-    // Concurrent retries serialise on the key's primary key and still yield one note.
-    const key2 = uuidv7();
-    const results = await Promise.all(
-      [1, 2, 3].map(() => createNote({ text: "race", idempotencyKey: key2 })),
+    const { menu } = await call<C.CreateMenuSectionResponse>(
+      menus,
+      "createMenuSection",
+      C.CreateMenuSectionRequest,
+      { restaurantId: rid, name: "Kottu" },
     );
-    expect(new Set(results.map((r) => r.note!.id)).size).toBe(1);
+    const saved = await call<C.SaveMenuItemResponse>(menus, "saveMenuItem", C.SaveMenuItemRequest, {
+      restaurantId: rid,
+      item: {
+        sectionId: menu!.sections[0]!.id,
+        name: `${word} buns`,
+        description: "Spicy",
+        price: { amountMinor: 50_000, currency: "LKR" },
+      },
+    });
 
-    expect(await grpcError(createNote({ text: "different body", idempotencyKey: key }))).toEqual({
-      code: status.FAILED_PRECONDITION,
-      reason: "IDEMPOTENCY_KEY_REUSED",
+    // Stemmed prefix match: "<word> bun" finds "<word> buns"; the restaurant is found by its name.
+    const hit = await eventually(async () => {
+      const res = await find(`${word} bun`);
+      return res.dishes[0];
+    });
+    expect(hit.item).toMatchObject({
+      id: saved.item!.id,
+      name: `${word} buns`,
+      soldOut: false,
+      price: { amountMinor: 50_000 },
+    });
+    expect(hit.restaurant?.name).toBe(`IT Search ${word}`);
+    expect((await find(word)).restaurants.map((r) => r.id)).toEqual([rid]);
+
+    await call(menus, "setMenuItemSoldOut", C.SetMenuItemSoldOutRequest, {
+      restaurantId: rid,
+      itemId: saved.item!.id,
+      soldOut: true,
+    });
+    await eventually(async () => ((await find(word)).dishes[0]?.item?.soldOut ? true : undefined));
+
+    await suspend(rid);
+    await eventually(async () => {
+      const res = await find(word);
+      return res.restaurants.length === 0 && res.dishes.length === 0 ? true : undefined;
     });
   });
 
-  it("maps domain errors to status codes with an ErrorInfo reason", async () => {
-    expect(await grpcError(getNote(uuidv7()))).toEqual({ code: status.NOT_FOUND, reason: "NOTE_NOT_FOUND" });
-    expect(await grpcError(getNote("nope"))).toEqual({
-      code: status.INVALID_ARGUMENT,
-      reason: "NOTE_ID_INVALID",
-    });
-    expect(await grpcError(createNote({ text: "x" }, new Metadata()))).toEqual({
-      code: status.UNAUTHENTICATED,
-      reason: "UNAUTHENTICATED",
-    });
-    expect(await grpcError(createNote({ text: " " }))).toEqual({
-      code: status.INVALID_ARGUMENT,
-      reason: "NOTE_TEXT_REQUIRED",
+  it("ignores stale snapshots and menu versions", async () => {
+    const projection = app.get(Projection);
+    const database = app.get(Database);
+    const id = uuidv7();
+    const restaurant = C.Restaurant.fromPartial({ id, name: "Stale test", categoryId: "kottu" });
+    await database.transaction(undefined, async (tx) => {
+      await projection.upsertRestaurant(tx, { ...restaurant, name: "Newer" }, new Date(2_000));
+      await projection.upsertRestaurant(tx, { ...restaurant, name: "Older" }, new Date(1_000));
+      expect(await projection.replaceMenu(tx, C.Menu.fromPartial({ restaurantId: id, version: 5 }))).toBe(
+        true,
+      );
+      expect(await projection.replaceMenu(tx, C.Menu.fromPartial({ restaurantId: id, version: 4 }))).toBe(
+        false,
+      );
+      const { rows } = await tx.execute<{ name: string; menu_version: string }>(
+        sql`select name, menu_version from search_restaurants where id = ${id}`,
+      );
+      expect(rows[0]).toMatchObject({ name: "newer", menu_version: "5" });
+      await tx.execute(sql`delete from search_restaurants where id = ${id}`);
     });
   });
 });
 
-describe("kade.note.events consumer", () => {
-  it("projects a note created over gRPC once, via outbox -> Debezium -> Kafka", async () => {
-    const { note } = await createNote({
-      text: "through the outbox",
-      amount: { amountMinor: 500, currency: "LKR" },
-    });
-    const row = await eventually(() => projection(note!.id), 45_000);
-    expect(row.applied_count).toBe(1);
+describe("seeded catalogue", () => {
+  it("finds the mock's dishes and restaurants, with typo tolerance", async () => {
+    const kottu = await find("kottu");
+    expect(kottu.restaurants.map((r) => r.name)).toContain("Galle Road Kottu House");
+    expect(kottu.dishes.map((d) => d.item?.name)).toContain("Cheese kottu");
+    const typo = await find("biriyani");
+    expect(typo.dishes.map((d) => d.item?.name)).toContain("Chicken biryani");
+    expect((await find("")).dishes).toEqual([]);
   });
 
-  it("handles a replayed event exactly once (processed_events dedup)", async () => {
-    const eventId = uuidv7();
-    const noteId = uuidv7();
-    const message = {
-      key: noteId,
-      value: Buffer.from(
-        NoteCreated.encode({
-          noteId,
-          text: "replayed",
-          amount: { amountMinor: 1, currency: "LKR" },
-        }).finish(),
-      ),
-      headers: { id: eventId, eventType: NOTE_CREATED },
-    };
-    await producer.send({ topic: TOPIC, messages: [message, message, message] });
+  it("rebuilds the index from catalog", async () => {
+    await call(search, "rebuildIndex", S.RebuildIndexRequest, {});
+    await app.get(Backfill).idle();
+    const res = await find("watalappan");
+    expect(res.restaurants.map((r) => r.name)).toContain("Watalappan Bar");
+    const { rows } = await pool.query(
+      "select count(*)::int n from search_restaurants where snapshot is not null",
+    );
+    expect(rows[0].n).toBeGreaterThanOrEqual(16);
+  });
+});
 
-    await eventually(() => projection(noteId));
-    // Give the duplicates time to arrive and be skipped; they are on the same partition, behind it.
-    const marker = uuidv7();
-    await producer.send({
-      topic: TOPIC,
-      messages: [{ ...message, headers: { id: marker, eventType: NOTE_CREATED } }],
+describe("places and suggestions", () => {
+  it("serves the address picker and popular searches", async () => {
+    const places = await call<S.SearchPlacesResponse>(search, "searchPlaces", S.SearchPlacesRequest, {
+      query: "galle",
     });
-    await eventually(async () => {
-      const { rows } = await pool.query("select 1 from processed_events where event_id = $1", [marker]);
-      return rows[0];
+    expect(places.places[0]).toMatchObject({ id: "galle-face", inZone: true, zoneId: "c03" });
+    const nearest = await call<S.ReverseGeocodeResponse>(search, "reverseGeocode", S.ReverseGeocodeRequest, {
+      location: { lat: 6.8564, lng: 79.8633 },
     });
-    expect((await projection(noteId))?.applied_count).toBe(2); // the original + the distinct marker event
-    const { rows } = await pool.query("select count(*)::int as n from processed_events where event_id = $1", [
-      eventId,
+    expect(nearest.place?.area).toBe("Dehiwala");
+    const popular = await call<S.ListPopularSearchesResponse>(
+      search,
+      "listPopularSearches",
+      S.ListPopularSearchesRequest,
+      {},
+    );
+    expect(popular.queries).toEqual([
+      "Kottu",
+      "Biryani",
+      "Fish buns",
+      "Watalappan",
+      "Ramen",
+      "Rice and curry",
+      "Eggs",
     ]);
-    expect(rows[0].n).toBe(1);
-  });
-
-  it("sends an undecodable event to the DLQ with the error in a header", async () => {
-    const eventId = uuidv7();
-    await producer.send({
-      topic: TOPIC,
-      messages: [
-        {
-          key: "poison",
-          value: Buffer.from([0xff, 0xff, 0xff]),
-          headers: { id: eventId, eventType: NOTE_CREATED },
-        },
-      ],
-    });
-
-    const dlq = kafka.consumer({
-      kafkaJS: { groupId: `search-it-dlq-${eventId}`, fromBeginning: true },
-    });
-    await dlq.connect();
-    await dlq.subscribe({ topics: [`${TOPIC}.dlq`] });
-    const found = new Promise<KafkaJS.IHeaders>((resolve) => {
-      void dlq.run({
-        eachMessage: async ({ message }) => {
-          if (message.headers?.id?.toString() === eventId) resolve(message.headers);
-        },
-      });
-    });
-    try {
-      const headers = await Promise.race([
-        found,
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("no DLQ message")), 45_000)),
-      ]);
-      expect(headers.error?.toString()).toMatch(/Error/);
-      expect(headers["original-topic"]?.toString()).toBe(TOPIC);
-      expect(headers["failed-by"]?.toString()).toBe("search");
-    } finally {
-      await dlq.disconnect();
-    }
   });
 });

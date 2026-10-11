@@ -34,7 +34,6 @@ export class Hub {
 
 /** Messages the server sends on /ws (documented in README.md, "WebSocket protocol"). */
 export type ServerMessage =
-  | { type: "ready"; userId: string }
+  | { type: "ready"; userId: string; realtime: boolean }
   | { type: "pong" }
-  | { type: "error"; code: string; message: string }
-  | { type: "note.created"; note: unknown };
+  | { type: "error"; code: string; message: string };

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { isLive } from "@/api/config";
 import type { MapPoint, Offer, Trip } from "@/api/types";
 import { HOME_BASE } from "@/features/map/geo";
 
@@ -58,9 +59,12 @@ interface JobState {
 }
 
 const seconds = (min: number, max: number) => (min + Math.random() * (max - min)) * 1000;
-/** First offer 5–10 s after going online; later ones 12–20 s after the last ended. */
-const firstOfferAt = () => Date.now() + seconds(5, 10);
-const laterOfferAt = () => Date.now() + seconds(12, 20);
+/**
+ * Mock: first offer 5–10 s after going online; later ones 12–20 s after the last ended.
+ * Live: when to next ask dispatch for its open offer (a poll; realtime pushes come later).
+ */
+const firstOfferAt = () => Date.now() + (isLive ? 1_000 : seconds(5, 10));
+const laterOfferAt = () => Date.now() + (isLive ? 3_000 : seconds(12, 20));
 
 const patchJob = (s: JobState, change: Partial<ActiveJob>) => (s.job ? { job: { ...s.job, ...change } } : {});
 

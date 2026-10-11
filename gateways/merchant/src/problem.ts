@@ -17,10 +17,31 @@ export interface Problem {
 
 // Copy for reasons whose service message isn't what the app should say. Everything else uses the
 // service's message for 4xx and a generic line for 5xx.
+// Keys are ErrorInfo reasons; the copy matches what the restaurant app's mock services said.
 const USER_MESSAGES: Record<string, string> = {
   UNAUTHENTICATED: "Please sign in again.",
   IDEMPOTENCY_KEY_REUSED: "This request was already sent with different details. Please try again.",
+  TICKET_MISSED: "This order wasn't accepted in time.",
+  TICKET_ALREADY_ACCEPTED: "This order has already been accepted.",
+  TICKET_NOT_PREPARING: "This order isn't being prepared.",
+  TICKET_NOT_READY: "This order isn't ready yet.",
+  LAST_OWNER: "Your team needs at least one owner.",
+  STAFF_PHONE_TAKEN: "Someone with this number is already on your team.",
+  OFFER_DATES_INVALID: "The end date is before the start date.",
+  NOT_OUTLET_STAFF: "This account isn't linked to a restaurant on Kadé yet.",
 };
+
+/** A problem raised by the gateway itself (not an upstream), rendered by the app error handler. */
+export class ProblemError extends Error {
+  override name = "ProblemError";
+  constructor(
+    readonly status: number,
+    readonly code: string,
+    readonly detail: string,
+  ) {
+    super(detail);
+  }
+}
 
 const GENERIC = "Something went wrong on our side. Please try again.";
 

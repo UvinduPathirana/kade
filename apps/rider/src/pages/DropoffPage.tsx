@@ -221,7 +221,10 @@ function AtTheDoor({ job }: { job: ActiveJob }) {
                     setError(undefined);
                   }}
                   error={error}
-                  hint={`Ask ${job.customer.firstName} for the 4 digits on the order screen. For this demo it's ${job.deliveryCode}.`}
+                  hint={
+                    `Ask ${job.customer.firstName} for the 4 digits on the order screen.` +
+                    (job.deliveryCode ? ` For this demo it's ${job.deliveryCode}.` : "")
+                  }
                 />
               </div>
             ) : (

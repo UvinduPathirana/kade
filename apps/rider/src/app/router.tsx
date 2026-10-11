@@ -1,12 +1,20 @@
 // Pages other than the first screen load on first visit, keeping the initial download small
 import { createBrowserRouter } from "react-router";
+import { AuthCallbackPage } from "@/auth/AuthCallbackPage";
+import { CALLBACK_PATH } from "@/auth/auth";
+import { RequireAuth } from "@/auth/RequireAuth";
 import { RiderLayout } from "@/layout/RiderLayout";
 import { GoOnlinePage } from "@/pages/GoOnlinePage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 
 export const router = createBrowserRouter([
   {
-    element: <RiderLayout />,
+    // Live mode: everything in the shell needs a Keycloak sign-in (rider-app).
+    element: (
+      <RequireAuth>
+        <RiderLayout />
+      </RequireAuth>
+    ),
     children: [
       { path: "/", element: <GoOnlinePage /> },
       {
@@ -38,5 +46,6 @@ export const router = createBrowserRouter([
     ],
   },
   // Sign-up sits outside the signed-in shell
+  { path: CALLBACK_PATH, element: <AuthCallbackPage /> },
   { path: "/join", lazy: async () => ({ Component: (await import("@/pages/JoinPage")).JoinPage }) },
 ]);

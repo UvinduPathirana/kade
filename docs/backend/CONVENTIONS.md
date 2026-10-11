@@ -105,6 +105,7 @@ Running a service on the host against the Compose stack: use the host ports (`lo
   | `8012` | option groups (per restaurant) → R(6)+G(6), G: 1 spice, 2 kottuExtras, 3 portion, 4 pizzaSize, 5 burgerExtras, 6 sugar, 7 sides |                                                                           |
   | `8013` | option choices → R(4)+G(4)+C(4), C 1-based                                                                                      |                                                                           |
   | `8014` | home collections (col-N → N)                                                                                                    |                                                                           |
+  | `8015` | restaurant closures (catalog) | |
 
   Service-private seed groups (`8a01`… review, `8b01`… support) are fine as long as nothing outside the service references them. A demo user's customer id **is** their Keycloak sub (dilini = `…-8005-000000000001`). Riders and outlet staff link to users by `user_id` = sub (Nimal's rider `…-8001-000000000101` has `user_id` `…-8005-000000000004`; ruwan owner and kasun kitchen at outlet `…-8000-000000000001`). Gateways resolve them with `merchant.OutletStaffService.GetMyOutlets` and `dispatch.RiderService.GetMyRider`.
 

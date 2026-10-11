@@ -16,6 +16,9 @@ services:
       KAFKA_BROKERS: kafka:9092
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel:4318
       LOG_LEVEL: info
+      # Backfill/rebuild only (never on the read path); pricing adds delivery fees to results.
+      CATALOG_GRPC: catalog:50101
+      PRICING_GRPC: pricing:50105
       # V8 sizes its heap from the host's RAM, not the cgroup; cap it well under the 192 MB limit
       # so GC kicks in before the OOM killer does (native librdkafka + buffers live outside it).
       NODE_OPTIONS: --max-old-space-size=96

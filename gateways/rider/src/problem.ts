@@ -17,10 +17,28 @@ export interface Problem {
 
 // Copy for reasons whose service message isn't what the app should say. Everything else uses the
 // service's message for 4xx and a generic line for 5xx.
+// Keys are ErrorInfo reasons; the copy matches what the rider app's mock services said.
 const USER_MESSAGES: Record<string, string> = {
   UNAUTHENTICATED: "Please sign in again.",
   IDEMPOTENCY_KEY_REUSED: "This request was already sent with different details. Please try again.",
+  OFFER_EXPIRED: "This offer ended before it reached us. It's gone to another rider.",
+  ITEMS_NOT_CHECKED: "Tick every item against the bag, or confirm the bag is sealed.",
+  DELIVERY_CODE_MISMATCH: "That code doesn't match. Ask the customer to read it from the Kadé app again.",
+  CASH_SHORT: "Collect the full amount before finishing the delivery.",
+  NOT_A_RIDER: "This account isn't registered as a Kadé rider yet.",
 };
+
+/** A problem raised by the gateway itself (not an upstream), rendered by the app error handler. */
+export class ProblemError extends Error {
+  override name = "ProblemError";
+  constructor(
+    readonly status: number,
+    readonly code: string,
+    readonly detail: string,
+  ) {
+    super(detail);
+  }
+}
 
 const GENERIC = "Something went wrong on our side. Please try again.";
 

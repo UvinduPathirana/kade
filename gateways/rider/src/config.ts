@@ -13,8 +13,14 @@ const schema = z
   .object({
     SERVICE_NAME: z.string().regex(/^[a-z][a-z0-9-]*$/),
     HTTP_PORT: z.coerce.number().int().min(0).max(65_535),
-    // One variable per upstream. Add CATALOG_GRPC, ORDER_GRPC, ... as the gateway grows.
-    TEMPLATE_GRPC: grpcAddress,
+    // One variable per upstream (CONVENTIONS: <NAME>_GRPC).
+    DISPATCH_GRPC: grpcAddress.default("localhost:50110"),
+    LOCATION_GRPC: grpcAddress.default("localhost:50111"),
+    LEDGER_GRPC: grpcAddress.default("localhost:50113"),
+    REVIEW_GRPC: grpcAddress.default("localhost:50115"),
+    SUPPORT_GRPC: grpcAddress.default("localhost:50116"),
+    // Realtime WebSocket (offers, job changes). /ws is proxied there when it answers; empty = off.
+    REALTIME_WS_URL: z.union([z.literal(""), z.url()]).default("ws://localhost:8112/ws"),
     GRPC_DEADLINE_MS: z.coerce.number().int().positive().default(2_000),
 
     // Expected `iss` claim. Keycloak issues tokens for the browser's view of it
@@ -29,6 +35,22 @@ const schema = z
     AUTH_DEV_BYPASS: z.stringbool().default(false),
     DEPLOY_ENV: z.enum(["dev", "staging", "prod"]).default("prod"),
 
+    // Rider resolution while dispatch's GetMyRider can't answer: "nimal=<riderId>" (keys: Keycloak
+    // username or user id).
+    RIDER_IDS: z
+      .string()
+      .default("")
+      .transform((s) =>
+        Object.fromEntries(
+          s
+            .split(",")
+            .map((pair) => pair.split("=").map((v) => v.trim()))
+            .filter((kv): kv is [string, string] => kv.length === 2 && !!kv[0] && !!kv[1]),
+        ),
+      ),
+    // DEV ONLY fallback: every rider without a mapping acts as this rider (Nimal).
+    DEFAULT_RIDER_ID: z.string().default(""),
+
     CORS_ORIGINS: list.pipe(z.array(z.url()).min(1, "at least one origin")),
     OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
     LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
@@ -37,6 +59,10 @@ const schema = z
   .refine((c) => !c.AUTH_DEV_BYPASS || c.DEPLOY_ENV === "dev", {
     path: ["AUTH_DEV_BYPASS"],
     message: "may only be enabled when DEPLOY_ENV=dev",
+  })
+  .refine((c) => !c.DEFAULT_RIDER_ID || c.DEPLOY_ENV === "dev", {
+    path: ["DEFAULT_RIDER_ID"],
+    message: "may only be set when DEPLOY_ENV=dev",
   });
 
 export type Config = z.infer<typeof schema>;

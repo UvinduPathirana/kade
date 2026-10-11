@@ -13,8 +13,14 @@ const schema = z
   .object({
     SERVICE_NAME: z.string().regex(/^[a-z][a-z0-9-]*$/),
     HTTP_PORT: z.coerce.number().int().min(0).max(65_535),
-    // One variable per upstream. Add CATALOG_GRPC, ORDER_GRPC, ... as the gateway grows.
-    TEMPLATE_GRPC: grpcAddress,
+    // One variable per upstream (CONVENTIONS: <NAME>_GRPC).
+    MERCHANT_GRPC: grpcAddress.default("localhost:50109"),
+    CATALOG_GRPC: grpcAddress.default("localhost:50101"),
+    REVIEW_GRPC: grpcAddress.default("localhost:50115"),
+    LEDGER_GRPC: grpcAddress.default("localhost:50113"),
+    PROMOTION_GRPC: grpcAddress.default("localhost:50106"),
+    // Realtime WebSocket (kitchen board pushes). /ws is proxied there when it answers; empty = off.
+    REALTIME_WS_URL: z.union([z.literal(""), z.url()]).default("ws://localhost:8112/ws"),
     GRPC_DEADLINE_MS: z.coerce.number().int().positive().default(2_000),
 
     // Expected `iss` claim. Keycloak issues tokens for the browser's view of it
@@ -29,6 +35,23 @@ const schema = z
     AUTH_DEV_BYPASS: z.stringbool().default(false),
     DEPLOY_ENV: z.enum(["dev", "staging", "prod"]).default("prod"),
 
+    // Outlet resolution for signed-in staff, used when neither the token (outlet_id claim) nor the
+    // merchant service can say which outlet the user works at. "ruwan=<outletId>,kasun=<outletId>"
+    // (keys: Keycloak username or user id).
+    STAFF_OUTLETS: z
+      .string()
+      .default("")
+      .transform((s) =>
+        Object.fromEntries(
+          s
+            .split(",")
+            .map((pair) => pair.split("=").map((v) => v.trim()))
+            .filter((kv): kv is [string, string] => kv.length === 2 && !!kv[0] && !!kv[1]),
+        ),
+      ),
+    // DEV ONLY fallback: every merchant user without a mapping works here (Galle Road Kottu House).
+    DEFAULT_OUTLET_ID: z.string().default(""),
+
     CORS_ORIGINS: list.pipe(z.array(z.url()).min(1, "at least one origin")),
     OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
     LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
@@ -37,6 +60,10 @@ const schema = z
   .refine((c) => !c.AUTH_DEV_BYPASS || c.DEPLOY_ENV === "dev", {
     path: ["AUTH_DEV_BYPASS"],
     message: "may only be enabled when DEPLOY_ENV=dev",
+  })
+  .refine((c) => !c.DEFAULT_OUTLET_ID || c.DEPLOY_ENV === "dev", {
+    path: ["DEFAULT_OUTLET_ID"],
+    message: "may only be set when DEPLOY_ENV=dev",
   });
 
 export type Config = z.infer<typeof schema>;

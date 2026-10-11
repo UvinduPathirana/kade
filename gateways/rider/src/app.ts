@@ -9,11 +9,16 @@ import { AuthError, type Authenticator, type Identity } from "./auth.js";
 import type { Config } from "./config.js";
 import type { CallContext } from "./grpc/call.js";
 import { isServiceError } from "./grpc/call.js";
-import type { TemplateServiceClient } from "@kade/proto/kade/template/v1/template";
+import type { Upstreams } from "./grpc/clients.js";
 import { Hub } from "./hub.js";
-import { problem, problemFromGrpc, type Problem } from "./problem.js";
+import type { LocationForwarder } from "./location.js";
+import { createRiderResolver, NotARiderError } from "./rider.js";
+import { problem, problemFromGrpc, ProblemError, type Problem } from "./problem.js";
+import { accountRoutes } from "./routes/account.js";
+import { dispatchRoutes } from "./routes/dispatch.js";
 import { healthRoutes } from "./routes/health.js";
-import { noteRoutes } from "./routes/notes.js";
+import { onboardingRoutes } from "./routes/onboarding.js";
+import { supportRoutes } from "./routes/support.js";
 import { wsRoutes } from "./routes/ws.js";
 import { sharedSchemas } from "./schemas.js";
 
@@ -26,6 +31,8 @@ declare module "fastify" {
     auth?: "required" | "optional" | "public";
     /** Caller needs at least one of these realm roles (403 otherwise). */
     roles?: string[];
+    /** false: the route doesn't act for a rider (default: resolve the caller's rider id). */
+    rider?: boolean;
   }
 }
 
@@ -33,7 +40,8 @@ export interface AppDeps {
   config: Config;
   logger: Logger;
   authenticator: Authenticator;
-  template: TemplateServiceClient;
+  upstreams: Upstreams;
+  location: LocationForwarder;
 }
 
 export type App = FastifyInstance<
@@ -71,9 +79,10 @@ export async function buildApp(deps: AppDeps): Promise<Gateway> {
         title: `Kadé ${config.SERVICE_NAME}`,
         version: "0.1.0",
         description:
-          "Backend-for-frontend REST API. Money is whole rupees (LKR). Errors are application/problem+json " +
+          "Backend-for-frontend for the rider app (apps/rider). Money is whole rupees (LKR). Errors are application/problem+json " +
           "with a stable `code`. Mutations accept an `Idempotency-Key` header. Realtime: WebSocket /ws " +
-          "(see the gateway README).",
+          "(see the gateway README). Rider routes act for the caller's dispatch rider id, resolved with " +
+          "dispatch RiderService.GetMyRider. Positions are map units of the app's illustrated map.",
       },
       components: {
         securitySchemes: { bearer: { type: "http", scheme: "bearer", bearerFormat: "JWT" } },
@@ -105,7 +114,14 @@ export async function buildApp(deps: AppDeps): Promise<Gateway> {
       try {
         req.identity = await authenticator.authenticate(token);
       } catch (err) {
-        if (!(err instanceof AuthError)) throw err;
+        if (!(err instanceof AuthError)) {
+          // Keycloak's keys unreachable (restarting, network): not the user's fault, try again soon.
+          req.log.warn({ err }, "could not verify token");
+          return sendProblem(
+            reply,
+            problem(503, "AUTH_UNAVAILABLE", "Sign-in is briefly unavailable. Please try again.", meta(req)),
+          );
+        }
         req.log.info({ reason: err.message }, "rejected token");
         return sendProblem(reply, problem(401, "UNAUTHENTICATED", "Your session has expired.", meta(req)));
       }
@@ -123,7 +139,22 @@ export async function buildApp(deps: AppDeps): Promise<Gateway> {
     }
   });
 
+  // Rider routes act for the caller's dispatch rider id (not the Keycloak sub).
+  const resolveRider = createRiderResolver({ config, riders: deps.upstreams.riders, logger: deps.logger });
+  app.addHook("preHandler", async (req) => {
+    if (req.routeOptions.url === undefined || !req.identity) return;
+    if (req.routeOptions.config.rider === false || req.routeOptions.config.auth === "public") return;
+    if (req.routeOptions.url.startsWith("/health") || req.routeOptions.url === "/ws") return;
+    req.identity.riderId = await resolveRider(req.identity);
+  });
+
   app.setErrorHandler((err, req, reply) => {
+    if (err instanceof ProblemError) {
+      return sendProblem(reply, problem(err.status, err.code, err.detail, meta(req)));
+    }
+    if (err instanceof NotARiderError) {
+      return sendProblem(reply, problem(403, "NOT_A_RIDER", undefined, meta(req)));
+    }
     if (isServiceError(err)) {
       const p = problemFromGrpc(err, meta(req));
       if (p.status >= 500) req.log.warn({ err, code: p.code }, "upstream failure");
@@ -154,8 +185,20 @@ export async function buildApp(deps: AppDeps): Promise<Gateway> {
   };
 
   await app.register(healthRoutes(lifecycle));
-  await app.register(noteRoutes({ template: deps.template, hub, callContext }));
-  await app.register(wsRoutes({ authenticator, hub }));
+  const routeDeps = { u: deps.upstreams, callContext };
+  await app.register(dispatchRoutes({ ...routeDeps, location: deps.location }));
+  await app.register(accountRoutes(routeDeps));
+  await app.register(supportRoutes(routeDeps));
+  await app.register(onboardingRoutes(routeDeps));
+  await app.register(
+    wsRoutes({
+      authenticator,
+      hub,
+      realtimeUrl: config.REALTIME_WS_URL,
+      enrich: async (id) => ({ ...id, riderId: await resolveRider(id) }),
+      channels: (id) => (id.riderId ? [`rider:${id.riderId}`] : []),
+    }),
+  );
   app.get("/openapi.json", { schema: { hide: true }, config: { auth: "public" } }, () => app.swagger());
 
   return { app, hub, lifecycle };

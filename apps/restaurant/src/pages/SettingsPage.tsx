@@ -1,10 +1,12 @@
 import { Button, ConfirmDialog, Panel, Select, Switch, TextField, useToast } from "@kade/ui";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
+import { isLive } from "@/api/config";
 import { useOutlet, usePrintTest, useSaveDetails, useSaveSettings, useSettings } from "@/api/queries";
 import type { DeviceSettings, NotificationSettings, Outlet, PartnerSettings } from "@/api/types";
 import { useSound } from "@/features/alerts/store";
 import { StaffPanel } from "@/features/settings/StaffPanel";
+import { signedInName, signOut } from "@/auth/auth";
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
 import styles from "./SettingsPage.module.css";
 import shared from "@/features/settings/Settings.module.css";
@@ -226,10 +228,16 @@ function OutletPanel({ outlet }: { outlet: Outlet }) {
 function SignOutPanel() {
   const navigate = useNavigate();
   const [confirming, setConfirming] = useState(false);
+  const { data: outlet } = useOutlet();
+  const [name, setName] = useState(isLive ? "" : "Mohamed Rizvi, owner");
+  useEffect(() => {
+    if (isLive) void signedInName().then((n) => setName(n ?? ""));
+  }, []);
   return (
     <Panel title="This tablet" titleId="tablet-title" className={shared.panel}>
       <p className={shared.muted}>
-        Signed in as Mohamed Rizvi, owner of Galle Road Kottu House, Kollupitiya.
+        Signed in{name && ` as ${name}`}
+        {outlet && `, ${outlet.name}, ${outlet.area}`}.
       </p>
       <div className={shared.actions}>
         <Button variant="outline" size="lg" icon="logout" onClick={() => setConfirming(true)}>
@@ -243,7 +251,7 @@ function SignOutPanel() {
         description="New orders stop ringing here until someone signs in again. Other signed-in devices keep getting orders."
         cancelLabel="Stay signed in"
         confirmLabel="Sign out"
-        onConfirm={() => navigate("/signed-out")}
+        onConfirm={() => (isLive ? void signOut() : navigate("/signed-out"))}
       />
     </Panel>
   );

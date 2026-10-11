@@ -1,14 +1,24 @@
 import { useToast } from "@kade/ui";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { isLive } from "@/api/config";
+import { setAvailability } from "@/api/dispatch";
 import { useCashBalance, useRequestOffer } from "@/api/queries";
 import { cashHolding } from "@/api/types";
 import { useJob } from "./store";
+import { useLocationReporter } from "./useLocationReporter";
+import { useRealtimeNudge } from "./useRealtimeNudge";
 
 /**
- * Stands in for the dispatch service's offer stream: while online, asks for a job when one is due;
- * while an offer is showing, ends it honestly when its 30 seconds run out.
+ * The rider's link to dispatch: while online, asks for a job when one is due (live: polls
+ * dispatch's open offer every few seconds; mock: hands one out); while an offer is showing, ends it
+ * honestly when its 30 seconds run out. Live mode also tells dispatch when the rider goes online
+ * or offline, and reports their position.
  */
 export function useDispatchLoop() {
+  useAvailabilitySync();
+  useLocationReporter();
+  useRealtimeNudge();
+
   const phase = useJob((s) => s.phase);
   const nextOfferAt = useJob((s) => s.nextOfferAt);
   const offer = useJob((s) => s.offer);
@@ -54,4 +64,23 @@ export function useDispatchLoop() {
     );
     return () => window.clearTimeout(id);
   }, [phase, offer, toast]);
+}
+
+/** Live: dispatch only offers jobs to riders it knows are online, so mirror the switch there. */
+function useAvailabilitySync() {
+  const online = useJob((s) => s.phase !== "offline");
+  const sent = useRef<boolean | undefined>(undefined);
+  const toast = useToast();
+
+  useEffect(() => {
+    if (!isLive || sent.current === online) return;
+    sent.current = online;
+    const { position } = useJob.getState();
+    setAvailability({ online, position }).catch((e: Error) => {
+      if (!online) return; // going offline is best effort
+      sent.current = undefined;
+      useJob.getState().goOffline();
+      toast({ title: "Couldn't go online", description: e.message, tone: "error" });
+    });
+  }, [online, toast]);
 }

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Kadé gateway (backend-for-frontend) template: Fastify REST + WebSocket, Keycloak JWT, gRPC upstreams, problem+json, OpenAPI.",
+  "description": "Kadé gateway-merchant: backend-for-frontend for the restaurant app (Fastify REST + WebSocket, Keycloak JWT, gRPC upstreams, problem+json, OpenAPI).",
   "files": [
     "dist"
   ],

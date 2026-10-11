@@ -25,6 +25,15 @@ const schema = z.object({
   OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
   SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
+  // host:port of catalog: used only to backfill/rebuild the projection, never on the read path.
+  CATALOG_GRPC: z.string().min(1).optional(),
+  // host:port of pricing: delivery fees on results when the request has deliver_to. Optional.
+  PRICING_GRPC: z.string().min(1).optional(),
+  // Pins the Colombo time of day ("19:00") for opening-hours checks in demos. Unset = real time.
+  DEMO_TIME: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "HH:MM")
+    .optional(),
 });
 
 export type Config = z.infer<typeof schema>;

@@ -1,5 +1,8 @@
 // Pages other than the first screen load on first visit, keeping the initial download small
 import { createBrowserRouter } from "react-router";
+import { AuthCallbackPage } from "@/auth/AuthCallbackPage";
+import { CALLBACK_PATH } from "@/auth/auth";
+import { RequireAuth } from "@/auth/RequireAuth";
 import { RestaurantLayout, type RouteHandle } from "@/layout/RestaurantLayout";
 import { BoardPage } from "@/pages/BoardPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
@@ -8,7 +11,12 @@ const handle = (title: string): RouteHandle => ({ title });
 
 export const router = createBrowserRouter([
   {
-    element: <RestaurantLayout />,
+    // Live mode: everything in the shell needs a Keycloak sign-in (merchant-app).
+    element: (
+      <RequireAuth>
+        <RestaurantLayout />
+      </RequireAuth>
+    ),
     children: [
       { path: "/", element: <BoardPage />, handle: handle("Live orders") },
       {
@@ -50,6 +58,7 @@ export const router = createBrowserRouter([
     ],
   },
   // Outside the shell: people who aren't partners yet, or have signed out of this tablet
+  { path: CALLBACK_PATH, element: <AuthCallbackPage /> },
   { path: "/join", lazy: async () => ({ Component: (await import("@/pages/JoinPage")).JoinPage }) },
   {
     path: "/join/status",

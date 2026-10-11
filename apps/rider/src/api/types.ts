@@ -4,6 +4,18 @@ export interface MapPoint {
   y: number;
 }
 
+/** One position report: a point on the illustrated map, or a GPS fix (lat/lng) from the phone. */
+export interface LocationFix {
+  point?: MapPoint;
+  lat?: number;
+  lng?: number;
+  heading?: number;
+  speedMps?: number;
+  accuracyM?: number;
+  /** The active job, so the customer and kitchen can follow the rider. */
+  jobId?: string;
+}
+
 export type VehicleType = "motorbike" | "tukTuk" | "bicycle";
 
 export type PaymentMethod = "cash" | "card";

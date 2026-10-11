@@ -53,8 +53,8 @@ export function RestaurantLayout() {
         topBar={<TopBarControls ordersWaiting={waiting > 0} now={now} />}
         account={
           <div className={styles.account}>
-            <strong>Galle Road Kottu House</strong>
-            <span>Kollupitiya</span>
+            <strong>{outlet?.name ?? ""}</strong>
+            <span>{outlet?.area ?? ""}</span>
             <Tag tone={paused ? "warning" : "live"} className={styles.status}>
               {paused ? "Paused" : "Taking orders"}
             </Tag>

@@ -1,65 +1,11 @@
-// Rider service: profile, documents, trip history and ratings. Today mock data plus trips completed in
-// this browser (localStorage); later GET /riders/me, /riders/me/trips, /riders/me/ratings.
-import { dayKey } from "@/lib/time";
-import { documents, profile, seedRatings, seedTrips } from "./mock/data";
-import type { RatingsSummary, RiderDocument, RiderProfile, Trip } from "./types";
+// Rider service: profile, documents, trip history and ratings. Live: gateway-rider (dispatch,
+// review). Mock: mock data plus trips completed in this browser.
+import { liveFor } from "./config";
+import * as live from "./live/rider";
+import * as mock from "./mock/rider";
+export { NotFoundError } from "./shared";
 
-const TRIPS_KEY = "kade.rider.trips.v1";
+// The mock must answer exactly like the live service.
+const impl: typeof live = liveFor("rider") ? live : mock;
 
-export class NotFoundError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "NotFoundError";
-  }
-}
-
-export const latency = (ms = 300) => new Promise((r) => setTimeout(r, ms));
-
-function readLocalTrips(): Trip[] {
-  try {
-    return JSON.parse(localStorage.getItem(TRIPS_KEY) ?? "[]") as Trip[];
-  } catch {
-    return [];
-  }
-}
-
-/** Called by the dispatch mock when a delivery completes. */
-export function saveTrip(trip: Trip) {
-  localStorage.setItem(TRIPS_KEY, JSON.stringify([trip, ...readLocalTrips()]));
-}
-
-/** Every trip, newest first. Synchronous so other mock services can build on it. */
-export function allTrips(now = Date.now()): Trip[] {
-  return [...readLocalTrips(), ...seedTrips(now)].sort((a, b) => b.deliveredAt - a.deliveredAt);
-}
-
-export function tripsOn(day: string, now = Date.now()): Trip[] {
-  return allTrips(now).filter((t) => dayKey(t.deliveredAt) === day);
-}
-
-export async function getProfile(): Promise<RiderProfile> {
-  await latency(150);
-  return profile;
-}
-
-export async function listDocuments(): Promise<RiderDocument[]> {
-  await latency(150);
-  return documents;
-}
-
-export async function listTrips(): Promise<Trip[]> {
-  await latency();
-  return allTrips();
-}
-
-export async function getTrip(id: string): Promise<Trip> {
-  await latency(150);
-  const trip = allTrips().find((t) => t.id === id);
-  if (!trip) throw new NotFoundError("This trip isn't in your history.");
-  return trip;
-}
-
-export async function getRatings(): Promise<RatingsSummary> {
-  await latency();
-  return seedRatings();
-}
+export const { getProfile, listDocuments, listTrips, getTrip, getRatings } = impl;

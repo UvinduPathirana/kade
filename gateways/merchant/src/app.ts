@@ -9,23 +9,32 @@ import { AuthError, type Authenticator, type Identity } from "./auth.js";
 import type { Config } from "./config.js";
 import type { CallContext } from "./grpc/call.js";
 import { isServiceError } from "./grpc/call.js";
-import type { TemplateServiceClient } from "@kade/proto/kade/template/v1/template";
+import type { Upstreams } from "./grpc/clients.js";
 import { Hub } from "./hub.js";
-import { problem, problemFromGrpc, type Problem } from "./problem.js";
+import { createOutletResolver, NotOutletStaffError, type StaffOutlet } from "./outlet.js";
+import { problem, problemFromGrpc, ProblemError, type Problem } from "./problem.js";
+import { businessRoutes } from "./routes/business.js";
 import { healthRoutes } from "./routes/health.js";
-import { noteRoutes } from "./routes/notes.js";
+import { menuRoutes } from "./routes/menu.js";
+import { outletRoutes } from "./routes/outlet.js";
+import { partnerRoutes } from "./routes/partner.js";
+import { ticketRoutes } from "./routes/tickets.js";
 import { wsRoutes } from "./routes/ws.js";
 import { sharedSchemas } from "./schemas.js";
 
 declare module "fastify" {
   interface FastifyRequest {
     identity: Identity | undefined;
+    /** The caller's outlet (staff routes), resolved before the handler runs. */
+    staffOutlet: StaffOutlet | undefined;
   }
   interface FastifyContextConfig {
     /** required (default): 401 without a valid token. optional: identity if present. public: no auth. */
     auth?: "required" | "optional" | "public";
     /** Caller needs at least one of these realm roles (403 otherwise). */
     roles?: string[];
+    /** false: the route doesn't act for an outlet (default: resolve the caller's outlet). */
+    outlet?: boolean;
   }
 }
 
@@ -33,7 +42,7 @@ export interface AppDeps {
   config: Config;
   logger: Logger;
   authenticator: Authenticator;
-  template: TemplateServiceClient;
+  upstreams: Upstreams;
 }
 
 export type App = FastifyInstance<
@@ -71,9 +80,10 @@ export async function buildApp(deps: AppDeps): Promise<Gateway> {
         title: `Kadé ${config.SERVICE_NAME}`,
         version: "0.1.0",
         description:
-          "Backend-for-frontend REST API. Money is whole rupees (LKR). Errors are application/problem+json " +
+          "Backend-for-frontend for the restaurant app (apps/restaurant). Money is whole rupees (LKR). Errors are application/problem+json " +
           "with a stable `code`. Mutations accept an `Idempotency-Key` header. Realtime: WebSocket /ws " +
-          "(see the gateway README).",
+          "(see the gateway README). Every staff route acts for the caller's outlet (x-outlet-id), " +
+          "resolved from the token or merchant's GetMyOutlets.",
       },
       components: {
         securitySchemes: { bearer: { type: "http", scheme: "bearer", bearerFormat: "JWT" } },
@@ -91,6 +101,7 @@ export async function buildApp(deps: AppDeps): Promise<Gateway> {
   await app.register(websocket, { options: { maxPayload: 64 * 1024 } });
 
   app.decorateRequest("identity", undefined);
+  app.decorateRequest("staffOutlet", undefined);
   app.addHook("onRequest", async (req, reply) => {
     // No matching route: let the 404 handler answer instead of asking for credentials.
     if (req.routeOptions.url === undefined) return;
@@ -105,7 +116,14 @@ export async function buildApp(deps: AppDeps): Promise<Gateway> {
       try {
         req.identity = await authenticator.authenticate(token);
       } catch (err) {
-        if (!(err instanceof AuthError)) throw err;
+        if (!(err instanceof AuthError)) {
+          // Keycloak's keys unreachable (restarting, network): not the user's fault, try again soon.
+          req.log.warn({ err }, "could not verify token");
+          return sendProblem(
+            reply,
+            problem(503, "AUTH_UNAVAILABLE", "Sign-in is briefly unavailable. Please try again.", meta(req)),
+          );
+        }
         req.log.info({ reason: err.message }, "rejected token");
         return sendProblem(reply, problem(401, "UNAUTHENTICATED", "Your session has expired.", meta(req)));
       }
@@ -123,7 +141,27 @@ export async function buildApp(deps: AppDeps): Promise<Gateway> {
     }
   });
 
+  // Staff routes act for the caller's outlet: x-outlet-id on every upstream call.
+  const resolveOutlet = createOutletResolver({
+    config,
+    staff: deps.upstreams.staff,
+    logger: deps.logger,
+  });
+  app.addHook("preHandler", async (req) => {
+    if (req.routeOptions.url === undefined || !req.identity) return;
+    if (req.routeOptions.config.outlet === false || req.routeOptions.config.auth === "public") return;
+    if (req.routeOptions.url.startsWith("/health") || req.routeOptions.url === "/ws") return;
+    req.staffOutlet = await resolveOutlet(req.identity);
+    req.identity.outletId = req.staffOutlet.outletId;
+  });
+
   app.setErrorHandler((err, req, reply) => {
+    if (err instanceof ProblemError) {
+      return sendProblem(reply, problem(err.status, err.code, err.detail, meta(req)));
+    }
+    if (err instanceof NotOutletStaffError) {
+      return sendProblem(reply, problem(403, "NOT_OUTLET_STAFF", undefined, meta(req)));
+    }
     if (isServiceError(err)) {
       const p = problemFromGrpc(err, meta(req));
       if (p.status >= 500) req.log.warn({ err, code: p.code }, "upstream failure");
@@ -154,8 +192,21 @@ export async function buildApp(deps: AppDeps): Promise<Gateway> {
   };
 
   await app.register(healthRoutes(lifecycle));
-  await app.register(noteRoutes({ template: deps.template, hub, callContext }));
-  await app.register(wsRoutes({ authenticator, hub }));
+  const routeDeps = { u: deps.upstreams, callContext };
+  await app.register(ticketRoutes(routeDeps));
+  await app.register(menuRoutes(routeDeps));
+  await app.register(outletRoutes(routeDeps));
+  await app.register(businessRoutes(routeDeps));
+  await app.register(partnerRoutes(routeDeps));
+  await app.register(
+    wsRoutes({
+      authenticator,
+      hub,
+      realtimeUrl: config.REALTIME_WS_URL,
+      enrich: async (id) => ({ ...id, outletId: (await resolveOutlet(id)).outletId }),
+      channels: (id) => (id.outletId ? [`outlet:${id.outletId}`] : []),
+    }),
+  );
   app.get("/openapi.json", { schema: { hide: true }, config: { auth: "public" } }, () => app.swagger());
 
   return { app, hub, lifecycle };

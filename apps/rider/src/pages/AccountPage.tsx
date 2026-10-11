@@ -1,9 +1,12 @@
 import { Button, ConfirmDialog, Icon, Rating, Select, Sheet, Tag, useToast, type IconName } from "@kade/ui";
 import { useEffect, useId, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
+import { isLive } from "@/api/config";
+import { setAvailability } from "@/api/dispatch";
 import { useDocuments, useHelpTopics, useProfile } from "@/api/queries";
 import { supportPhone } from "@/api/support";
 import type { HelpTopic, RiderDocument } from "@/api/types";
+import { signOut } from "@/auth/auth";
 import { useJob } from "@/features/job/store";
 import { SupportChat } from "@/features/support/SupportChat";
 import c from "@/layout/common.module.css";
@@ -314,8 +317,13 @@ function Settings() {
         confirmLabel="Sign out"
         cancelLabel="Stay signed in"
         onConfirm={() => {
+          const { position } = useJob.getState();
           useJob.getState().goOffline();
-          navigate("/join");
+          if (!isLive) return navigate("/join");
+          // Leave the fleet before the token goes, then end the Keycloak session (lands on /join).
+          void setAvailability({ online: false, position })
+            .catch(() => undefined)
+            .then(signOut);
         }}
       />
     </section>

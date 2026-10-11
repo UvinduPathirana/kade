@@ -26,3 +26,7 @@ include:
   - ../../services/notification/compose.yaml
   - ../../services/review/compose.yaml
   - ../../services/support/compose.yaml
+  - ../../services/location/compose.yaml
+  - ../../services/dispatch/compose.yaml
+  - ../../gateways/merchant/compose.yaml
+  - ../../gateways/rider/compose.yaml

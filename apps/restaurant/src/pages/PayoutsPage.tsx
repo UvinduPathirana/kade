@@ -161,9 +161,13 @@ export function PayoutsPage() {
 function Statements() {
   const toast = useToast();
   const { data, isPending, isError, refetch } = useStatements();
-  const download = (s: Statement) => {
-    downloadText(`kade-statement-${s.from}.csv`, statementCsv(s));
-    toast({ title: "Statement downloaded", description: `Week of ${shortDate(s.from)}` });
+  const download = async (s: Statement) => {
+    try {
+      downloadText(`kade-statement-${s.from}.csv`, await statementCsv(s));
+      toast({ title: "Statement downloaded", description: `Week of ${shortDate(s.from)}` });
+    } catch (e) {
+      toast({ title: "Statement not downloaded", description: (e as Error).message, tone: "error" });
+    }
   };
 
   return (
@@ -238,7 +242,7 @@ function Statements() {
                   variant="outline"
                   size="sm"
                   icon="download"
-                  onClick={() => download(s)}
+                  onClick={() => void download(s)}
                   aria-label={`Download statement for the week of ${shortDate(s.from)} as CSV`}
                 >
                   CSV

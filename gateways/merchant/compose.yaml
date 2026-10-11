@@ -1,32 +1,39 @@
-# Compose fragment for the gateway template. Included from deploy/compose/services.yaml; paths are
-# relative to this file. Real gateways: gateway-customer 8201, -merchant 8202, -rider 8203, -admin 8204.
-#   docker compose -f deploy/compose/compose.yaml --profile templates up -d --build gateway-merchant
+# Compose fragment for gateway-merchant (restaurant app BFF). Included from deploy/compose/services.yaml;
+# paths are relative to this file.
+#   docker compose -f deploy/compose/compose.yaml --profile fulfilment up -d --build gateway-merchant
 services:
   gateway-merchant:
     image: kade/gateway-merchant:dev
     build:
       context: ../..
-      dockerfile: gateways/_template/Dockerfile
+      dockerfile: gateways/merchant/Dockerfile
     profiles: [fulfilment]
     environment:
       SERVICE_NAME: gateway-merchant
       HTTP_PORT: "8202"
-      TEMPLATE_GRPC: template-ts:50100
+      MERCHANT_GRPC: merchant:50109
+      CATALOG_GRPC: catalog:50101
+      REVIEW_GRPC: review:50115
+      LEDGER_GRPC: ledger:50113
+      PROMOTION_GRPC: promotion:50106
+      REALTIME_WS_URL: ws://realtime:8112/ws
       # Tokens carry the browser-facing issuer (KC_HOSTNAME); keys are fetched over the network.
       KEYCLOAK_ISSUER: http://localhost:8080/realms/kade
       KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/kade/protocol/openid-connect/certs
-      KEYCLOAK_CLIENTS: customer-app
+      KEYCLOAK_CLIENTS: merchant-app
       CORS_ORIGINS: http://localhost:5175
       # DEV ONLY: lets the apps call with "Bearer dev:<user>:<roles>" before Keycloak login exists.
       AUTH_DEV_BYPASS: "true"
       DEPLOY_ENV: dev
+      # DEV ONLY: outlet for merchant users while merchant.GetMyOutlets can't answer.
+      DEFAULT_OUTLET_ID: 00000000-0000-7000-8000-000000000001
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel:4318
       LOG_LEVEL: info
       NODE_OPTIONS: --max-old-space-size=96
     ports:
       - "8202:8202"
+    # Upstreams are not hard dependencies: routes answer 503 problems until each service is up.
     depends_on:
-      template-ts: { condition: service_healthy }
       keycloak: { condition: service_healthy }
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8202/health/ready"]

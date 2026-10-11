@@ -3,7 +3,7 @@
   "info": {
     "title": "Kadé gateway-rider",
     "version": "0.1.0",
-    "description": "Backend-for-frontend REST API. Money is whole rupees (LKR). Errors are application/problem+json with a stable `code`. Mutations accept an `Idempotency-Key` header. Realtime: WebSocket /ws (see the gateway README)."
+    "description": "Backend-for-frontend for the rider app (apps/rider). Money is whole rupees (LKR). Errors are application/problem+json with a stable `code`. Mutations accept an `Idempotency-Key` header. Realtime: WebSocket /ws (see the gateway README). Rider routes act for the caller's dispatch rider id, resolved with dispatch RiderService.GetMyRider. Positions are map units of the app's illustrated map."
   },
   "components": {
     "securitySchemes": {
@@ -14,48 +14,880 @@
       }
     },
     "schemas": {
-      "Note": {
+      "MapPoint": {
         "type": "object",
-        "required": ["id", "text", "amount", "currency", "createdAt"],
+        "required": ["x", "y"],
+        "properties": {
+          "x": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 400
+          },
+          "y": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 600
+          }
+        },
+        "description": "Point on the illustrated 400 × 600 Colombo map."
+      },
+      "Pay": {
+        "type": "object",
+        "required": ["base", "distance", "tip", "boost"],
+        "properties": {
+          "base": {
+            "type": "integer",
+            "description": "Whole rupees (LKR)."
+          },
+          "distance": {
+            "type": "integer",
+            "description": "Whole rupees (LKR)."
+          },
+          "tip": {
+            "type": "integer",
+            "description": "Whole rupees (LKR)."
+          },
+          "boost": {
+            "type": "integer",
+            "description": "Whole rupees (LKR)."
+          }
+        }
+      },
+      "Offer": {
+        "type": "object",
+        "required": [
+          "id",
+          "orderNumber",
+          "restaurant",
+          "customer",
+          "from",
+          "toPickupKm",
+          "tripKm",
+          "minutes",
+          "pay",
+          "payment",
+          "cashToCollect",
+          "items",
+          "sealed",
+          "notReadyMinutes",
+          "deliveryCode",
+          "offeredAt",
+          "expiresAt"
+        ],
         "properties": {
           "id": {
             "type": "string",
-            "format": "uuid"
+            "description": "Offer id while offered; delivery id once accepted (the job)."
+          },
+          "orderNumber": {
+            "type": "string"
+          },
+          "restaurant": {
+            "type": "object",
+            "required": ["name", "area", "address", "phone", "point"],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "area": {
+                "type": "string"
+              },
+              "address": {
+                "type": "string"
+              },
+              "phone": {
+                "type": "string"
+              },
+              "point": {
+                "$ref": "#/components/schemas/MapPoint"
+              }
+            }
+          },
+          "customer": {
+            "type": "object",
+            "required": ["firstName", "area", "address", "maskedPhone", "point"],
+            "properties": {
+              "firstName": {
+                "type": "string"
+              },
+              "area": {
+                "type": "string"
+              },
+              "address": {
+                "type": "string"
+              },
+              "note": {
+                "type": "string"
+              },
+              "maskedPhone": {
+                "type": "string"
+              },
+              "point": {
+                "$ref": "#/components/schemas/MapPoint"
+              }
+            }
+          },
+          "from": {
+            "$ref": "#/components/schemas/MapPoint"
+          },
+          "toPickupKm": {
+            "type": "number"
+          },
+          "tripKm": {
+            "type": "number"
+          },
+          "minutes": {
+            "type": "integer"
+          },
+          "pay": {
+            "$ref": "#/components/schemas/Pay"
+          },
+          "payment": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["cash"]
+              },
+              {
+                "type": "string",
+                "enum": ["card"]
+              }
+            ]
+          },
+          "cashToCollect": {
+            "type": "integer",
+            "description": "Whole rupees (LKR)."
+          },
+          "customerPaysWith": {
+            "type": "integer",
+            "description": "Whole rupees (LKR)."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "qty", "name"],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "qty": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "options": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "sealed": {
+            "type": "boolean"
+          },
+          "notReadyMinutes": {
+            "type": "integer"
+          },
+          "deliveryCode": {
+            "type": "string",
+            "description": "Always empty: dispatch checks the code server-side."
+          },
+          "offeredAt": {
+            "type": "number",
+            "description": "Epoch milliseconds."
+          },
+          "expiresAt": {
+            "type": "number",
+            "description": "Epoch milliseconds."
+          }
+        }
+      },
+      "Trip": {
+        "type": "object",
+        "required": [
+          "id",
+          "orderNumber",
+          "restaurantName",
+          "pickupArea",
+          "dropoffArea",
+          "customerFirstName",
+          "km",
+          "pay",
+          "payment",
+          "cashCollected",
+          "acceptedAt",
+          "arrivedAtRestaurantAt",
+          "pickedUpAt",
+          "deliveredAt",
+          "proof",
+          "from",
+          "pickupPoint",
+          "dropoffPoint"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "orderNumber": {
+            "type": "string"
+          },
+          "restaurantName": {
+            "type": "string"
+          },
+          "pickupArea": {
+            "type": "string"
+          },
+          "dropoffArea": {
+            "type": "string"
+          },
+          "customerFirstName": {
+            "type": "string"
+          },
+          "km": {
+            "type": "number"
+          },
+          "pay": {
+            "$ref": "#/components/schemas/Pay"
+          },
+          "payment": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["cash"]
+              },
+              {
+                "type": "string",
+                "enum": ["card"]
+              }
+            ]
+          },
+          "cashCollected": {
+            "type": "integer",
+            "description": "Whole rupees (LKR)."
+          },
+          "acceptedAt": {
+            "type": "number",
+            "description": "Epoch milliseconds."
+          },
+          "arrivedAtRestaurantAt": {
+            "type": "number",
+            "description": "Epoch milliseconds."
+          },
+          "pickedUpAt": {
+            "type": "number",
+            "description": "Epoch milliseconds."
+          },
+          "deliveredAt": {
+            "type": "number",
+            "description": "Epoch milliseconds."
+          },
+          "proof": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["code"]
+              },
+              {
+                "type": "string",
+                "enum": ["photo"]
+              }
+            ]
+          },
+          "customerRating": {
+            "type": "integer"
+          },
+          "from": {
+            "$ref": "#/components/schemas/MapPoint"
+          },
+          "pickupPoint": {
+            "$ref": "#/components/schemas/MapPoint"
+          },
+          "dropoffPoint": {
+            "$ref": "#/components/schemas/MapPoint"
+          }
+        }
+      },
+      "RiderProfile": {
+        "type": "object",
+        "required": [
+          "name",
+          "firstName",
+          "phone",
+          "vehicle",
+          "rating",
+          "ratingCount",
+          "memberSince",
+          "bank",
+          "depositReference"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "vehicle": {
+            "type": "object",
+            "required": ["type", "model", "plate"],
+            "properties": {
+              "type": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": ["motorbike"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["tukTuk"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["bicycle"]
+                  }
+                ]
+              },
+              "model": {
+                "type": "string"
+              },
+              "plate": {
+                "type": "string"
+              }
+            }
+          },
+          "rating": {
+            "type": "number"
+          },
+          "ratingCount": {
+            "type": "integer"
+          },
+          "memberSince": {
+            "type": "string",
+            "description": "e.g. March 2024"
+          },
+          "bank": {
+            "type": "object",
+            "required": ["name", "branch", "last4"],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "branch": {
+                "type": "string"
+              },
+              "last4": {
+                "type": "string"
+              }
+            }
+          },
+          "depositReference": {
+            "type": "string"
+          }
+        }
+      },
+      "RiderDocument": {
+        "type": "object",
+        "required": ["id", "name", "status"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "expiresOn": {
+            "type": "string"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["valid"]
+              },
+              {
+                "type": "string",
+                "enum": ["expiring"]
+              },
+              {
+                "type": "string",
+                "enum": ["expired"]
+              },
+              {
+                "type": "string",
+                "enum": ["inReview"]
+              }
+            ]
+          }
+        }
+      },
+      "CashBalance": {
+        "type": "object",
+        "required": ["collected", "owedToRider", "limit", "lastDepositAt"],
+        "properties": {
+          "collected": {
+            "type": "integer",
+            "description": "Whole rupees (LKR)."
+          },
+          "owedToRider": {
+            "type": "integer",
+            "description": "Whole rupees (LKR)."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Whole rupees (LKR)."
+          },
+          "lastDepositAt": {
+            "type": "number",
+            "description": "Epoch milliseconds."
+          }
+        }
+      },
+      "EarningsSummary": {
+        "type": "object",
+        "required": ["period", "total", "trips", "onlineMinutes", "tips", "bars"],
+        "properties": {
+          "period": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["today"]
+              },
+              {
+                "type": "string",
+                "enum": ["week"]
+              },
+              {
+                "type": "string",
+                "enum": ["month"]
+              }
+            ]
+          },
+          "total": {
+            "type": "integer",
+            "description": "Whole rupees (LKR)."
+          },
+          "trips": {
+            "type": "integer"
+          },
+          "onlineMinutes": {
+            "type": "integer"
+          },
+          "tips": {
+            "type": "integer",
+            "description": "Whole rupees (LKR)."
+          },
+          "bars": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["label", "fullLabel", "amount", "trips"],
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "fullLabel": {
+                  "type": "string"
+                },
+                "amount": {
+                  "type": "integer",
+                  "description": "Whole rupees (LKR)."
+                },
+                "trips": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "comparison": {
+            "type": "object",
+            "required": ["text", "tone"],
+            "properties": {
+              "text": {
+                "type": "string"
+              },
+              "tone": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": ["good"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["bad"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["neutral"]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "TodaySummary": {
+        "type": "object",
+        "required": ["amount", "trips", "onlineMinutes", "tips"],
+        "properties": {
+          "amount": {
+            "type": "integer",
+            "description": "Whole rupees (LKR)."
+          },
+          "trips": {
+            "type": "integer"
+          },
+          "onlineMinutes": {
+            "type": "integer"
+          },
+          "tips": {
+            "type": "integer",
+            "description": "Whole rupees (LKR)."
+          }
+        }
+      },
+      "Quest": {
+        "type": "object",
+        "required": ["id", "title", "detail", "done", "target", "bonus", "endsAt"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "done": {
+            "type": "integer"
+          },
+          "target": {
+            "type": "integer"
+          },
+          "bonus": {
+            "type": "integer",
+            "description": "Whole rupees (LKR)."
+          },
+          "endsAt": {
+            "type": "number",
+            "description": "Epoch milliseconds."
+          }
+        }
+      },
+      "Payout": {
+        "type": "object",
+        "required": ["id", "weekOf", "paidAt", "amount", "cashOffset", "status"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "weekOf": {
+            "type": "string"
+          },
+          "paidAt": {
+            "type": "number",
+            "description": "Epoch milliseconds."
+          },
+          "amount": {
+            "type": "integer",
+            "description": "Whole rupees (LKR)."
+          },
+          "cashOffset": {
+            "type": "integer",
+            "description": "Whole rupees (LKR)."
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["paid"]
+              },
+              {
+                "type": "string",
+                "enum": ["scheduled"]
+              }
+            ]
+          }
+        }
+      },
+      "RatingsSummary": {
+        "type": "object",
+        "required": ["overall", "count", "breakdown", "compliments", "improve", "recent"],
+        "properties": {
+          "overall": {
+            "type": "number"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "breakdown": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "minItems": 5,
+            "maxItems": 5
+          },
+          "compliments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["label", "count"],
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "improve": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["label", "detail"],
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "detail": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "recent": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "stars", "at", "area"],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "stars": {
+                  "type": "integer"
+                },
+                "comment": {
+                  "type": "string"
+                },
+                "at": {
+                  "type": "number",
+                  "description": "Epoch milliseconds."
+                },
+                "area": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "HelpTopic": {
+        "type": "object",
+        "required": ["id", "title", "summary", "steps"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ChatMessage": {
+        "type": "object",
+        "required": ["id", "from", "text", "at"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["rider"]
+              },
+              {
+                "type": "string",
+                "enum": ["support"]
+              }
+            ]
           },
           "text": {
             "type": "string"
           },
-          "amount": {
-            "type": "integer",
-            "description": "Whole rupees (LKR). Rs 1,150 -> 1150."
-          },
-          "currency": {
-            "type": "string",
-            "enum": ["LKR"]
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
+          "at": {
+            "type": "number",
+            "description": "Epoch milliseconds."
           }
-        },
-        "additionalProperties": false
+        }
       },
-      "CreateNote": {
+      "ApplicationInput": {
         "type": "object",
-        "required": ["text", "amount"],
+        "required": ["name", "nic", "phone", "city", "vehicle", "documents", "bank", "lessons"],
         "properties": {
-          "text": {
+          "name": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 500
+            "maxLength": 120
           },
-          "amount": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Whole rupees (LKR)."
+          "nic": {
+            "type": "string",
+            "maxLength": 20
+          },
+          "phone": {
+            "type": "string",
+            "minLength": 7,
+            "maxLength": 20
+          },
+          "city": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "vehicle": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["motorbike"]
+              },
+              {
+                "type": "string",
+                "enum": ["tukTuk"]
+              },
+              {
+                "type": "string",
+                "enum": ["bicycle"]
+              }
+            ]
+          },
+          "documents": {
+            "type": "object",
+            "properties": {
+              "licence": {
+                "type": "string"
+              },
+              "revenue": {
+                "type": "string"
+              },
+              "insurance": {
+                "type": "string"
+              },
+              "nicFront": {
+                "type": "string"
+              },
+              "nicBack": {
+                "type": "string"
+              }
+            }
+          },
+          "bank": {
+            "type": "object",
+            "required": ["bank", "branch", "account", "holder"],
+            "properties": {
+              "bank": {
+                "type": "string"
+              },
+              "branch": {
+                "type": "string"
+              },
+              "account": {
+                "type": "string"
+              },
+              "holder": {
+                "type": "string"
+              }
+            }
+          },
+          "lessons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ApplicationStatus": {
+        "type": "object",
+        "required": ["state"],
+        "properties": {
+          "state": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["none"]
+              },
+              {
+                "type": "string",
+                "enum": ["inReview"]
+              },
+              {
+                "type": "string",
+                "enum": ["needsFix"]
+              },
+              {
+                "type": "string",
+                "enum": ["approved"]
+              }
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "submittedAt": {
+            "type": "number",
+            "description": "Epoch milliseconds."
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "doc": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["licence"]
+              },
+              {
+                "type": "string",
+                "enum": ["revenue"]
+              },
+              {
+                "type": "string",
+                "enum": ["insurance"]
+              },
+              {
+                "type": "string",
+                "enum": ["nicFront"]
+              },
+              {
+                "type": "string",
+                "enum": ["nicBack"]
+              }
+            ]
+          },
+          "docName": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
           }
         },
-        "additionalProperties": false
+        "description": "Discriminated by state (see apps/rider/src/api/onboarding.ts)."
       },
       "Problem": {
         "type": "object",
@@ -77,7 +909,7 @@
           },
           "code": {
             "type": "string",
-            "description": "Stable machine code, e.g. NOTE_NOT_FOUND."
+            "description": "Stable machine code, e.g. OFFER_EXPIRED."
           },
           "instance": {
             "type": "string"
@@ -91,45 +923,51 @@
     }
   },
   "paths": {
-    "/v1/notes": {
+    "/v1/availability": {
       "post": {
-        "operationId": "createNote",
-        "summary": "Create a note",
-        "tags": ["notes"],
+        "operationId": "setAvailability",
+        "summary": "Go online (with the rider's position) or offline",
+        "tags": ["dispatch"],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateNote"
+                "type": "object",
+                "required": ["online"],
+                "properties": {
+                  "online": {
+                    "type": "boolean"
+                  },
+                  "position": {
+                    "$ref": "#/components/schemas/MapPoint"
+                  }
+                }
               }
             }
           }
         },
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "maxLength": 128
-            },
-            "in": "header",
-            "name": "idempotency-key",
-            "required": false,
-            "description": "Retry with the same key to get the original result."
-          }
-        ],
         "security": [
           {
             "bearer": []
           }
         ],
         "responses": {
-          "201": {
+          "200": {
             "description": "Default Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Note"
+                  "type": "object",
+                  "required": ["online", "cashAllowed"],
+                  "properties": {
+                    "online": {
+                      "type": "boolean"
+                    },
+                    "cashAllowed": {
+                      "type": "boolean"
+                    }
+                  }
                 }
               }
             }
@@ -155,6 +993,245 @@
             }
           },
           "403": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/offer": {
+      "get": {
+        "operationId": "getCurrentOffer",
+        "summary": "The open offer for this rider; 204 when there is none (poll every few seconds)",
+        "tags": ["dispatch"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Offer"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No offer right now"
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/job": {
+      "get": {
+        "operationId": "getActiveJob",
+        "summary": "The rider's active job; 204 when there is none",
+        "tags": ["dispatch"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Offer"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Default Response"
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/offers/{id}/accept": {
+      "post": {
+        "operationId": "acceptOffer",
+        "summary": "Accept an offer; answers with the job (id = delivery id)",
+        "tags": ["dispatch"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "Retry with the same key to get the original result."
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Offer"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
             "description": "Default Response",
             "content": {
               "application/problem+json": {
@@ -197,20 +1274,138 @@
         }
       }
     },
-    "/v1/notes/{id}": {
-      "get": {
-        "operationId": "getNote",
-        "summary": "Get a note",
-        "tags": ["notes"],
+    "/v1/offers/{id}/decline": {
+      "post": {
+        "operationId": "declineOffer",
+        "tags": ["dispatch"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 120
+                  }
+                }
+              }
+            }
+          }
+        },
         "parameters": [
           {
             "schema": {
               "type": "string",
-              "format": "uuid"
+              "minLength": 1
             },
             "in": "path",
             "name": "id",
             "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jobs/{id}/arrived-restaurant": {
+      "post": {
+        "operationId": "arriveAtRestaurant",
+        "summary": "Records arrival so waiting time can be paid",
+        "tags": ["dispatch"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "Retry with the same key to get the original result."
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
           }
         ],
         "responses": {
@@ -219,7 +1414,2038 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Note"
+                  "type": "object",
+                  "required": ["at"],
+                  "properties": {
+                    "at": {
+                      "type": "number",
+                      "description": "Epoch ms recorded by dispatch."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jobs/{id}/not-ready": {
+      "post": {
+        "operationId": "reportNotReady",
+        "summary": "The food isn't ready: answers with the kitchen's estimate",
+        "tags": ["dispatch"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "Retry with the same key to get the original result."
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["readyAt"],
+                  "properties": {
+                    "readyAt": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jobs/{id}/picked-up": {
+      "post": {
+        "operationId": "confirmPickup",
+        "summary": "Every item ticked, or the bag sealed",
+        "tags": ["dispatch"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["checkedItems", "sealed"],
+                "properties": {
+                  "checkedItems": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "sealed": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "Retry with the same key to get the original result."
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["at"],
+                  "properties": {
+                    "at": {
+                      "type": "number",
+                      "description": "Epoch ms recorded by dispatch."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jobs/{id}/arrived-customer": {
+      "post": {
+        "operationId": "arriveAtCustomer",
+        "tags": ["dispatch"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "Retry with the same key to get the original result."
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["at"],
+                  "properties": {
+                    "at": {
+                      "type": "number",
+                      "description": "Epoch ms recorded by dispatch."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jobs/{id}/complete": {
+      "post": {
+        "operationId": "completeDelivery",
+        "summary": "Proof (code or photo) and cash collected; answers with the trip",
+        "tags": ["dispatch"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["proof", "cashCollected"],
+                "properties": {
+                  "proof": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": ["code"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["photo"]
+                      }
+                    ]
+                  },
+                  "code": {
+                    "type": "string",
+                    "maxLength": 12
+                  },
+                  "fileName": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "cashCollected": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Whole rupees."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "Retry with the same key to get the original result."
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Trip"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jobs/{id}/messages": {
+      "post": {
+        "operationId": "messageCustomer",
+        "summary": "Quick reply to the customer through masked messaging",
+        "tags": ["dispatch"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["text"],
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "Retry with the same key to get the original result."
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/location": {
+      "post": {
+        "operationId": "reportLocation",
+        "summary": "GPS fixes (lat/lng) or a map position; streamed to the location service",
+        "tags": ["dispatch"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["fixes"],
+                "properties": {
+                  "fixes": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "lat": {
+                          "type": "number",
+                          "minimum": -90,
+                          "maximum": 90
+                        },
+                        "lng": {
+                          "type": "number",
+                          "minimum": -180,
+                          "maximum": 180
+                        },
+                        "point": {
+                          "$ref": "#/components/schemas/MapPoint"
+                        },
+                        "heading": {
+                          "type": "number"
+                        },
+                        "speedMps": {
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        "accuracyM": {
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        "at": {
+                          "type": "number"
+                        },
+                        "jobId": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "minItems": 1,
+                    "maxItems": 50
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["forwarded", "dropped"],
+                  "properties": {
+                    "forwarded": {
+                      "type": "integer"
+                    },
+                    "dropped": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/profile": {
+      "get": {
+        "operationId": "getProfile",
+        "tags": ["rider"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RiderProfile"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/documents": {
+      "get": {
+        "operationId": "listDocuments",
+        "tags": ["rider"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RiderDocument"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/trips": {
+      "get": {
+        "operationId": "listTrips",
+        "summary": "Trip history, newest first (last 60 days)",
+        "tags": ["rider"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Trip"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/trips/{id}": {
+      "get": {
+        "operationId": "getTrip",
+        "tags": ["rider"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Trip"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/trips/{id}/feedback": {
+      "post": {
+        "operationId": "rateTrip",
+        "summary": "The rider's thumbs on the customer and the restaurant",
+        "tags": ["rider"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "customer": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": ["up"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["down"]
+                      }
+                    ]
+                  },
+                  "restaurant": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": ["up"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["down"]
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/ratings": {
+      "get": {
+        "operationId": "getRatings",
+        "tags": ["rider"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RatingsSummary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/earnings": {
+      "get": {
+        "operationId": "getEarnings",
+        "tags": ["earnings"],
+        "parameters": [
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": ["today"]
+                },
+                {
+                  "type": "string",
+                  "enum": ["week"]
+                },
+                {
+                  "type": "string",
+                  "enum": ["month"]
+                }
+              ]
+            },
+            "in": "query",
+            "name": "period",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EarningsSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/earnings/today": {
+      "get": {
+        "operationId": "getTodaySummary",
+        "summary": "Today's figures for the home screen",
+        "tags": ["earnings"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TodaySummary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/quests": {
+      "get": {
+        "operationId": "getQuests",
+        "tags": ["earnings"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Quest"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/cash": {
+      "get": {
+        "operationId": "getCashBalance",
+        "tags": ["earnings"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashBalance"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/payouts": {
+      "get": {
+        "operationId": "listPayouts",
+        "tags": ["earnings"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Payout"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/support/help-topics": {
+      "get": {
+        "operationId": "listHelpTopics",
+        "tags": ["support"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HelpTopic"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/support/messages": {
+      "post": {
+        "operationId": "sendSupportMessage",
+        "summary": "Sends a message to rider support and waits briefly for the agent's reply (later replies arrive over /ws on ticket:<id>)",
+        "tags": ["support"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["text"],
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "Retry with the same key to get the original result."
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["sent", "reply"],
+                  "properties": {
+                    "sent": {
+                      "$ref": "#/components/schemas/ChatMessage"
+                    },
+                    "reply": {
+                      "$ref": "#/components/schemas/ChatMessage"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/applications": {
+      "post": {
+        "operationId": "submitApplication",
+        "tags": ["onboarding"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplicationInput"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "Retry with the same key to get the original result."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Discriminated by state (see apps/rider/src/api/onboarding.ts).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/applications/status": {
+      "get": {
+        "operationId": "getApplicationStatus",
+        "tags": ["onboarding"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 7,
+              "maxLength": 20
+            },
+            "in": "query",
+            "name": "phone",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Discriminated by state (see apps/rider/src/api/onboarding.ts).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/applications/{id}/documents": {
+      "post": {
+        "operationId": "resubmitDocument",
+        "summary": "Re-upload the document the reviewer asked about",
+        "tags": ["onboarding"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["doc", "fileName"],
+                "properties": {
+                  "doc": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": ["licence"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["revenue"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["insurance"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["nicFront"]
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["nicBack"]
+                      }
+                    ]
+                  },
+                  "fileName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Discriminated by state (see apps/rider/src/api/onboarding.ts).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationStatus"
                 }
               }
             }
