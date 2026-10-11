@@ -9,6 +9,8 @@ services:
       dockerfile: services/catalog/Dockerfile
     profiles: [ordering]
     environment:
+      # Demo: pin the time of day so restaurants show their dinner-time state. Remove for the real Colombo clock.
+      DEMO_TIME: "19:00"
       SERVICE_NAME: catalog
       GRPC_PORT: "50101"
       HTTP_PORT: "8101"

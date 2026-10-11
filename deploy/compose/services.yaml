@@ -30,3 +30,5 @@ include:
   - ../../services/dispatch/compose.yaml
   - ../../gateways/merchant/compose.yaml
   - ../../gateways/rider/compose.yaml
+  - ../../services/catalog/compose.yaml
+  - ../../services/search/compose.yaml
