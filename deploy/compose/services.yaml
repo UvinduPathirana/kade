@@ -19,3 +19,4 @@ include:
   - ../../services/profile/compose.yaml
   - ../../services/cart/compose.yaml
   - ../../services/pricing/compose.yaml
+  - ../../services/merchant/compose.yaml

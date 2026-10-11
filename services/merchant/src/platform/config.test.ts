@@ -16,6 +16,13 @@ describe("loadConfig", () => {
       KAFKA_BROKERS: ["kafka:9092", "kafka2:9092"],
       LOG_LEVEL: "info",
       DB_POOL_MAX: 5,
+      SEED_DATA: true,
+      DEMO_BOARD: true,
+      HOUSEKEEPING_INTERVAL_MS: 15_000,
+    });
+    expect(loadConfig({ ...valid, DEMO_BOARD: "false", SEED_DATA: "0" })).toMatchObject({
+      DEMO_BOARD: false,
+      SEED_DATA: false,
     });
   });
 

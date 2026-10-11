@@ -5,6 +5,7 @@ import { z } from "zod";
 // on the first request that needs them.
 // 0 = any free port (tests).
 const port = z.coerce.number().int().min(0).max(65_535);
+const bool = z.enum(["true", "false", "1", "0"]).transform((v) => v === "true" || v === "1");
 
 const schema = z.object({
   SERVICE_NAME: z.string().regex(/^[a-z][a-z0-9-]*$/, "lowercase letters, digits and dashes"),
@@ -25,6 +26,15 @@ const schema = z.object({
   OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
   SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
+  // ---- merchant ----
+  // catalog gRPC address for CreateRestaurant on approval; unset = skip (catalog can use the event).
+  CATALOG_GRPC: z.string().optional(),
+  // Seed the 16 catalogue outlets, the Galle Road Kottu House team and the review queue at boot.
+  SEED_DATA: bool.default(true),
+  // Keep a demo evening on Galle Road Kottu House's board (source 'demo'; never published).
+  DEMO_BOARD: bool.default(true),
+  // Missed-ticket sweep, pause expiry and tablet-silence checks; 0 disables (tests).
+  HOUSEKEEPING_INTERVAL_MS: z.coerce.number().int().min(0).default(15_000),
 });
 
 export type Config = z.infer<typeof schema>;

@@ -1,5 +1,5 @@
 import { Module, type DynamicModule } from "@nestjs/common";
-import { NotesModule } from "./notes/notes.module.js";
+import { MerchantModule } from "./merchant.module.js";
 import type { Config } from "./platform/config.js";
 import type { Logger } from "./platform/logger.js";
 import { PlatformModule } from "./platform/platform.module.js";
@@ -10,7 +10,7 @@ export class AppModule {
   static forRoot(config: Config, logger: Logger): DynamicModule {
     return {
       module: AppModule,
-      imports: [PlatformModule.forRoot(config, logger), NotesModule],
+      imports: [PlatformModule.forRoot(config, logger), MerchantModule],
     };
   }
 }
