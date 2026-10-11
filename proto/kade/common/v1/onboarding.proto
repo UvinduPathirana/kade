@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+package kade.common.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.common.v1";
+
+// Partner onboarding (restaurants in merchant, riders in dispatch) share the same review model.
+enum ApplicationStatus {
+  APPLICATION_STATUS_UNSPECIFIED = 0;
+  APPLICATION_STATUS_PENDING = 1;
+  APPLICATION_STATUS_CHANGES_REQUESTED = 2;
+  APPLICATION_STATUS_APPROVED = 3;
+  APPLICATION_STATUS_REJECTED = 4;
+}
+
+enum DocumentStatus {
+  DOCUMENT_STATUS_UNSPECIFIED = 0;
+  DOCUMENT_STATUS_PENDING = 1;
+  DOCUMENT_STATUS_APPROVED = 2;
+  DOCUMENT_STATUS_REJECTED = 3;
+  // Approved but expires within 30 days.
+  DOCUMENT_STATUS_EXPIRING = 4;
+  DOCUMENT_STATUS_EXPIRED = 5;
+}
+
+message DocumentField {
+  string label = 1;
+  string value = 2;
+}
+
+// An uploaded document under review (business registration, food safety, NIC, licence…).
+message PartnerDocument {
+  string id = 1;
+  // Stable key, e.g. "licence", "revenue", "nicFront", "registration", "foodSafety".
+  string kind = 2;
+  // Display name, e.g. "Revenue licence".
+  string name = 3;
+  string file_name = 4;
+  // Object-storage key of the upload.
+  string file_ref = 5;
+  DocumentStatus status = 6;
+  string reject_reason = 7;
+  // ISO date for documents that expire.
+  string expires_on = 8;
+  // What's printed on it, shown in the admin viewer.
+  repeated DocumentField fields = 9;
+  google.protobuf.Timestamp uploaded_at = 10;
+}
+
+// Bank account for payouts. Only last4 leaves the owning service after onboarding.
+message BankAccount {
+  string bank = 1;
+  string branch = 2;
+  string account_name = 3;
+  // Full number only on submission; reads return it empty.
+  string account_number = 4;
+  string account_last4 = 5;
+}

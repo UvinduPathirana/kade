@@ -33,7 +33,7 @@ Ports are fixed so services, gateways and Compose agree. gRPC listens on the gRP
 | order | TS | 50107 | 8107 | `orders` | order → `kade.order.events` |
 | payment | Java | 50108 | 8108 | `payment` | payment → `kade.payment.events` |
 | merchant | TS | 50109 | 8109 | `merchant` | merchant → `kade.merchant.events` |
-| dispatch | Go | 50110 | 8110 | `dispatch` + Redis GEO | delivery → `kade.delivery.events` |
+| dispatch | Go | 50110 | 8110 | `dispatch` + Redis GEO | delivery → `kade.delivery.events`, rider → `kade.rider.events` |
 | location | Go | 50111 | 8111 | — (stream only) | `kade.rider.locations` (high volume, schema registry) |
 | realtime | Go | — | 8112 | Redis pub/sub | — |
 | ledger | Java | 50113 | 8113 | `ledger` | ledger → `kade.ledger.events` |
@@ -50,7 +50,7 @@ Ports are fixed so services, gateways and Compose agree. gRPC listens on the gRP
 
 | Infrastructure | Host port | In-network address |
 | --- | --- | --- |
-| Postgres 17 | 5432 | `postgres:5432` |
+| Postgres 17 | 15432 (this laptop; `deploy/compose/.env`) | `postgres:5432` |
 | Kafka (KRaft) | 19092 | `kafka:9092` |
 | Schema Registry | 8085 | `schema-registry:8081` |
 | Kafka Connect (Debezium) | 8083 | `connect:8083` |
@@ -58,7 +58,7 @@ Ports are fixed so services, gateways and Compose agree. gRPC listens on the gRP
 | Temporal UI | 8233 | — |
 | Keycloak | 8080 | `keycloak:8080` |
 | Redis | 6379 | `redis:6379` |
-| Grafana (otel-lgtm) | 3000 | OTLP `otel:4317` (gRPC), `otel:4318` (HTTP) |
+| Grafana (otel-lgtm) | 3001 (this laptop) | OTLP `otel:4317` (gRPC), `otel:4318` (HTTP) |
 | Kafka UI (`tools` profile) | 8090 | — |
 
 ## Environment variables (same names in every language)
@@ -73,10 +73,11 @@ Ports are fixed so services, gateways and Compose agree. gRPC listens on the gRP
 | `TEMPORAL_ADDRESS` | `temporal:7233` | namespace `kade` |
 | `REDIS_URL` | `redis://redis:6379` | |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://otel:4318` | traces, metrics, logs |
-| `KEYCLOAK_ISSUER` | `http://keycloak:8080/realms/kade` | gateways only |
+| `KEYCLOAK_ISSUER` | `http://localhost:8080/realms/kade` | gateways only; must equal the token `iss` (Keycloak's fixed hostname) |
+| `KEYCLOAK_JWKS_URL` | `http://keycloak:8080/realms/kade/protocol/openid-connect/certs` | gateways fetch keys in-network |
 | `<NAME>_GRPC` | `CATALOG_GRPC=catalog:50101` | address of each dependency |
 
-Running a service on the host against the Compose stack: use the host ports (`localhost:5432`, `localhost:19092`, …) and `localhost:<port>` for other services.
+Running a service on the host against the Compose stack: use the host ports (`localhost:15432` for Postgres on this laptop, `localhost:19092` for Kafka, …) and `localhost:<port>` for other services.
 
 ## Contracts (proto/)
 

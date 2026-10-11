@@ -1,0 +1,92 @@
+syntax = "proto3";
+
+package kade.payment.v1;
+
+import "google/protobuf/timestamp.proto";
+import "kade/common/v1/commerce.proto";
+import "kade/common/v1/money.proto";
+import "kade/payment/v1/payment_service.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.payment.v1";
+
+// kade.payment.events (aggregatetype "payment", key = payment_id). Every event names the purpose and
+// reference (order id for orders) so order, ledger, profile (fraud flags) and notification can act
+// without calling payment.
+
+message PaymentAuthorised {
+  string payment_id = 1;
+  PaymentPurpose purpose = 2;
+  string reference_id = 3;
+  string customer_id = 4;
+  kade.common.v1.PaymentMethodKind method = 5;
+  // Card: amount held. Cash: amount due at the door.
+  kade.common.v1.Money amount = 6;
+  google.protobuf.Timestamp occurred_at = 7;
+}
+
+message PaymentDeclined {
+  string payment_id = 1;
+  PaymentPurpose purpose = 2;
+  string reference_id = 3;
+  string customer_id = 4;
+  kade.common.v1.Money amount = 5;
+  string decline_code = 6;
+  string card_last4 = 7;
+  google.protobuf.Timestamp occurred_at = 8;
+}
+
+message PaymentAuthorisationAdjusted {
+  string payment_id = 1;
+  string reference_id = 2;
+  kade.common.v1.Money amount = 3;
+  kade.common.v1.Money previous_amount = 4;
+  google.protobuf.Timestamp occurred_at = 5;
+}
+
+// Money actually taken. Card: captured at pickup. Cash: collected by the rider at the door —
+// ledger moves it into the rider's cash-held account.
+message PaymentCaptured {
+  string payment_id = 1;
+  PaymentPurpose purpose = 2;
+  string reference_id = 3;
+  string customer_id = 4;
+  kade.common.v1.PaymentMethodKind method = 5;
+  kade.common.v1.Money amount = 6;
+  // Cash only.
+  string collected_by_rider_id = 7;
+  string psp_reference = 8;
+  google.protobuf.Timestamp occurred_at = 9;
+}
+
+message PaymentVoided {
+  string payment_id = 1;
+  PaymentPurpose purpose = 2;
+  string reference_id = 3;
+  string customer_id = 4;
+  kade.common.v1.PaymentMethodKind method = 5;
+  kade.common.v1.Money amount = 6;
+  string reason = 7;
+  google.protobuf.Timestamp occurred_at = 8;
+}
+
+message PaymentRefunded {
+  string payment_id = 1;
+  PaymentPurpose purpose = 2;
+  string reference_id = 3;
+  string customer_id = 4;
+  PaymentRefund refund = 5;
+  // Total refunded on this payment so far.
+  kade.common.v1.Money refunded_total = 6;
+  string order_refund_id = 7;
+  google.protobuf.Timestamp occurred_at = 8;
+}
+
+message PaymentRefundFailed {
+  string payment_id = 1;
+  string reference_id = 2;
+  PaymentRefund refund = 3;
+  string order_refund_id = 4;
+  string error = 5;
+  google.protobuf.Timestamp occurred_at = 6;
+}

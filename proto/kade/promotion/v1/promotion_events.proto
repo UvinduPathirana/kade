@@ -1,0 +1,107 @@
+syntax = "proto3";
+
+package kade.promotion.v1;
+
+import "google/protobuf/timestamp.proto";
+import "kade/common/v1/money.proto";
+import "kade/promotion/v1/promotion_service.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.promotion.v1";
+
+// kade.promotion.events (aggregatetype "promotion"; key = voucher code, offer id, gift card id or
+// customer id for referrals — each event names its aggregate explicitly).
+
+message VoucherCreated {
+  string voucher_code = 1;
+  Voucher voucher = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+}
+
+message VoucherStatusChanged {
+  string voucher_code = 1;
+  VoucherStatus status = 2;
+  VoucherStatus previous = 3;
+  // "budget_exhausted", "use_limit_reached", "ended_by_staff", "expired".
+  string reason = 4;
+  google.protobuf.Timestamp occurred_at = 5;
+}
+
+// Scheduled offer started, or created already active. Catalog sets the offer label/percent.
+message OfferActivated {
+  string offer_id = 1;
+  string restaurant_id = 2;
+  Offer offer = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+}
+
+message OfferEnded {
+  string offer_id = 1;
+  string restaurant_id = 2;
+  // "budget_spent", "ended_early", "expired".
+  string reason = 3;
+  Offer offer = 4;
+  google.protobuf.Timestamp occurred_at = 5;
+}
+
+message PromoReserved {
+  string reservation_id = 1;
+  PromoReservation reservation = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+}
+
+message PromoReleased {
+  string reservation_id = 1;
+  PromoReservation reservation = 2;
+  string reason = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+}
+
+// Discount is now spent. Ledger books it against Kadé marketing or the restaurant (funded_by).
+message PromoRedeemed {
+  string reservation_id = 1;
+  PromoReservation reservation = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+}
+
+// A restaurant offer was applied to a delivered order (for the restaurant's offer-cost line).
+message OfferRedeemed {
+  string offer_id = 1;
+  string restaurant_id = 2;
+  string order_id = 3;
+  kade.common.v1.Money discount = 4;
+  google.protobuf.Timestamp occurred_at = 5;
+}
+
+message GiftCardPurchased {
+  string gift_card_id = 1;
+  GiftCard gift_card = 2;
+  // Payment that charged the buyer.
+  string payment_id = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+}
+
+// send_on arrived: notification sends the code to the recipient.
+message GiftCardSent {
+  string gift_card_id = 1;
+  GiftCard gift_card = 2;
+  string redemption_code = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+}
+
+message GiftCardRedeemed {
+  string gift_card_id = 1;
+  string redeemed_by_customer_id = 2;
+  kade.common.v1.Money amount = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+}
+
+// Both sides of a referral earned credit (profile.ChangeCredit is called by promotion).
+message ReferralRewarded {
+  string referrer_customer_id = 1;
+  string referred_customer_id = 2;
+  kade.common.v1.Money reward = 3;
+  // The referred friend's first order.
+  string order_id = 4;
+  google.protobuf.Timestamp occurred_at = 5;
+}

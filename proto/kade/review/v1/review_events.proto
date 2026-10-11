@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package kade.review.v1;
+
+import "google/protobuf/timestamp.proto";
+import "kade/review/v1/review_service.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.review.v1";
+
+// kade.review.events (aggregatetype "review"; key = order_id for ratings, restaurant_id / rider_id
+// for the rolled-up rating events).
+
+message OrderRated {
+  string order_id = 1;
+  OrderRating rating = 2;
+  // Set when the rating produced a public restaurant review.
+  string review_id = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+}
+
+// Notification tells the customer the restaurant replied.
+message ReviewReplied {
+  string review_id = 1;
+  string restaurant_id = 2;
+  string order_id = 3;
+  // Unset when the reply was removed.
+  ReviewReply reply = 4;
+  google.protobuf.Timestamp occurred_at = 5;
+}
+
+// New average for catalog/search (Restaurant.rating, rating_count).
+message RestaurantRatingChanged {
+  string restaurant_id = 1;
+  RatingSummary summary = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+}
+
+// New average for dispatch (Rider.rating) and ops.
+message RiderRatingChanged {
+  string rider_id = 1;
+  RatingSummary summary = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+}
+
+message TripFeedbackSubmitted {
+  string delivery_id = 1;
+  string order_id = 2;
+  string rider_id = 3;
+  Thumb customer = 4;
+  Thumb restaurant = 5;
+  google.protobuf.Timestamp occurred_at = 6;
+}

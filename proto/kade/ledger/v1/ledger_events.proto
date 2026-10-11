@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+package kade.ledger.v1;
+
+import "google/protobuf/timestamp.proto";
+import "kade/common/v1/money.proto";
+import "kade/common/v1/types.proto";
+import "kade/ledger/v1/ledger_service.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.ledger.v1";
+
+// kade.ledger.events (aggregatetype "ledger"; key = the account owner or batch id named in each event).
+
+// Every posted entry, for reconciliation jobs and analytics.
+message JournalEntryPosted {
+  string entry_id = 1;
+  JournalEntry entry = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+}
+
+// Weekly statement closed (Monday 00:00 Colombo). Notification emails it when the outlet opted in.
+message StatementIssued {
+  string statement_id = 1;
+  Statement statement = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+}
+
+message PayoutBatchApproved {
+  string batch_id = 1;
+  PayoutBatch batch = 2;
+  kade.common.v1.Actor actor = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+}
+
+// One outlet's money reached the bank.
+message PayoutCompleted {
+  string batch_id = 1;
+  string outlet_id = 2;
+  string statement_id = 3;
+  kade.common.v1.Money amount = 4;
+  string bank_reference = 5;
+  google.protobuf.Timestamp occurred_at = 6;
+}
+
+message RiderSettled {
+  string rider_id = 1;
+  RiderSettlement settlement = 2;
+  kade.common.v1.Actor actor = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+}
+
+message RiderPayoutCompleted {
+  string rider_id = 1;
+  RiderPayout payout = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+}
+
+message CashDepositRecorded {
+  string rider_id = 1;
+  CashRecord record = 2;
+  kade.common.v1.Actor actor = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+}
+
+// Dispatch keeps cash_allowed in sync (riders over the limit get card orders only); ops dashboard
+// raises a rider-cash attention item.
+message RiderCashBalanceChanged {
+  string rider_id = 1;
+  RiderCashBalance balance = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+}

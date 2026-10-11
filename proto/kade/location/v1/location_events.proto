@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package kade.location.v1;
+
+import "google/protobuf/timestamp.proto";
+import "kade/common/v1/types.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.location.v1";
+
+enum RiderActivity {
+  RIDER_ACTIVITY_UNSPECIFIED = 0;
+  // Online, no job.
+  RIDER_ACTIVITY_IDLE = 1;
+  RIDER_ACTIVITY_TO_RESTAURANT = 2;
+  RIDER_ACTIVITY_AT_RESTAURANT = 3;
+  RIDER_ACTIVITY_TO_CUSTOMER = 4;
+  RIDER_ACTIVITY_AT_CUSTOMER = 5;
+}
+
+// Value of kade.rider.locations (key = rider_id). Registered in the Schema Registry; keep it small and
+// evolve it only by adding fields.
+message RiderLocation {
+  string rider_id = 1;
+  kade.common.v1.GeoPoint position = 2;
+  // Degrees from north, 0–360; negative when unknown.
+  float heading = 3;
+  // Metres per second.
+  float speed_mps = 4;
+  // Horizontal accuracy, metres.
+  float accuracy_m = 5;
+  // When the fix was taken (device clock).
+  google.protobuf.Timestamp occurred_at = 6;
+  // When location accepted it.
+  google.protobuf.Timestamp received_at = 7;
+  // Active job, so realtime can route the position to the right customer and kitchen.
+  string delivery_id = 8;
+  string order_id = 9;
+  RiderActivity activity = 10;
+  // Monotonic per rider; consumers drop anything not newer than what they have.
+  int64 sequence = 11;
+}

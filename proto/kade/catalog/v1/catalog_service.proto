@@ -1,0 +1,672 @@
+syntax = "proto3";
+
+package kade.catalog.v1;
+
+import "google/protobuf/timestamp.proto";
+import "kade/common/v1/commerce.proto";
+import "kade/common/v1/money.proto";
+import "kade/common/v1/types.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.catalog.v1";
+
+// Catalog owns restaurants (a.k.a. outlets: merchant's outlet_id == catalog restaurant_id, 1:1 today),
+// menus, option groups, categories, opening hours, closures, sold-out state and home-feed content.
+// It is the read model for the customer app's home, category and restaurant pages, and the system of
+// record for menu edits made in the restaurant app. Pause/busy/suspension are owned by merchant and
+// arrive as kade.merchant.events; ratings arrive from kade.review.events; offer labels from
+// kade.promotion.events. Changes are published on kade.restaurant.events and kade.menu.events.
+
+// ---------- Customer-facing reads ----------
+
+service CatalogService {
+  // Food categories for the home rail and the category page ("Kottu", "Short eats", …). Only visible ones.
+  rpc ListCategories(ListCategoriesRequest) returns (ListCategoriesResponse);
+  rpc GetCategory(GetCategoryRequest) returns (GetCategoryResponse);
+  // Restaurants for the home feed/category page, with distance, ETA and delivery fee for `deliver_to`.
+  rpc ListRestaurants(ListRestaurantsRequest) returns (ListRestaurantsResponse);
+  rpc GetRestaurant(GetRestaurantRequest) returns (GetRestaurantResponse);
+  rpc BatchGetRestaurants(BatchGetRestaurantsRequest) returns (BatchGetRestaurantsResponse);
+  // Full menu: sections, popular dishes and option groups.
+  rpc GetMenu(GetMenuRequest) returns (GetMenuResponse);
+  // Home feed: visible categories plus banners and shelves with their restaurants resolved.
+  rpc GetHomeFeed(GetHomeFeedRequest) returns (GetHomeFeedResponse);
+  // Saga step 1: checks every line against the live menu (exists, not sold out, options valid) and the
+  // restaurant against hours/pause/closures at `fulfil_at`, and returns server-side unit prices.
+  rpc ValidateCart(ValidateCartRequest) returns (ValidateCartResponse);
+}
+
+// ---------- Restaurant app: menu editing ----------
+
+service MenuManagementService {
+  // Creates the item when `item.id` is empty, otherwise updates it (and moves it if section_id changed).
+  rpc SaveMenuItem(SaveMenuItemRequest) returns (SaveMenuItemResponse);
+  rpc DeleteMenuItem(DeleteMenuItemRequest) returns (DeleteMenuItemResponse);
+  // Sold out today; resets automatically at the next opening.
+  rpc SetMenuItemSoldOut(SetMenuItemSoldOutRequest) returns (SetMenuItemSoldOutResponse);
+  rpc CreateMenuSection(CreateMenuSectionRequest) returns (CreateMenuSectionResponse);
+  rpc RenameMenuSection(RenameMenuSectionRequest) returns (RenameMenuSectionResponse);
+  rpc DeleteMenuSection(DeleteMenuSectionRequest) returns (DeleteMenuSectionResponse);
+  rpc MoveMenuSection(MoveMenuSectionRequest) returns (MoveMenuSectionResponse);
+  // Creates or updates an option group ("Spice level", "Add-ons").
+  rpc SaveOptionGroup(SaveOptionGroupRequest) returns (SaveOptionGroupResponse);
+  rpc DeleteOptionGroup(DeleteOptionGroupRequest) returns (DeleteOptionGroupResponse);
+}
+
+// ---------- Restaurant details, hours and closures (restaurant app + merchant onboarding) ----------
+
+service RestaurantManagementService {
+  // Called by merchant when an application is approved (idempotent on restaurant_id).
+  rpc CreateRestaurant(CreateRestaurantRequest) returns (CreateRestaurantResponse);
+  rpc UpdateRestaurantDetails(UpdateRestaurantDetailsRequest) returns (UpdateRestaurantDetailsResponse);
+  rpc GetOpeningHours(GetOpeningHoursRequest) returns (GetOpeningHoursResponse);
+  rpc SetOpeningHours(SetOpeningHoursRequest) returns (SetOpeningHoursResponse);
+  // Special closure for a whole day (Poya, holidays).
+  rpc AddClosure(AddClosureRequest) returns (AddClosureResponse);
+  rpc RemoveClosure(RemoveClosureRequest) returns (RemoveClosureResponse);
+}
+
+// ---------- Admin: home feed merchandising ----------
+
+service MerchandisingService {
+  // Every category, including hidden ones, in display order.
+  rpc ListHomeCategories(ListHomeCategoriesRequest) returns (ListHomeCategoriesResponse);
+  rpc UpdateHomeCategory(UpdateHomeCategoryRequest) returns (UpdateHomeCategoryResponse);
+  rpc MoveHomeCategory(MoveHomeCategoryRequest) returns (MoveHomeCategoryResponse);
+  rpc ListCollections(ListCollectionsRequest) returns (ListCollectionsResponse);
+  // Creates (empty id) or updates a banner/shelf collection.
+  rpc SaveCollection(SaveCollectionRequest) returns (SaveCollectionResponse);
+  rpc SetCollectionVisible(SetCollectionVisibleRequest) returns (SetCollectionVisibleResponse);
+  rpc MoveCollection(MoveCollectionRequest) returns (MoveCollectionResponse);
+}
+
+// =====================================================================================================
+// Resources
+// =====================================================================================================
+
+message Category {
+  // Slug, e.g. "kottu".
+  string id = 1;
+  string label = 2;
+  string image_id = 3;
+  bool visible = 4;
+  int32 position = 5;
+}
+
+enum RestaurantKind {
+  RESTAURANT_KIND_UNSPECIFIED = 0;
+  RESTAURANT_KIND_RESTAURANT = 1;
+  // Grocery/shop: products priced per pack, no options, substitution preference at checkout.
+  RESTAURANT_KIND_SHOP = 2;
+}
+
+enum AvailabilityState {
+  AVAILABILITY_STATE_UNSPECIFIED = 0;
+  AVAILABILITY_STATE_OPEN = 1;
+  // Outside opening hours or on a closure day.
+  AVAILABILITY_STATE_CLOSED = 2;
+  // Kitchen paused new orders (merchant).
+  AVAILABILITY_STATE_PAUSED = 3;
+  // Suspended by Kadé ops; hidden from the feed.
+  AVAILABILITY_STATE_SUSPENDED = 4;
+}
+
+message RestaurantAvailability {
+  AvailabilityState state = 1;
+  // Present while not open, e.g. "Opens at 8 am", "Back at 7:30 pm".
+  string closed_label = 2;
+  // Next time it accepts orders, when known.
+  google.protobuf.Timestamp opens_at = 3;
+  // Busy mode: minutes added to every order's prep time (0, 10 or 20).
+  int32 busy_extra_minutes = 4;
+}
+
+message Restaurant {
+  string id = 1;
+  string name = 2;
+  RestaurantKind kind = 3;
+  // Primary food category (Category.id).
+  string category_id = 4;
+  // Cuisine label for ops screens, e.g. "Sri Lankan".
+  string cuisine = 5;
+  string image_id = 6;
+  // Delivery time window in minutes, already including busy mode.
+  int32 eta_min_minutes = 7;
+  int32 eta_max_minutes = 8;
+  // Estimated delivery fee to the requested location (pricing); zero = free delivery.
+  // Zero/unset in events, where there is no customer location.
+  kade.common.v1.Money delivery_fee = 9;
+  double rating = 10;
+  int32 rating_count = 11;
+  // 1 = budget … 3 = premium.
+  int32 price_level = 12;
+  // Headline of the restaurant's running offer, e.g. "20% off kottu" (from promotion).
+  string offer_label = 13;
+  // Percent the running offer takes off the subtotal at checkout (0 = none).
+  int32 discount_percent = 14;
+  // Running offer gives free delivery.
+  bool free_delivery_offer = 15;
+  bool has_vegetarian = 16;
+  string area = 17;
+  string address = 18;
+  string phone = 19;
+  kade.common.v1.GeoPoint location = 20;
+  string zone_id = 21;
+  // Straight-line distance to the requested location; 0 when no location was given.
+  double distance_km = 22;
+  // Today's hours for display, e.g. "11 am – 2 am".
+  string hours_label = 23;
+  RestaurantAvailability availability = 24;
+  // Running offer id in promotion, if any.
+  string offer_id = 25;
+  google.protobuf.Timestamp created_at = 26;
+  google.protobuf.Timestamp updated_at = 27;
+}
+
+enum DishTag {
+  DISH_TAG_UNSPECIFIED = 0;
+  DISH_TAG_VEGETARIAN = 1;
+  DISH_TAG_SPICY = 2;
+}
+
+message MenuItem {
+  string id = 1;
+  string restaurant_id = 2;
+  string section_id = 3;
+  string name = 4;
+  string description = 5;
+  kade.common.v1.Money price = 6;
+  // Image id (CDN key); empty when the dish has no photo.
+  string image_id = 7;
+  repeated DishTag tags = 8;
+  repeated string option_group_ids = 9;
+  // 1 = most ordered; 0 = not in the popular list.
+  int32 popular_rank = 10;
+  bool sold_out = 11;
+  // When sold-out resets (the next opening).
+  google.protobuf.Timestamp sold_out_until = 12;
+  // Shop products: pack size or weight, e.g. "1 kg", "400 ml".
+  string unit = 13;
+  int32 position = 14;
+}
+
+message MenuSection {
+  string id = 1;
+  string name = 2;
+  int32 position = 3;
+  repeated MenuItem items = 4;
+}
+
+message OptionChoice {
+  string id = 1;
+  string name = 2;
+  // Extra on top of the item price; zero for free choices.
+  kade.common.v1.Money price = 3;
+}
+
+message OptionGroup {
+  string id = 1;
+  string name = 2;
+  bool required = 3;
+  // 1 = pick one (radio); more = pick up to N (checkbox).
+  int32 max_choices = 4;
+  repeated OptionChoice choices = 5;
+}
+
+message Menu {
+  string restaurant_id = 1;
+  repeated MenuSection sections = 2;
+  // Most-ordered items, ranked (copies of items in sections).
+  repeated MenuItem popular = 3;
+  repeated OptionGroup option_groups = 4;
+  // Increments on every change; consumers drop stale snapshots.
+  int64 version = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+message TimeRange {
+  // 24h "11:00".
+  string open = 1;
+  // 24h "02:00"; earlier than `open` means the next morning.
+  string close = 2;
+}
+
+message DayHours {
+  kade.common.v1.DayOfWeek day = 1;
+  bool is_open = 2;
+  // One or two ranges, e.g. lunch and dinner.
+  repeated TimeRange ranges = 3;
+}
+
+message Closure {
+  string id = 1;
+  // ISO date, "2026-10-26".
+  string date = 2;
+  string reason = 3;
+}
+
+enum CollectionPlacement {
+  COLLECTION_PLACEMENT_UNSPECIFIED = 0;
+  COLLECTION_PLACEMENT_BANNER = 1;
+  COLLECTION_PLACEMENT_SHELF = 2;
+}
+
+enum CollectionSource {
+  COLLECTION_SOURCE_UNSPECIFIED = 0;
+  COLLECTION_SOURCE_RULES = 1;
+  COLLECTION_SOURCE_HAND_PICKED = 2;
+}
+
+message CollectionRule {
+  string category_id = 1;
+  double min_rating = 2;
+  int32 max_eta_minutes = 3;
+  bool offers_only = 4;
+}
+
+message Collection {
+  string id = 1;
+  string title = 2;
+  string subtitle = 3;
+  CollectionPlacement placement = 4;
+  CollectionSource source = 5;
+  CollectionRule rule = 6;
+  // Hand-picked restaurants, in order.
+  repeated string restaurant_ids = 7;
+  // ISO dates.
+  string starts_on = 8;
+  string ends_on = 9;
+  bool visible = 10;
+  int32 position = 11;
+}
+
+// =====================================================================================================
+// CatalogService messages
+// =====================================================================================================
+
+message ListCategoriesRequest {}
+
+message ListCategoriesResponse {
+  repeated Category categories = 1;
+}
+
+message GetCategoryRequest {
+  string id = 1;
+}
+
+message GetCategoryResponse {
+  Category category = 1;
+}
+
+message ListRestaurantsRequest {
+  // Where the customer is; drives distance, ETA, delivery fee and the in-zone filter.
+  kade.common.v1.GeoPoint deliver_to = 1;
+  kade.common.v1.FulfilmentMode mode = 2;
+  // Filters (all optional).
+  string category_id = 3;
+  bool open_only = 4;
+  bool offers_only = 5;
+  bool vegetarian_only = 6;
+  repeated string ids = 7;
+  kade.common.v1.PageRequest page = 8;
+}
+
+message ListRestaurantsResponse {
+  // Open restaurants first, then by distance.
+  repeated Restaurant restaurants = 1;
+  kade.common.v1.PageResponse page = 2;
+}
+
+message GetRestaurantRequest {
+  string id = 1;
+  kade.common.v1.GeoPoint deliver_to = 2;
+}
+
+message GetRestaurantResponse {
+  Restaurant restaurant = 1;
+}
+
+message BatchGetRestaurantsRequest {
+  repeated string ids = 1;
+  kade.common.v1.GeoPoint deliver_to = 2;
+}
+
+message BatchGetRestaurantsResponse {
+  // Missing ids are skipped.
+  repeated Restaurant restaurants = 1;
+}
+
+message GetMenuRequest {
+  string restaurant_id = 1;
+}
+
+message GetMenuResponse {
+  Menu menu = 1;
+}
+
+message GetHomeFeedRequest {
+  kade.common.v1.GeoPoint deliver_to = 1;
+}
+
+message HomeCollection {
+  Collection collection = 1;
+  repeated Restaurant restaurants = 2;
+}
+
+message GetHomeFeedResponse {
+  repeated Category categories = 1;
+  repeated HomeCollection banners = 2;
+  repeated HomeCollection shelves = 3;
+}
+
+message SelectedOption {
+  string option_group_id = 1;
+  string choice_id = 2;
+}
+
+message CartItemRef {
+  // Client line key; echoed back so callers can match problems to lines.
+  string line_key = 1;
+  string item_id = 2;
+  int32 quantity = 3;
+  repeated SelectedOption options = 4;
+}
+
+enum LineProblem {
+  LINE_PROBLEM_UNSPECIFIED = 0;
+  LINE_PROBLEM_ITEM_NOT_FOUND = 1;
+  LINE_PROBLEM_SOLD_OUT = 2;
+  LINE_PROBLEM_OPTION_INVALID = 3;
+  LINE_PROBLEM_REQUIRED_OPTION_MISSING = 4;
+  LINE_PROBLEM_TOO_MANY_CHOICES = 5;
+  LINE_PROBLEM_QUANTITY_INVALID = 6;
+}
+
+message ValidatedLine {
+  string line_key = 1;
+  string item_id = 2;
+  string name = 3;
+  // Item price plus paid options: what one costs.
+  kade.common.v1.Money unit_price = 4;
+  int32 quantity = 5;
+  // Chosen option names in menu order, e.g. ["Sri Lankan hot", "Extra cheese"].
+  repeated string choice_names = 6;
+  // Section, so promotion can scope section-only offers.
+  string section_id = 7;
+  // Unset when the line is fine.
+  LineProblem problem = 8;
+  // User-facing explanation when there is a problem.
+  string problem_message = 9;
+}
+
+enum RestaurantProblem {
+  RESTAURANT_PROBLEM_UNSPECIFIED = 0;
+  RESTAURANT_PROBLEM_NOT_FOUND = 1;
+  RESTAURANT_PROBLEM_CLOSED = 2;
+  RESTAURANT_PROBLEM_PAUSED = 3;
+  RESTAURANT_PROBLEM_SUSPENDED = 4;
+  RESTAURANT_PROBLEM_PICKUP_ONLY = 5;
+}
+
+message ValidateCartRequest {
+  string restaurant_id = 1;
+  kade.common.v1.FulfilmentMode mode = 2;
+  repeated CartItemRef lines = 3;
+  // When the kitchen would start (now, or the scheduled time); unset = now.
+  google.protobuf.Timestamp fulfil_at = 4;
+  kade.common.v1.GeoPoint deliver_to = 5;
+}
+
+message ValidateCartResponse {
+  // True when every line and the restaurant are fine.
+  bool ok = 1;
+  // Snapshot used for the order (name, eta, discount_percent, zone…).
+  Restaurant restaurant = 2;
+  repeated ValidatedLine lines = 3;
+  RestaurantProblem restaurant_problem = 4;
+  string restaurant_problem_message = 5;
+  int64 menu_version = 6;
+}
+
+// =====================================================================================================
+// MenuManagementService messages (restaurant_id comes from x-outlet-id; also given explicitly for ops)
+// =====================================================================================================
+
+message SaveMenuItemRequest {
+  string restaurant_id = 1;
+  // id empty = create. sold_out, popular_rank and position are ignored (use their own RPCs).
+  MenuItem item = 2;
+  string idempotency_key = 3;
+}
+
+message SaveMenuItemResponse {
+  Menu menu = 1;
+  MenuItem item = 2;
+}
+
+message DeleteMenuItemRequest {
+  string restaurant_id = 1;
+  string item_id = 2;
+}
+
+message DeleteMenuItemResponse {
+  Menu menu = 1;
+}
+
+message SetMenuItemSoldOutRequest {
+  string restaurant_id = 1;
+  string item_id = 2;
+  bool sold_out = 3;
+}
+
+message SetMenuItemSoldOutResponse {
+  Menu menu = 1;
+}
+
+message CreateMenuSectionRequest {
+  string restaurant_id = 1;
+  string name = 2;
+}
+
+message CreateMenuSectionResponse {
+  Menu menu = 1;
+}
+
+message RenameMenuSectionRequest {
+  string restaurant_id = 1;
+  string section_id = 2;
+  string name = 3;
+}
+
+message RenameMenuSectionResponse {
+  Menu menu = 1;
+}
+
+message DeleteMenuSectionRequest {
+  string restaurant_id = 1;
+  string section_id = 2;
+}
+
+message DeleteMenuSectionResponse {
+  Menu menu = 1;
+}
+
+enum MoveDirection {
+  MOVE_DIRECTION_UNSPECIFIED = 0;
+  MOVE_DIRECTION_UP = 1;
+  MOVE_DIRECTION_DOWN = 2;
+}
+
+message MoveMenuSectionRequest {
+  string restaurant_id = 1;
+  string section_id = 2;
+  MoveDirection direction = 3;
+}
+
+message MoveMenuSectionResponse {
+  Menu menu = 1;
+}
+
+message SaveOptionGroupRequest {
+  string restaurant_id = 1;
+  // id empty = create.
+  OptionGroup option_group = 2;
+}
+
+message SaveOptionGroupResponse {
+  Menu menu = 1;
+}
+
+message DeleteOptionGroupRequest {
+  string restaurant_id = 1;
+  string option_group_id = 2;
+}
+
+message DeleteOptionGroupResponse {
+  Menu menu = 1;
+}
+
+// =====================================================================================================
+// RestaurantManagementService messages
+// =====================================================================================================
+
+message RestaurantDetails {
+  string name = 1;
+  RestaurantKind kind = 2;
+  string category_id = 3;
+  string cuisine = 4;
+  string image_id = 5;
+  int32 price_level = 6;
+  string area = 7;
+  string address = 8;
+  string phone = 9;
+  kade.common.v1.GeoPoint location = 10;
+  // Base prep window before travel, minutes.
+  int32 prep_min_minutes = 11;
+  int32 prep_max_minutes = 12;
+}
+
+message CreateRestaurantRequest {
+  // Same id as merchant's outlet.
+  string restaurant_id = 1;
+  RestaurantDetails details = 2;
+  string idempotency_key = 3;
+}
+
+message CreateRestaurantResponse {
+  Restaurant restaurant = 1;
+}
+
+message UpdateRestaurantDetailsRequest {
+  string restaurant_id = 1;
+  RestaurantDetails details = 2;
+}
+
+message UpdateRestaurantDetailsResponse {
+  Restaurant restaurant = 1;
+}
+
+message GetOpeningHoursRequest {
+  string restaurant_id = 1;
+}
+
+message GetOpeningHoursResponse {
+  repeated DayHours hours = 1;
+  repeated Closure closures = 2;
+}
+
+message SetOpeningHoursRequest {
+  string restaurant_id = 1;
+  // All seven days.
+  repeated DayHours hours = 2;
+}
+
+message SetOpeningHoursResponse {
+  repeated DayHours hours = 1;
+  repeated Closure closures = 2;
+}
+
+message AddClosureRequest {
+  string restaurant_id = 1;
+  // ISO date.
+  string date = 2;
+  string reason = 3;
+}
+
+message AddClosureResponse {
+  repeated DayHours hours = 1;
+  repeated Closure closures = 2;
+}
+
+message RemoveClosureRequest {
+  string restaurant_id = 1;
+  string closure_id = 2;
+}
+
+message RemoveClosureResponse {
+  repeated DayHours hours = 1;
+  repeated Closure closures = 2;
+}
+
+// =====================================================================================================
+// MerchandisingService messages
+// =====================================================================================================
+
+message ListHomeCategoriesRequest {}
+
+message ListHomeCategoriesResponse {
+  repeated Category categories = 1;
+}
+
+message UpdateHomeCategoryRequest {
+  string id = 1;
+  optional string label = 2;
+  optional string image_id = 3;
+  optional bool visible = 4;
+}
+
+message UpdateHomeCategoryResponse {
+  repeated Category categories = 1;
+}
+
+message MoveHomeCategoryRequest {
+  string id = 1;
+  MoveDirection direction = 2;
+}
+
+message MoveHomeCategoryResponse {
+  repeated Category categories = 1;
+}
+
+message ListCollectionsRequest {}
+
+message ListCollectionsResponse {
+  repeated Collection collections = 1;
+}
+
+message SaveCollectionRequest {
+  // id empty = create.
+  Collection collection = 1;
+}
+
+message SaveCollectionResponse {
+  Collection collection = 1;
+}
+
+message SetCollectionVisibleRequest {
+  string id = 1;
+  bool visible = 2;
+}
+
+message SetCollectionVisibleResponse {
+  Collection collection = 1;
+}
+
+message MoveCollectionRequest {
+  string id = 1;
+  MoveDirection direction = 2;
+}
+
+message MoveCollectionResponse {
+  repeated Collection collections = 1;
+}

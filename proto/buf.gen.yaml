@@ -4,7 +4,7 @@ managed:
   override:
     - file_option: go_package_prefix
       value: github.com/UvinduPathirana/kade/gen/go
-clean: true
+clean: false
 plugins:
   # TypeScript: plain @grpc/grpc-js services, usable from NestJS and the gateways
   - remote: buf.build/community/stephenh-ts-proto:v2.12.4

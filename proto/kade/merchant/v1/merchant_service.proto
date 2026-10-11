@@ -1,0 +1,598 @@
+syntax = "proto3";
+
+package kade.merchant.v1;
+
+import "google/protobuf/timestamp.proto";
+import "kade/common/v1/address.proto";
+import "kade/common/v1/commerce.proto";
+import "kade/common/v1/money.proto";
+import "kade/common/v1/onboarding.proto";
+import "kade/common/v1/types.proto";
+import "kade/order/v1/order_service.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.merchant.v1";
+
+// Merchant owns restaurant partners as businesses: outlets (outlet_id == catalog restaurant_id),
+// staff, tablet/printer settings, busy mode, pause, ops status and commission, onboarding applications,
+// and the kitchen board (tickets projected from kade.order.events). Kitchen actions are authorised by
+// x-outlet-id and published as Ticket* events on kade.merchant.events; order's consumer turns them into
+// Temporal workflow signals. The 3-minute accept timer lives in the order workflow; merchant also
+// refuses AcceptOrder after accept_by locally (reason TICKET_MISSED) so the race window is tiny.
+// Menu, hours and closures are edited in catalog; reviews and replies in review; offers in promotion;
+// sales and statements in ledger.
+
+service KitchenService {
+  // The live board: non-final tickets plus those closed in the last hour, oldest first.
+  rpc ListTickets(ListTicketsRequest) returns (ListTicketsResponse);
+  rpc GetTicket(GetTicketRequest) returns (GetTicketResponse);
+  // Accept with a prep time (busy-mode minutes are added). Errors: TICKET_MISSED, TICKET_ALREADY_ACCEPTED.
+  rpc AcceptOrder(AcceptOrderRequest) returns (AcceptOrderResponse);
+  rpc RejectOrder(RejectOrderRequest) returns (RejectOrderResponse);
+  // Only from PREPARING (reason TICKET_NOT_PREPARING).
+  rpc MarkOrderReady(MarkOrderReadyRequest) returns (MarkOrderReadyResponse);
+  // Rider took the bag (delivery) or the customer collected it (pickup). Only from READY.
+  rpc HandOverOrder(HandOverOrderRequest) returns (HandOverOrderResponse);
+}
+
+service OutletService {
+  rpc GetOutlet(GetOutletRequest) returns (GetOutletResponse);
+  // Extra minutes on every order's prep time: 0, 10 or 20.
+  rpc SetBusyMode(SetBusyModeRequest) returns (SetBusyModeResponse);
+  // Stop new orders until `until`.
+  rpc PauseOutlet(PauseOutletRequest) returns (PauseOutletResponse);
+  rpc ResumeOutlet(ResumeOutletRequest) returns (ResumeOutletResponse);
+  // Tablet heartbeat; an outlet whose tablet goes silent stops "accepting" (ops attention item).
+  rpc ReportTabletHeartbeat(ReportTabletHeartbeatRequest) returns (ReportTabletHeartbeatResponse);
+  rpc GetOutletSettings(GetOutletSettingsRequest) returns (GetOutletSettingsResponse);
+  rpc UpdateOutletSettings(UpdateOutletSettingsRequest) returns (UpdateOutletSettingsResponse);
+  // Sends a sample ticket to the paired printer.
+  rpc PrintTestTicket(PrintTestTicketRequest) returns (PrintTestTicketResponse);
+}
+
+service OutletStaffService {
+  rpc ListOutletStaff(ListOutletStaffRequest) returns (ListOutletStaffResponse);
+  // Sends an SMS invite; pending until first sign-in. Duplicate phone: ALREADY_EXISTS.
+  rpc InviteOutletStaff(InviteOutletStaffRequest) returns (InviteOutletStaffResponse);
+  // Fails with LAST_OWNER if it would leave no owner.
+  rpc ChangeOutletStaffRole(ChangeOutletStaffRoleRequest) returns (ChangeOutletStaffRoleResponse);
+  rpc RemoveOutletStaff(RemoveOutletStaffRequest) returns (RemoveOutletStaffResponse);
+}
+
+service PartnerApplicationService {
+  // Restaurant onboarding form (restaurant app, signed out).
+  rpc SubmitApplication(SubmitApplicationRequest) returns (SubmitApplicationResponse);
+  // The applicant's own application, by phone (x-user-id).
+  rpc GetMyApplication(GetMyApplicationRequest) returns (GetMyApplicationResponse);
+  // Admin review queue.
+  rpc ListApplications(ListApplicationsRequest) returns (ListApplicationsResponse);
+  rpc GetApplication(GetApplicationRequest) returns (GetApplicationResponse);
+  rpc SetApplicationDocumentStatus(SetApplicationDocumentStatusRequest) returns (SetApplicationDocumentStatusResponse);
+  // Approve (creates the outlet and calls catalog.CreateRestaurant), request changes or reject.
+  rpc DecideApplication(DecideApplicationRequest) returns (DecideApplicationResponse);
+}
+
+// Admin console: restaurants list, commission and ops status.
+service OutletAdminService {
+  rpc ListOutlets(ListOutletsRequest) returns (ListOutletsResponse);
+  rpc GetOutletAdmin(GetOutletAdminRequest) returns (GetOutletAdminResponse);
+  // 0%–35%.
+  rpc UpdateCommission(UpdateCommissionRequest) returns (UpdateCommissionResponse);
+  // Open / pause / suspend / close with a reason.
+  rpc SetOutletStatus(SetOutletStatusRequest) returns (SetOutletStatusResponse);
+}
+
+// =====================================================================================================
+// Kitchen tickets
+// =====================================================================================================
+
+// Restaurant app vocabulary: new → preparing → ready → pickedUp, or new → missed / rejected.
+// Mapping from order.OrderStatus: PLACED→NEW; ACCEPTED, PREPARING→PREPARING; READY→READY;
+// PICKED_UP, DELIVERED, COLLECTED→PICKED_UP; REJECTED(TIMEOUT)→MISSED; REJECTED→REJECTED;
+// CANCELLED→CANCELLED.
+enum TicketStatus {
+  TICKET_STATUS_UNSPECIFIED = 0;
+  TICKET_STATUS_NEW = 1;
+  TICKET_STATUS_PREPARING = 2;
+  TICKET_STATUS_READY = 3;
+  TICKET_STATUS_PICKED_UP = 4;
+  TICKET_STATUS_MISSED = 5;
+  TICKET_STATUS_REJECTED = 6;
+  TICKET_STATUS_CANCELLED = 7;
+}
+
+message TicketLine {
+  string item_id = 1;
+  string name = 2;
+  int32 quantity = 3;
+  repeated string choice_names = 4;
+  string note = 5;
+  kade.common.v1.Money unit_price = 6;
+}
+
+message TicketRider {
+  string rider_id = 1;
+  string name = 2;
+  string vehicle = 3;
+  string plate = 4;
+  string masked_phone = 5;
+}
+
+message Ticket {
+  string order_id = 1;
+  // "KD-2417".
+  string order_number = 2;
+  // Short number the kitchen calls out and the rider quotes: "2417".
+  string ticket_number = 3;
+  string outlet_id = 4;
+  TicketStatus status = 5;
+  kade.common.v1.FulfilmentMode mode = 6;
+  // First name only.
+  string customer_first_name = 7;
+  // Earlier orders by this customer here.
+  int32 repeat_count = 8;
+  repeated TicketLine lines = 9;
+  string kitchen_note = 10;
+  bool cutlery = 11;
+  kade.common.v1.PaymentMethodKind payment = 12;
+  kade.common.v1.Money subtotal = 13;
+  google.protobuf.Timestamp scheduled_for = 14;
+  google.protobuf.Timestamp placed_at = 15;
+  google.protobuf.Timestamp accept_by = 16;
+  google.protobuf.Timestamp accepted_at = 17;
+  int32 prep_minutes = 18;
+  google.protobuf.Timestamp ready_by = 19;
+  google.protobuf.Timestamp ready_at = 20;
+  google.protobuf.Timestamp picked_up_at = 21;
+  google.protobuf.Timestamp closed_at = 22;
+  kade.order.v1.RejectionReason reject_reason = 23;
+  string reject_note = 24;
+  // Delivery: assigned by dispatch once accepted.
+  TicketRider rider = 25;
+  // When the rider reaches the counter (estimate until RiderArrivedAtRestaurant).
+  google.protobuf.Timestamp rider_arrives_at = 26;
+  bool rider_at_counter = 27;
+}
+
+message ListTicketsRequest {
+  string outlet_id = 1;
+  // Include tickets closed within this many minutes (default 60).
+  int32 closed_within_minutes = 2;
+}
+
+message ListTicketsResponse {
+  repeated Ticket tickets = 1;
+}
+
+message GetTicketRequest {
+  string outlet_id = 1;
+  string order_id = 2;
+}
+
+message GetTicketResponse {
+  Ticket ticket = 1;
+}
+
+message AcceptOrderRequest {
+  string outlet_id = 1;
+  string order_id = 2;
+  int32 prep_minutes = 3;
+  string idempotency_key = 4;
+}
+
+message AcceptOrderResponse {
+  Ticket ticket = 1;
+}
+
+message RejectOrderRequest {
+  string outlet_id = 1;
+  string order_id = 2;
+  kade.order.v1.RejectionReason reason = 3;
+  string note = 4;
+  string idempotency_key = 5;
+}
+
+message RejectOrderResponse {
+  Ticket ticket = 1;
+}
+
+message MarkOrderReadyRequest {
+  string outlet_id = 1;
+  string order_id = 2;
+  string idempotency_key = 3;
+}
+
+message MarkOrderReadyResponse {
+  Ticket ticket = 1;
+}
+
+message HandOverOrderRequest {
+  string outlet_id = 1;
+  string order_id = 2;
+  string idempotency_key = 3;
+}
+
+message HandOverOrderResponse {
+  Ticket ticket = 1;
+}
+
+// =====================================================================================================
+// Outlet
+// =====================================================================================================
+
+// Ops-controlled status (admin console). Pause/busy are the kitchen's own controls.
+enum OutletAdminStatus {
+  OUTLET_ADMIN_STATUS_UNSPECIFIED = 0;
+  OUTLET_ADMIN_STATUS_OPEN = 1;
+  OUTLET_ADMIN_STATUS_PAUSED = 2;
+  OUTLET_ADMIN_STATUS_SUSPENDED = 3;
+  OUTLET_ADMIN_STATUS_CLOSED = 4;
+}
+
+message OutletStatus {
+  // 0, 10 or 20 extra prep minutes.
+  int32 busy_extra_minutes = 1;
+  // While set and in the future, customers can't order.
+  google.protobuf.Timestamp paused_until = 2;
+  OutletAdminStatus admin_status = 3;
+  string admin_status_reason = 4;
+  // Tablet online and taking orders.
+  bool accepting = 5;
+  google.protobuf.Timestamp last_heartbeat_at = 6;
+}
+
+message Outlet {
+  string id = 1;
+  string name = 2;
+  string area = 3;
+  string address = 4;
+  string phone = 5;
+  string zone_id = 6;
+  OutletStatus status = 7;
+  // 1800 = 18%.
+  int32 commission_bps = 8;
+  google.protobuf.Timestamp joined_at = 9;
+  kade.common.v1.BankAccount bank = 10;
+}
+
+message GetOutletRequest {
+  string outlet_id = 1;
+}
+
+message GetOutletResponse {
+  Outlet outlet = 1;
+}
+
+message SetBusyModeRequest {
+  string outlet_id = 1;
+  int32 busy_extra_minutes = 2;
+}
+
+message SetBusyModeResponse {
+  Outlet outlet = 1;
+}
+
+message PauseOutletRequest {
+  string outlet_id = 1;
+  google.protobuf.Timestamp until = 2;
+}
+
+message PauseOutletResponse {
+  Outlet outlet = 1;
+}
+
+message ResumeOutletRequest {
+  string outlet_id = 1;
+}
+
+message ResumeOutletResponse {
+  Outlet outlet = 1;
+}
+
+message ReportTabletHeartbeatRequest {
+  string outlet_id = 1;
+  string device_id = 2;
+}
+
+message ReportTabletHeartbeatResponse {}
+
+enum PaperWidth {
+  PAPER_WIDTH_UNSPECIFIED = 0;
+  PAPER_WIDTH_58MM = 1;
+  PAPER_WIDTH_80MM = 2;
+}
+
+message DeviceSettings {
+  bool auto_print = 1;
+  string printer_name = 2;
+  PaperWidth paper_width = 3;
+  // 1 or 2.
+  int32 copies = 4;
+}
+
+message OutletNotificationSettings {
+  bool sms_paused = 1;
+  bool email_statements = 2;
+  bool new_reviews = 3;
+  bool low_ratings = 4;
+}
+
+message OutletSettings {
+  DeviceSettings devices = 1;
+  OutletNotificationSettings notifications = 2;
+}
+
+message GetOutletSettingsRequest {
+  string outlet_id = 1;
+}
+
+message GetOutletSettingsResponse {
+  OutletSettings settings = 1;
+}
+
+message UpdateOutletSettingsRequest {
+  string outlet_id = 1;
+  OutletSettings settings = 2;
+}
+
+message UpdateOutletSettingsResponse {
+  OutletSettings settings = 1;
+}
+
+message PrintTestTicketRequest {
+  string outlet_id = 1;
+}
+
+message PrintTestTicketResponse {
+  // "Sent to EPSON TM-T20".
+  string message = 1;
+}
+
+// =====================================================================================================
+// Outlet staff
+// =====================================================================================================
+
+enum OutletStaffRole {
+  OUTLET_STAFF_ROLE_UNSPECIFIED = 0;
+  OUTLET_STAFF_ROLE_OWNER = 1;
+  OUTLET_STAFF_ROLE_MANAGER = 2;
+  OUTLET_STAFF_ROLE_KITCHEN = 3;
+}
+
+message OutletStaffMember {
+  string id = 1;
+  string outlet_id = 2;
+  string name = 3;
+  string phone = 4;
+  OutletStaffRole role = 5;
+  // Unset while the invite is pending.
+  google.protobuf.Timestamp last_active_at = 6;
+  bool pending = 7;
+}
+
+message ListOutletStaffRequest {
+  string outlet_id = 1;
+}
+
+message ListOutletStaffResponse {
+  repeated OutletStaffMember staff = 1;
+}
+
+message InviteOutletStaffRequest {
+  string outlet_id = 1;
+  string name = 2;
+  string phone = 3;
+  OutletStaffRole role = 4;
+}
+
+message InviteOutletStaffResponse {
+  OutletStaffMember member = 1;
+}
+
+message ChangeOutletStaffRoleRequest {
+  string outlet_id = 1;
+  string staff_id = 2;
+  OutletStaffRole role = 3;
+}
+
+message ChangeOutletStaffRoleResponse {
+  repeated OutletStaffMember staff = 1;
+}
+
+message RemoveOutletStaffRequest {
+  string outlet_id = 1;
+  string staff_id = 2;
+}
+
+message RemoveOutletStaffResponse {
+  repeated OutletStaffMember staff = 1;
+}
+
+// =====================================================================================================
+// Onboarding
+// =====================================================================================================
+
+enum BusinessType {
+  BUSINESS_TYPE_UNSPECIFIED = 0;
+  BUSINESS_TYPE_RESTAURANT = 1;
+  BUSINESS_TYPE_CAFE = 2;
+  BUSINESS_TYPE_BAKERY = 3;
+  BUSINESS_TYPE_HOME_KITCHEN = 4;
+  BUSINESS_TYPE_CLOUD_KITCHEN = 5;
+}
+
+enum MenuSubmissionMethod {
+  MENU_SUBMISSION_METHOD_UNSPECIFIED = 0;
+  MENU_SUBMISSION_METHOD_FILE = 1;
+  MENU_SUBMISSION_METHOD_PHOTO = 2;
+  MENU_SUBMISSION_METHOD_LATER = 3;
+}
+
+message BusinessDetails {
+  string name = 1;
+  BusinessType type = 2;
+  string address = 3;
+  string city = 4;
+  // Business registration number.
+  string br_number = 5;
+  string cuisine = 6;
+  string area = 7;
+  kade.common.v1.GeoPoint location = 8;
+}
+
+message OwnerDetails {
+  string name = 1;
+  string phone = 2;
+  string email = 3;
+  string nic = 4;
+}
+
+message MenuSubmission {
+  MenuSubmissionMethod method = 1;
+  string file_name = 2;
+  string file_ref = 3;
+}
+
+message PartnerApplication {
+  string id = 1;
+  // Shown to the applicant, e.g. "KP-20418".
+  string reference = 2;
+  BusinessDetails business = 3;
+  OwnerDetails owner = 4;
+  // registration, foodSafety, ownerId.
+  repeated kade.common.v1.PartnerDocument documents = 5;
+  kade.common.v1.BankAccount bank = 6;
+  MenuSubmission menu = 7;
+  kade.common.v1.ApplicationStatus status = 8;
+  string decision_note = 9;
+  string zone_id = 10;
+  google.protobuf.Timestamp submitted_at = 11;
+  google.protobuf.Timestamp decided_at = 12;
+  // Set on approval.
+  string outlet_id = 13;
+}
+
+message SubmitApplicationRequest {
+  BusinessDetails business = 1;
+  OwnerDetails owner = 2;
+  repeated kade.common.v1.PartnerDocument documents = 3;
+  kade.common.v1.BankAccount bank = 4;
+  MenuSubmission menu = 5;
+  string idempotency_key = 6;
+}
+
+message SubmitApplicationResponse {
+  PartnerApplication application = 1;
+}
+
+message GetMyApplicationRequest {
+  string phone = 1;
+}
+
+message GetMyApplicationResponse {
+  // Unset when none.
+  PartnerApplication application = 1;
+}
+
+message ListApplicationsRequest {
+  kade.common.v1.ApplicationStatus status = 1;
+  kade.common.v1.PageRequest page = 2;
+}
+
+message ListApplicationsResponse {
+  repeated PartnerApplication applications = 1;
+  kade.common.v1.PageResponse page = 2;
+}
+
+message GetApplicationRequest {
+  string application_id = 1;
+}
+
+message GetApplicationResponse {
+  PartnerApplication application = 1;
+}
+
+message SetApplicationDocumentStatusRequest {
+  string application_id = 1;
+  string document_id = 2;
+  kade.common.v1.DocumentStatus status = 3;
+  string reject_reason = 4;
+}
+
+message SetApplicationDocumentStatusResponse {
+  PartnerApplication application = 1;
+}
+
+message DecideApplicationRequest {
+  string application_id = 1;
+  // APPROVED, CHANGES_REQUESTED or REJECTED.
+  kade.common.v1.ApplicationStatus decision = 2;
+  string note = 3;
+  // Approval only; defaults to 1800 (18%).
+  int32 commission_bps = 4;
+  string idempotency_key = 5;
+}
+
+message DecideApplicationResponse {
+  PartnerApplication application = 1;
+}
+
+// =====================================================================================================
+// Admin
+// =====================================================================================================
+
+message OutletAdminView {
+  Outlet outlet = 1;
+  string cuisine = 2;
+  string category_id = 3;
+  string image_id = 4;
+  double rating = 5;
+  int32 orders_week = 6;
+  // 0–1 over the last 7 days.
+  double acceptance_rate = 7;
+  // Minutes the oldest unaccepted order has waited, when the kitchen isn't responding.
+  int32 waiting_minutes = 8;
+  kade.common.v1.Contact owner = 9;
+  string owner_email = 10;
+  int32 eta_min_minutes = 11;
+  bool has_offer = 12;
+}
+
+message ListOutletsRequest {
+  OutletAdminStatus status = 1;
+  string zone_id = 2;
+  string query = 3;
+  kade.common.v1.PageRequest page = 4;
+}
+
+message ListOutletsResponse {
+  repeated OutletAdminView outlets = 1;
+  kade.common.v1.PageResponse page = 2;
+}
+
+message GetOutletAdminRequest {
+  string outlet_id = 1;
+}
+
+message GetOutletAdminResponse {
+  OutletAdminView outlet = 1;
+}
+
+message UpdateCommissionRequest {
+  string outlet_id = 1;
+  int32 commission_bps = 2;
+}
+
+message UpdateCommissionResponse {
+  OutletAdminView outlet = 1;
+}
+
+message SetOutletStatusRequest {
+  string outlet_id = 1;
+  OutletAdminStatus status = 2;
+  string reason = 3;
+}
+
+message SetOutletStatusResponse {
+  OutletAdminView outlet = 1;
+}

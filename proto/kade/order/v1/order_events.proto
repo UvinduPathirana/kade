@@ -1,0 +1,151 @@
+syntax = "proto3";
+
+package kade.order.v1;
+
+import "google/protobuf/timestamp.proto";
+import "kade/common/v1/commerce.proto";
+import "kade/common/v1/money.proto";
+import "kade/common/v1/types.proto";
+import "kade/order/v1/order_service.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.order.v1";
+
+// kade.order.events (aggregatetype "order", key = order_id; group-order events use key = group_id).
+//
+// Events that start downstream work (Placed, Accepted, Delivered, Collected, Cancelled, Rejected)
+// carry the full Order snapshot so merchant, dispatch, ledger, notification, review and realtime never
+// need to call order back. Progress events carry the fields that changed plus routing ids.
+
+// Saga finished: status PLACED (kitchen gets a ticket now) or SCHEDULED (ticket at release time).
+message OrderPlaced {
+  string order_id = 1;
+  Order order = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+}
+
+// A SCHEDULED order reached its kitchen start time and is now PLACED; merchant creates the ticket.
+message OrderReleasedToKitchen {
+  string order_id = 1;
+  Order order = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+}
+
+// Kitchen accepted. Dispatch starts matching from here (choreography).
+message OrderAccepted {
+  string order_id = 1;
+  Order order = 2;
+  int32 prep_minutes = 3;
+  google.protobuf.Timestamp ready_by = 4;
+  google.protobuf.Timestamp occurred_at = 5;
+}
+
+// Kitchen rejected or the 3-minute timer fired. Payment voided, promo released, credit returned.
+message OrderRejected {
+  string order_id = 1;
+  Order order = 2;
+  Rejection rejection = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+}
+
+message OrderPreparing {
+  string order_id = 1;
+  string order_number = 2;
+  string customer_id = 3;
+  string restaurant_id = 4;
+  google.protobuf.Timestamp ready_by = 5;
+  google.protobuf.Timestamp occurred_at = 6;
+}
+
+// Food at the counter. Dispatch nudges the assigned rider; pickup customers get "ready to collect".
+message OrderReady {
+  string order_id = 1;
+  string order_number = 2;
+  string customer_id = 3;
+  string restaurant_id = 4;
+  kade.common.v1.FulfilmentMode mode = 5;
+  string delivery_id = 6;
+  google.protobuf.Timestamp occurred_at = 7;
+}
+
+// Rider assigned, recorded on the order (mirrors dispatch's RiderAssigned for order-topic consumers).
+message OrderRiderChanged {
+  string order_id = 1;
+  string order_number = 2;
+  string customer_id = 3;
+  string restaurant_id = 4;
+  // Unset when unassigned.
+  OrderRider rider = 5;
+  string delivery_id = 6;
+  google.protobuf.Timestamp occurred_at = 7;
+}
+
+// Rider has the food. Card payments are captured at this point (saga step 7).
+message OrderPickedUp {
+  string order_id = 1;
+  string order_number = 2;
+  string customer_id = 3;
+  string restaurant_id = 4;
+  string rider_id = 5;
+  google.protobuf.Timestamp occurred_at = 6;
+}
+
+// Ledger books revenue/commission/rider pay, review opens rating, notification thanks the customer.
+message OrderDelivered {
+  string order_id = 1;
+  Order order = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+}
+
+// Pickup order collected (same downstream effects as OrderDelivered).
+message OrderCollected {
+  string order_id = 1;
+  Order order = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+}
+
+message OrderCancelled {
+  string order_id = 1;
+  Order order = 2;
+  Cancellation cancellation = 3;
+  OrderStatus previous_status = 4;
+  google.protobuf.Timestamp occurred_at = 5;
+}
+
+// Checkout saga failed after the order row existed (e.g. payment declined); for fraud signals/analytics.
+message OrderFailed {
+  string order_id = 1;
+  string customer_id = 2;
+  string restaurant_id = 3;
+  string failure_reason = 4;
+  google.protobuf.Timestamp occurred_at = 5;
+}
+
+message OrderTipUpdated {
+  string order_id = 1;
+  string order_number = 2;
+  string customer_id = 3;
+  string rider_id = 4;
+  kade.common.v1.Money tip = 5;
+  kade.common.v1.Money previous_tip = 6;
+  kade.common.v1.Money total = 7;
+  google.protobuf.Timestamp occurred_at = 8;
+}
+
+// Every refund (ops, support resolution, cancellation). Ledger's refunds ledger reads this.
+message OrderRefunded {
+  string order_id = 1;
+  Refund refund = 2;
+  // Total refunded so far on the order.
+  kade.common.v1.Money refunded_total = 3;
+  string restaurant_id = 4;
+  kade.common.v1.Actor actor = 5;
+  google.protobuf.Timestamp occurred_at = 6;
+}
+
+// Any change to a group order (join, dishes, leave, placed, closed). realtime pushes it to members.
+message GroupOrderUpdated {
+  string group_id = 1;
+  GroupOrder group = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+}

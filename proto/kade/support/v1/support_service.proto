@@ -1,0 +1,410 @@
+syntax = "proto3";
+
+package kade.support.v1;
+
+import "google/protobuf/timestamp.proto";
+import "kade/common/v1/commerce.proto";
+import "kade/common/v1/money.proto";
+import "kade/common/v1/types.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.support.v1";
+
+// Support owns tickets (chat conversations from the customer and rider apps, order-issue reports,
+// restaurant contacts), SLAs, macros and help topics. Money goes back through order.RefundOrder
+// (card or credit on an order) or profile.ChangeCredit (goodwill credit without an order), so refunds
+// have one path and one ledger trail. Publishes kade.ticket.events.
+
+// Customer and rider apps.
+service SupportService {
+  // What would be paid back for a problem, shown before sending. Rules (customer app issueAmount):
+  // missing/wrong/spilled → Σ unit_price × min(qty, ordered) × (1 − restaurant discount%);
+  // late → max(delivery_fee, Rs 200); never arrived → total + credit used; charged → 0 (agent reviews).
+  rpc PreviewOrderIssue(PreviewOrderIssueRequest) returns (PreviewOrderIssueResponse);
+  // Reports a problem with an order, opens a ticket and applies the resolution (CREDIT/CARD refund via
+  // order.RefundOrder; REVIEW waits for an agent). One report per order (reason ISSUE_ALREADY_REPORTED);
+  // only once delivered/collected except CHARGED (reason ORDER_NOT_ARRIVED); CARD only for card orders
+  // (reason CASH_ORDER_REFUND_TO_CREDIT).
+  rpc ReportOrderIssue(ReportOrderIssueRequest) returns (ReportOrderIssueResponse);
+  // Issues for orders (order history and order detail screens).
+  rpc BatchGetOrderIssues(BatchGetOrderIssuesRequest) returns (BatchGetOrderIssuesResponse);
+  // Returns the requester's open chat, creating one with a greeting if none.
+  rpc GetOrStartConversation(GetOrStartConversationRequest) returns (GetOrStartConversationResponse);
+  // Agent replies arrive over realtime (ticket:<id>) as TicketMessageAdded.
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+  rpc ListMessages(ListMessagesRequest) returns (ListMessagesResponse);
+  rpc ListHelpTopics(ListHelpTopicsRequest) returns (ListHelpTopicsResponse);
+}
+
+// Admin console support desk.
+service TicketAdminService {
+  rpc ListTickets(ListTicketsRequest) returns (ListTicketsResponse);
+  rpc GetTicket(GetTicketRequest) returns (GetTicketResponse);
+  rpc ReplyToTicket(ReplyToTicketRequest) returns (ReplyToTicketResponse);
+  // Empty assignee unassigns.
+  rpc AssignTicket(AssignTicketRequest) returns (AssignTicketResponse);
+  // Recomputes sla_due_at from opened_at.
+  rpc SetTicketPriority(SetTicketPriorityRequest) returns (SetTicketPriorityResponse);
+  // Refund (order.RefundOrder), credit (profile.ChangeCredit, customers only) or none.
+  rpc ResolveTicket(ResolveTicketRequest) returns (ResolveTicketResponse);
+  rpc ReopenTicket(ReopenTicketRequest) returns (ReopenTicketResponse);
+  rpc ListMacros(ListMacrosRequest) returns (ListMacrosResponse);
+}
+
+// =====================================================================================================
+// Tickets
+// =====================================================================================================
+
+enum TicketCategory {
+  TICKET_CATEGORY_UNSPECIFIED = 0;
+  TICKET_CATEGORY_MISSING_ITEM = 1;
+  TICKET_CATEGORY_WRONG_ITEM = 2;
+  TICKET_CATEGORY_LATE = 3;
+  TICKET_CATEGORY_PAYMENT = 4;
+  TICKET_CATEGORY_RIDER = 5;
+  TICKET_CATEGORY_ACCOUNT = 6;
+  TICKET_CATEGORY_RESTAURANT = 7;
+  TICKET_CATEGORY_DAMAGED = 8;
+  TICKET_CATEGORY_NEVER_ARRIVED = 9;
+  TICKET_CATEGORY_GENERAL = 10;
+}
+
+// SLA to first response: urgent 15 min, high 1 h, normal 4 h, low 24 h.
+enum TicketPriority {
+  TICKET_PRIORITY_UNSPECIFIED = 0;
+  TICKET_PRIORITY_URGENT = 1;
+  TICKET_PRIORITY_HIGH = 2;
+  TICKET_PRIORITY_NORMAL = 3;
+  TICKET_PRIORITY_LOW = 4;
+}
+
+enum TicketStatus {
+  TICKET_STATUS_UNSPECIFIED = 0;
+  TICKET_STATUS_OPEN = 1;
+  // Waiting on the requester.
+  TICKET_STATUS_PENDING = 2;
+  TICKET_STATUS_RESOLVED = 3;
+}
+
+enum RequesterKind {
+  REQUESTER_KIND_UNSPECIFIED = 0;
+  REQUESTER_KIND_CUSTOMER = 1;
+  REQUESTER_KIND_RIDER = 2;
+  REQUESTER_KIND_RESTAURANT = 3;
+}
+
+message Requester {
+  RequesterKind kind = 1;
+  string id = 2;
+  string name = 3;
+}
+
+enum MessageAuthorKind {
+  MESSAGE_AUTHOR_KIND_UNSPECIFIED = 0;
+  MESSAGE_AUTHOR_KIND_REQUESTER = 1;
+  MESSAGE_AUTHOR_KIND_AGENT = 2;
+  MESSAGE_AUTHOR_KIND_SYSTEM = 3;
+}
+
+message AttachedOrder {
+  string order_id = 1;
+  string order_number = 2;
+  string restaurant_name = 3;
+  kade.common.v1.Money total = 4;
+}
+
+message TicketMessage {
+  string id = 1;
+  string ticket_id = 2;
+  google.protobuf.Timestamp at = 3;
+  MessageAuthorKind from = 4;
+  // Display name ("Tharushi", "Kadé").
+  string author = 5;
+  string body = 6;
+  AttachedOrder order = 7;
+}
+
+enum ResolutionKind {
+  RESOLUTION_KIND_UNSPECIFIED = 0;
+  RESOLUTION_KIND_REFUND = 1;
+  RESOLUTION_KIND_CREDIT = 2;
+  RESOLUTION_KIND_NONE = 3;
+}
+
+message TicketResolution {
+  ResolutionKind kind = 1;
+  kade.common.v1.Money amount = 2;
+  // REFUND only.
+  kade.common.v1.RefundMethod method = 3;
+  // "Refunded Rs 450 to card. Driver confirmed spill."
+  string summary = 4;
+  string note = 5;
+  // order Refund id or profile credit entry id.
+  string external_ref = 6;
+  string resolved_by = 7;
+  google.protobuf.Timestamp resolved_at = 8;
+}
+
+enum TicketChannel {
+  TICKET_CHANNEL_UNSPECIFIED = 0;
+  TICKET_CHANNEL_CHAT = 1;
+  TICKET_CHANNEL_ISSUE_REPORT = 2;
+  TICKET_CHANNEL_PHONE = 3;
+}
+
+message Ticket {
+  string id = 1;
+  string subject = 2;
+  TicketCategory category = 3;
+  TicketPriority priority = 4;
+  Requester requester = 5;
+  string order_id = 6;
+  string order_number = 7;
+  TicketChannel channel = 8;
+  google.protobuf.Timestamp opened_at = 9;
+  google.protobuf.Timestamp sla_due_at = 10;
+  google.protobuf.Timestamp first_response_at = 11;
+  string assignee_id = 12;
+  string assignee_name = 13;
+  TicketStatus status = 14;
+  TicketResolution resolution = 15;
+  repeated TicketMessage messages = 16;
+  google.protobuf.Timestamp updated_at = 17;
+}
+
+message Macro {
+  string id = 1;
+  string title = 2;
+  string body = 3;
+}
+
+// =====================================================================================================
+// Order issues
+// =====================================================================================================
+
+enum IssueKind {
+  ISSUE_KIND_UNSPECIFIED = 0;
+  ISSUE_KIND_MISSING = 1;
+  ISSUE_KIND_WRONG = 2;
+  ISSUE_KIND_SPILLED = 3;
+  ISSUE_KIND_LATE = 4;
+  ISSUE_KIND_NEVER_ARRIVED = 5;
+  // Charged wrongly: an agent reviews.
+  ISSUE_KIND_CHARGED = 6;
+}
+
+enum IssueResolution {
+  ISSUE_RESOLUTION_UNSPECIFIED = 0;
+  // Kadé credit straight away.
+  ISSUE_RESOLUTION_CREDIT = 1;
+  // Back to the card (card orders only).
+  ISSUE_RESOLUTION_CARD = 2;
+  // An agent looks first.
+  ISSUE_RESOLUTION_REVIEW = 3;
+}
+
+message IssueLine {
+  string line_key = 1;
+  int32 quantity = 2;
+}
+
+message OrderIssue {
+  string order_id = 1;
+  string ticket_id = 2;
+  IssueKind kind = 3;
+  repeated IssueLine lines = 4;
+  string note = 5;
+  string photo_ref = 6;
+  string photo_name = 7;
+  IssueResolution resolution = 8;
+  // What support worked out is owed back.
+  kade.common.v1.Money amount = 9;
+  google.protobuf.Timestamp reported_at = 10;
+  // Refund id once paid.
+  string refund_id = 11;
+}
+
+message PreviewOrderIssueRequest {
+  string order_id = 1;
+  IssueKind kind = 2;
+  repeated IssueLine lines = 3;
+}
+
+message PreviewOrderIssueResponse {
+  kade.common.v1.Money amount = 1;
+}
+
+message ReportOrderIssueRequest {
+  string order_id = 1;
+  string customer_id = 2;
+  IssueKind kind = 3;
+  repeated IssueLine lines = 4;
+  string note = 5;
+  string photo_ref = 6;
+  string photo_name = 7;
+  IssueResolution resolution = 8;
+  string idempotency_key = 9;
+}
+
+message ReportOrderIssueResponse {
+  OrderIssue issue = 1;
+  Ticket ticket = 2;
+}
+
+message BatchGetOrderIssuesRequest {
+  repeated string order_ids = 1;
+}
+
+message BatchGetOrderIssuesResponse {
+  repeated OrderIssue issues = 1;
+}
+
+// =====================================================================================================
+// Conversations
+// =====================================================================================================
+
+message GetOrStartConversationRequest {
+  Requester requester = 1;
+  // Optional order the chat is about.
+  string order_id = 2;
+}
+
+message GetOrStartConversationResponse {
+  Ticket ticket = 1;
+}
+
+message SendMessageRequest {
+  string ticket_id = 1;
+  Requester requester = 2;
+  string text = 3;
+  AttachedOrder order = 4;
+  string idempotency_key = 5;
+}
+
+message SendMessageResponse {
+  TicketMessage message = 1;
+}
+
+message ListMessagesRequest {
+  string ticket_id = 1;
+  kade.common.v1.PageRequest page = 2;
+}
+
+message ListMessagesResponse {
+  repeated TicketMessage messages = 1;
+  kade.common.v1.PageResponse page = 2;
+}
+
+enum HelpAudience {
+  HELP_AUDIENCE_UNSPECIFIED = 0;
+  HELP_AUDIENCE_CUSTOMER = 1;
+  HELP_AUDIENCE_RIDER = 2;
+  HELP_AUDIENCE_RESTAURANT = 3;
+}
+
+message HelpTopic {
+  string id = 1;
+  string title = 2;
+  string summary = 3;
+  repeated string steps = 4;
+}
+
+message ListHelpTopicsRequest {
+  HelpAudience audience = 1;
+}
+
+message ListHelpTopicsResponse {
+  repeated HelpTopic topics = 1;
+  // Support hotline shown under the topics.
+  string support_phone = 2;
+}
+
+// =====================================================================================================
+// Admin
+// =====================================================================================================
+
+message ListTicketsRequest {
+  TicketStatus status = 1;
+  TicketCategory category = 2;
+  TicketPriority priority = 3;
+  string assignee_id = 4;
+  bool unassigned_only = 5;
+  bool sla_breached_only = 6;
+  string order_id = 7;
+  string requester_id = 8;
+  kade.common.v1.PageRequest page = 9;
+}
+
+message ListTicketsResponse {
+  // Messages omitted; use GetTicket.
+  repeated Ticket tickets = 1;
+  kade.common.v1.PageResponse page = 2;
+}
+
+message GetTicketRequest {
+  string ticket_id = 1;
+}
+
+message GetTicketResponse {
+  Ticket ticket = 1;
+}
+
+message ReplyToTicketRequest {
+  string ticket_id = 1;
+  string agent_id = 2;
+  string agent_name = 3;
+  string body = 4;
+  string idempotency_key = 5;
+}
+
+message ReplyToTicketResponse {
+  Ticket ticket = 1;
+}
+
+message AssignTicketRequest {
+  string ticket_id = 1;
+  string assignee_id = 2;
+}
+
+message AssignTicketResponse {
+  Ticket ticket = 1;
+}
+
+message SetTicketPriorityRequest {
+  string ticket_id = 1;
+  TicketPriority priority = 2;
+}
+
+message SetTicketPriorityResponse {
+  Ticket ticket = 1;
+}
+
+message ResolveTicketRequest {
+  string ticket_id = 1;
+  ResolutionKind kind = 2;
+  kade.common.v1.Money amount = 3;
+  kade.common.v1.RefundMethod method = 4;
+  string note = 5;
+  string agent_id = 6;
+  string agent_name = 7;
+  string idempotency_key = 8;
+}
+
+message ResolveTicketResponse {
+  Ticket ticket = 1;
+}
+
+message ReopenTicketRequest {
+  string ticket_id = 1;
+  string agent_name = 2;
+}
+
+message ReopenTicketResponse {
+  Ticket ticket = 1;
+}
+
+message ListMacrosRequest {}
+
+message ListMacrosResponse {
+  repeated Macro macros = 1;
+}

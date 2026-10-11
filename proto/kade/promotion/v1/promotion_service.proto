@@ -1,0 +1,478 @@
+syntax = "proto3";
+
+package kade.promotion.v1;
+
+import "google/protobuf/timestamp.proto";
+import "kade/common/v1/commerce.proto";
+import "kade/common/v1/money.proto";
+import "kade/common/v1/types.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.promotion.v1";
+
+// Promotion owns Kadé vouchers (codes, admin console), restaurant-funded offers (automatic, restaurant
+// app), gift cards and referrals. Budgets and use limits are enforced with reservations under optimistic
+// locking: ReservePromo holds discount against the budget and a use, RedeemPromo makes it permanent,
+// ReleasePromo gives it back. Publishes kade.promotion.events.
+
+service PromotionService {
+  // Codes anyone can use right now, for the customer offers page.
+  rpc ListPublicPromos(ListPublicPromosRequest) returns (ListPublicPromosResponse);
+  // Checks a code for a basket without reserving anything (cart preview, saga step 2 pre-check).
+  rpc ValidatePromo(ValidatePromoRequest) returns (ValidatePromoResponse);
+  // Saga step 2: re-validates and holds the discount against budget and limits. Idempotent on
+  // idempotency_key ("order:<id>:promo"). Compensation: ReleasePromo.
+  rpc ReservePromo(ReservePromoRequest) returns (ReservePromoResponse);
+  rpc ReleasePromo(ReleasePromoRequest) returns (ReleasePromoResponse);
+  // Makes a reservation permanent. Called by promotion's own consumer on OrderDelivered/OrderCollected;
+  // exposed for the saga and tests. Idempotent.
+  rpc RedeemPromo(RedeemPromoRequest) returns (RedeemPromoResponse);
+  // The restaurant's running automatic offer applied to a basket (saving / free delivery).
+  rpc EvaluateRestaurantOffer(EvaluateRestaurantOfferRequest) returns (EvaluateRestaurantOfferResponse);
+}
+
+// Admin console: Kadé-funded voucher codes.
+service VoucherService {
+  rpc ListVouchers(ListVouchersRequest) returns (ListVouchersResponse);
+  rpc GetVoucher(GetVoucherRequest) returns (GetVoucherResponse);
+  // Codes are 4–16 letters and numbers.
+  rpc CreateVoucher(CreateVoucherRequest) returns (CreateVoucherResponse);
+  // Pause/resume/end. Ended vouchers can't restart (reason VOUCHER_ENDED).
+  rpc SetVoucherStatus(SetVoucherStatusRequest) returns (SetVoucherStatusResponse);
+}
+
+// Restaurant app: offers the restaurant funds (off its weekly payout).
+service OfferService {
+  rpc ListOffers(ListOffersRequest) returns (ListOffersResponse);
+  rpc CreateOffer(CreateOfferRequest) returns (CreateOfferResponse);
+  // Ends an active offer now, or cancels a scheduled one.
+  rpc EndOffer(EndOfferRequest) returns (EndOfferResponse);
+}
+
+service GiftCardService {
+  rpc ListGiftCards(ListGiftCardsRequest) returns (ListGiftCardsResponse);
+  // Charges the card (payment, purpose GIFT_CARD) and schedules delivery on send_on.
+  rpc BuyGiftCard(BuyGiftCardRequest) returns (BuyGiftCardResponse);
+  // Recipient redeems the code into Kadé credit (profile.ChangeCredit, reason GIFT_CARD).
+  rpc RedeemGiftCard(RedeemGiftCardRequest) returns (RedeemGiftCardResponse);
+}
+
+service ReferralService {
+  // The customer's invite code and who has used it.
+  rpc GetReferral(GetReferralRequest) returns (GetReferralResponse);
+}
+
+// =====================================================================================================
+// Vouchers and offers
+// =====================================================================================================
+
+enum VoucherType {
+  VOUCHER_TYPE_UNSPECIFIED = 0;
+  VOUCHER_TYPE_FIXED = 1;
+  VOUCHER_TYPE_PERCENT = 2;
+  VOUCHER_TYPE_FREE_DELIVERY = 3;
+}
+
+enum VoucherStatus {
+  VOUCHER_STATUS_UNSPECIFIED = 0;
+  VOUCHER_STATUS_ACTIVE = 1;
+  VOUCHER_STATUS_SCHEDULED = 2;
+  VOUCHER_STATUS_PAUSED = 3;
+  VOUCHER_STATUS_ENDED = 4;
+}
+
+enum FundedBy {
+  FUNDED_BY_UNSPECIFIED = 0;
+  FUNDED_BY_KADE = 1;
+  FUNDED_BY_RESTAURANT = 2;
+}
+
+message Voucher {
+  string code = 1;
+  // "Rs 100 off", "15% off, up to Rs 500".
+  string label = 2;
+  string description = 3;
+  VoucherType type = 4;
+  // FIXED: amount off.
+  kade.common.v1.Money amount = 5;
+  // PERCENT: 15 = 15% off the food (subtotal after restaurant saving).
+  int32 percent = 6;
+  // PERCENT cap; zero = no cap.
+  kade.common.v1.Money max_discount = 7;
+  // Smallest subtotal that qualifies; zero = any.
+  kade.common.v1.Money min_order = 8;
+  // Empty = every restaurant.
+  repeated string restaurant_ids = 9;
+  bool new_customers_only = 10;
+  // ISO dates, inclusive (Asia/Colombo).
+  string starts_on = 11;
+  string ends_on = 12;
+  int32 uses = 13;
+  // Total uses allowed; zero = unlimited.
+  int32 use_limit = 14;
+  int32 per_customer_limit = 15;
+  kade.common.v1.Money budget = 16;
+  kade.common.v1.Money spent = 17;
+  // Held by open reservations, not yet redeemed.
+  kade.common.v1.Money reserved = 18;
+  VoucherStatus status = 19;
+  FundedBy funded_by = 20;
+  google.protobuf.Timestamp created_at = 21;
+}
+
+enum OfferType {
+  OFFER_TYPE_UNSPECIFIED = 0;
+  OFFER_TYPE_PERCENT = 1;
+  OFFER_TYPE_AMOUNT = 2;
+  // Buy `buy`, get `get` free, of bogo_item_id.
+  OFFER_TYPE_BOGO = 3;
+  OFFER_TYPE_FREE_DELIVERY = 4;
+}
+
+enum OfferState {
+  OFFER_STATE_UNSPECIFIED = 0;
+  OFFER_STATE_ACTIVE = 1;
+  OFFER_STATE_SCHEDULED = 2;
+  OFFER_STATE_ENDED = 3;
+}
+
+message Offer {
+  string id = 1;
+  string restaurant_id = 2;
+  OfferType type = 3;
+  // PERCENT: 20 = 20% off.
+  int32 percent = 4;
+  // AMOUNT: Rs off.
+  kade.common.v1.Money amount = 5;
+  // PERCENT: largest discount on one order; zero = no cap.
+  kade.common.v1.Money max_discount = 6;
+  kade.common.v1.Money min_order = 7;
+  int32 buy = 8;
+  int32 get = 9;
+  string bogo_item_id = 10;
+  // Sections the offer applies to; empty = the whole menu.
+  repeated string section_ids = 11;
+  // ISO dates, inclusive.
+  string start_date = 12;
+  string end_date = 13;
+  // Total discount the restaurant will fund before the offer stops by itself.
+  kade.common.v1.Money budget = 14;
+  kade.common.v1.Money spent = 15;
+  int32 orders = 16;
+  google.protobuf.Timestamp ended_at = 17;
+  OfferState state = 18;
+  // Display headline, e.g. "20% off kottu".
+  string label = 19;
+}
+
+// =====================================================================================================
+// PromotionService messages
+// =====================================================================================================
+
+message PublicPromo {
+  string code = 1;
+  string label = 2;
+  // "At Galle Road Kottu House", "On orders of Rs 1,000 or more", "On any order".
+  string detail = 3;
+}
+
+message ListPublicPromosRequest {
+  string customer_id = 1;
+}
+
+message ListPublicPromosResponse {
+  repeated PublicPromo promos = 1;
+}
+
+message BasketLine {
+  string item_id = 1;
+  string section_id = 2;
+  kade.common.v1.Money unit_price = 3;
+  int32 quantity = 4;
+}
+
+message Basket {
+  string restaurant_id = 1;
+  repeated BasketLine lines = 2;
+  kade.common.v1.Money subtotal = 3;
+  // Restaurant-offer saving already applied (vouchers apply to subtotal − saving).
+  kade.common.v1.Money saving = 4;
+  // For FREE_DELIVERY vouchers.
+  kade.common.v1.Money delivery_fee = 5;
+  kade.common.v1.FulfilmentMode mode = 6;
+}
+
+// Stable failure reasons; gateways map them to the apps' messages.
+enum PromoRejection {
+  PROMO_REJECTION_UNSPECIFIED = 0;
+  // "Enter a promo code."
+  PROMO_REJECTION_EMPTY = 1;
+  // "X isn't a Kadé code."
+  PROMO_REJECTION_NOT_FOUND = 2;
+  // "X only works at <restaurant>."
+  PROMO_REJECTION_WRONG_RESTAURANT = 3;
+  // "X needs an order of Rs N or more. Add Rs M to use it."
+  PROMO_REJECTION_MIN_SUBTOTAL = 4;
+  PROMO_REJECTION_EXPIRED = 5;
+  PROMO_REJECTION_NOT_STARTED = 6;
+  PROMO_REJECTION_PAUSED = 7;
+  PROMO_REJECTION_NEW_CUSTOMERS_ONLY = 8;
+  PROMO_REJECTION_ALREADY_USED = 9;
+  // Budget or use limit reached (also when a race loses during ReservePromo).
+  PROMO_REJECTION_EXHAUSTED = 10;
+  PROMO_REJECTION_PICKUP_NOT_ELIGIBLE = 11;
+}
+
+message PromoResult {
+  bool ok = 1;
+  // Normalised (trimmed, upper case).
+  string code = 2;
+  string label = 3;
+  kade.common.v1.Money discount = 4;
+  // FREE_DELIVERY voucher: discount equals the delivery fee.
+  bool free_delivery = 5;
+  FundedBy funded_by = 6;
+  PromoRejection rejection = 7;
+  // User-facing message, e.g. "KADE100 needs an order of Rs 1,000 or more. Add Rs 250 to use it."
+  string message = 8;
+  // MIN_SUBTOTAL: how much more to add.
+  kade.common.v1.Money shortfall = 9;
+}
+
+message ValidatePromoRequest {
+  string code = 1;
+  string customer_id = 2;
+  Basket basket = 3;
+}
+
+message ValidatePromoResponse {
+  PromoResult result = 1;
+}
+
+enum ReservationStatus {
+  RESERVATION_STATUS_UNSPECIFIED = 0;
+  RESERVATION_STATUS_HELD = 1;
+  RESERVATION_STATUS_REDEEMED = 2;
+  RESERVATION_STATUS_RELEASED = 3;
+  RESERVATION_STATUS_EXPIRED = 4;
+}
+
+message PromoReservation {
+  string id = 1;
+  string code = 2;
+  string customer_id = 3;
+  string order_id = 4;
+  kade.common.v1.Money discount = 5;
+  FundedBy funded_by = 6;
+  ReservationStatus status = 7;
+  // Held reservations expire (and release) after this.
+  google.protobuf.Timestamp expires_at = 8;
+}
+
+message ReservePromoRequest {
+  string code = 1;
+  string customer_id = 2;
+  string order_id = 3;
+  Basket basket = 4;
+  // Hold at least until here (scheduled orders).
+  google.protobuf.Timestamp hold_until = 5;
+  string idempotency_key = 6;
+}
+
+message ReservePromoResponse {
+  // Unset when the promo is no longer valid (see result.rejection).
+  PromoReservation reservation = 1;
+  PromoResult result = 2;
+}
+
+message ReleasePromoRequest {
+  string reservation_id = 1;
+  string reason = 2;
+}
+
+message ReleasePromoResponse {
+  PromoReservation reservation = 1;
+}
+
+message RedeemPromoRequest {
+  string reservation_id = 1;
+}
+
+message RedeemPromoResponse {
+  PromoReservation reservation = 1;
+}
+
+message EvaluateRestaurantOfferRequest {
+  string customer_id = 1;
+  Basket basket = 2;
+}
+
+message EvaluateRestaurantOfferResponse {
+  // Unset when no offer applies.
+  Offer offer = 1;
+  // PERCENT offers without a cap: the percent pricing applies itself (mirrors totals.ts).
+  int32 discount_percent = 2;
+  // Other offers (amount, BOGO, capped percent): the saving to pass to pricing as offer_saving.
+  kade.common.v1.Money saving = 3;
+  bool free_delivery = 4;
+}
+
+// =====================================================================================================
+// VoucherService / OfferService messages
+// =====================================================================================================
+
+message ListVouchersRequest {
+  VoucherStatus status = 1;
+  kade.common.v1.PageRequest page = 2;
+}
+
+message ListVouchersResponse {
+  repeated Voucher vouchers = 1;
+  kade.common.v1.PageResponse page = 2;
+}
+
+message GetVoucherRequest {
+  string code = 1;
+}
+
+message GetVoucherResponse {
+  Voucher voucher = 1;
+}
+
+message CreateVoucherRequest {
+  // uses, spent, reserved and status are ignored.
+  Voucher voucher = 1;
+  string idempotency_key = 2;
+}
+
+message CreateVoucherResponse {
+  Voucher voucher = 1;
+}
+
+message SetVoucherStatusRequest {
+  string code = 1;
+  VoucherStatus status = 2;
+}
+
+message SetVoucherStatusResponse {
+  Voucher voucher = 1;
+}
+
+message ListOffersRequest {
+  string restaurant_id = 1;
+}
+
+message ListOffersResponse {
+  repeated Offer offers = 1;
+}
+
+message CreateOfferRequest {
+  string restaurant_id = 1;
+  // id, spent, orders, ended_at, state are ignored.
+  Offer offer = 2;
+  string idempotency_key = 3;
+}
+
+message CreateOfferResponse {
+  Offer offer = 1;
+}
+
+message EndOfferRequest {
+  string restaurant_id = 1;
+  string offer_id = 2;
+}
+
+message EndOfferResponse {
+  Offer offer = 1;
+}
+
+// =====================================================================================================
+// Gift cards and referrals
+// =====================================================================================================
+
+enum GiftCardStatus {
+  GIFT_CARD_STATUS_UNSPECIFIED = 0;
+  // Paid; waiting for send_on.
+  GIFT_CARD_STATUS_SCHEDULED = 1;
+  GIFT_CARD_STATUS_SENT = 2;
+  GIFT_CARD_STATUS_REDEEMED = 3;
+}
+
+message GiftCard {
+  string id = 1;
+  // Rs 500 – Rs 25,000.
+  kade.common.v1.Money amount = 2;
+  // Recipient name.
+  string to = 3;
+  // Recipient mobile or email.
+  string contact = 4;
+  string message = 5;
+  // ISO date it is sent.
+  string send_on = 6;
+  string card_id = 7;
+  // "Visa •••• 4242".
+  string card_label = 8;
+  google.protobuf.Timestamp bought_at = 9;
+  GiftCardStatus status = 10;
+  string buyer_customer_id = 11;
+}
+
+message ListGiftCardsRequest {
+  string customer_id = 1;
+}
+
+message ListGiftCardsResponse {
+  repeated GiftCard gift_cards = 1;
+}
+
+message BuyGiftCardRequest {
+  string customer_id = 1;
+  kade.common.v1.Money amount = 2;
+  string to = 3;
+  string contact = 4;
+  string message = 5;
+  string send_on = 6;
+  string card_id = 7;
+  string idempotency_key = 8;
+}
+
+message BuyGiftCardResponse {
+  GiftCard gift_card = 1;
+}
+
+message RedeemGiftCardRequest {
+  string customer_id = 1;
+  string redemption_code = 2;
+}
+
+message RedeemGiftCardResponse {
+  GiftCard gift_card = 1;
+  kade.common.v1.Money credited = 2;
+}
+
+enum ReferredFriendStatus {
+  REFERRED_FRIEND_STATUS_UNSPECIFIED = 0;
+  REFERRED_FRIEND_STATUS_INVITED = 1;
+  REFERRED_FRIEND_STATUS_JOINED = 2;
+  REFERRED_FRIEND_STATUS_ORDERED = 3;
+}
+
+message ReferredFriend {
+  string name = 1;
+  ReferredFriendStatus status = 2;
+  // When they reached that status.
+  google.protobuf.Timestamp at = 3;
+}
+
+message GetReferralRequest {
+  string customer_id = 1;
+  // Used to build a friendly code ("NIMAL500") the first time.
+  string first_name = 2;
+}
+
+message GetReferralResponse {
+  string code = 1;
+  // What each side gets.
+  kade.common.v1.Money reward = 2;
+  repeated ReferredFriend friends = 3;
+}

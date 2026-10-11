@@ -1,0 +1,564 @@
+syntax = "proto3";
+
+package kade.order.v1;
+
+import "google/protobuf/timestamp.proto";
+import "kade/catalog/v1/catalog_service.proto";
+import "kade/common/v1/address.proto";
+import "kade/common/v1/commerce.proto";
+import "kade/common/v1/money.proto";
+import "kade/common/v1/types.proto";
+import "kade/promotion/v1/promotion_service.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.order.v1";
+
+// Order owns the order aggregate, its status timeline, refunds bookkeeping and group orders, and
+// orchestrates the checkout saga as a Temporal workflow (see proto/README.md). Publishes
+// kade.order.events. Consumes kade.merchant.events (kitchen decisions → workflow signals),
+// kade.delivery.events (rider assigned / picked up / delivered) and kade.payment.events.
+//
+// State machine (OrderStatus):
+//
+//   PENDING ──saga ok──▶ PLACED ─(accept)▶ ACCEPTED ─▶ PREPARING ─▶ READY ─┬─(rider)──▶ PICKED_UP ─▶ DELIVERED
+//      │      └─future─▶ SCHEDULED ─(kitchen start time)─▶ PLACED          └─(pickup)─▶ COLLECTED
+//      └─saga failed─▶ FAILED
+//   PLACED ─(reject or 3-min timeout)▶ REJECTED
+//   SCHEDULED, PLACED ─(customer)▶ CANCELLED;  any non-final ─(ops)▶ CANCELLED
+//
+// Delivery orders may skip READY (rider picks up straight from PREPARING). Final: DELIVERED, COLLECTED,
+// CANCELLED, REJECTED, FAILED.
+service OrderService {
+  // Runs saga steps 1–4 synchronously (validate, price, reserve promo, spend credit, authorise payment,
+  // create order) and returns the PLACED/SCHEDULED order. Idempotent on idempotency_key: a retry returns
+  // the same order (or the same failure). Errors: FAILED_PRECONDITION with reasons CART_EMPTY,
+  // ADDRESS_REQUIRED, OUT_OF_ZONE, RESTAURANT_CLOSED, ITEM_SOLD_OUT, PRICE_CHANGED, PROMO_* (see
+  // promotion.PromoRejection), PAYMENT_DECLINED, CUSTOMER_BLOCKED.
+  rpc PlaceOrder(PlaceOrderRequest) returns (PlaceOrderResponse);
+  // By id or order_number.
+  rpc GetOrder(GetOrderRequest) returns (GetOrderResponse);
+  rpc BatchGetOrders(BatchGetOrdersRequest) returns (BatchGetOrdersResponse);
+  // Customer history, restaurant board, rider history or the ops list, depending on filters.
+  rpc ListOrders(ListOrdersRequest) returns (ListOrdersResponse);
+  // Most recent non-final order for a customer, if any.
+  rpc GetActiveOrder(GetActiveOrderRequest) returns (GetActiveOrderResponse);
+  // Customer: only SCHEDULED or PLACED (reason ORDER_ALREADY_STARTED otherwise).
+  // Ops: any non-final status, with reason, fault and optional full refund.
+  rpc CancelOrder(CancelOrderRequest) returns (CancelOrderResponse);
+  // Pickup orders: the customer (or the kitchen via merchant HandOverOrder) confirms collection.
+  rpc MarkCollected(MarkCollectedRequest) returns (MarkCollectedResponse);
+  // Card orders only (reason CASH_TIP_AT_DOOR for cash). Adjusts the payment authorisation.
+  rpc UpdateTip(UpdateTipRequest) returns (UpdateTipResponse);
+  // Partial or full refund to card (payment.RefundPayment) or Kadé credit (profile.ChangeCredit).
+  // Never more than total − refunded (reason REFUND_EXCEEDS_REMAINING); card only for card orders
+  // (reason CASH_ORDER_REFUND_TO_CREDIT). Used by ops and by support resolutions.
+  rpc RefundOrder(RefundOrderRequest) returns (RefundOrderResponse);
+  rpc ListOrderRefunds(ListOrderRefundsRequest) returns (ListOrderRefundsResponse);
+  // Internal ops note on the order.
+  rpc AddOrderNote(AddOrderNoteRequest) returns (AddOrderNoteResponse);
+}
+
+// Group orders: the host shares a link, friends add dishes, the host places one order.
+service GroupOrderService {
+  rpc CreateGroupOrder(CreateGroupOrderRequest) returns (CreateGroupOrderResponse);
+  // Fails with NOT_FOUND reason GROUP_CLOSED once placed or closed.
+  rpc GetGroupOrder(GetGroupOrderRequest) returns (GetGroupOrderResponse);
+  rpc JoinGroupOrder(JoinGroupOrderRequest) returns (JoinGroupOrderResponse);
+  // Replaces a member's dishes; enforces the per-person limit (reason GROUP_LIMIT_EXCEEDED).
+  rpc SetGroupMemberLines(SetGroupMemberLinesRequest) returns (SetGroupMemberLinesResponse);
+  rpc LeaveGroupOrder(LeaveGroupOrderRequest) returns (LeaveGroupOrderResponse);
+  // Host closes without ordering.
+  rpc CloseGroupOrder(CloseGroupOrderRequest) returns (CloseGroupOrderResponse);
+}
+
+// =====================================================================================================
+// Order
+// =====================================================================================================
+
+enum OrderStatus {
+  ORDER_STATUS_UNSPECIFIED = 0;
+  // Checkout saga still running (validate, promo, payment). Not visible to the kitchen.
+  ORDER_STATUS_PENDING = 1;
+  // Placed for later; goes to PLACED when the kitchen must start (scheduled_for − lead time).
+  ORDER_STATUS_SCHEDULED = 2;
+  // With the kitchen, waiting for accept (accept_by).
+  ORDER_STATUS_PLACED = 3;
+  ORDER_STATUS_ACCEPTED = 4;
+  ORDER_STATUS_PREPARING = 5;
+  // Food at the counter. Pickup: customer can collect. Delivery: waiting for the rider.
+  ORDER_STATUS_READY = 6;
+  ORDER_STATUS_PICKED_UP = 7;
+  ORDER_STATUS_DELIVERED = 8;
+  ORDER_STATUS_COLLECTED = 9;
+  ORDER_STATUS_CANCELLED = 10;
+  // Restaurant rejected it or didn't accept in time (rejection.reason TIMEOUT = "missed").
+  ORDER_STATUS_REJECTED = 11;
+  // Checkout saga failed (e.g. payment declined); kept so idempotent retries return the same failure.
+  ORDER_STATUS_FAILED = 12;
+}
+
+enum RejectionReason {
+  REJECTION_REASON_UNSPECIFIED = 0;
+  REJECTION_REASON_TOO_BUSY = 1;
+  REJECTION_REASON_SOLD_OUT = 2;
+  REJECTION_REASON_CLOSING_SOON = 3;
+  REJECTION_REASON_OTHER = 4;
+  // Not accepted within 3 minutes: the restaurant app shows "missed".
+  REJECTION_REASON_TIMEOUT = 5;
+}
+
+enum Fault {
+  FAULT_UNSPECIFIED = 0;
+  FAULT_CUSTOMER = 1;
+  FAULT_RESTAURANT = 2;
+  FAULT_RIDER = 3;
+  FAULT_KADE = 4;
+}
+
+enum CancelledBy {
+  CANCELLED_BY_UNSPECIFIED = 0;
+  CANCELLED_BY_CUSTOMER = 1;
+  CANCELLED_BY_OPS = 2;
+  // e.g. no rider found, scheduled restaurant closed.
+  CANCELLED_BY_SYSTEM = 3;
+}
+
+message OrderRestaurant {
+  string id = 1;
+  string name = 2;
+  string image_id = 3;
+  string area = 4;
+  string address = 5;
+  // Real number for ops; customer screens use the restaurant's public number.
+  string phone = 6;
+  kade.common.v1.GeoPoint location = 7;
+  string zone_id = 8;
+  int32 eta_min_minutes = 9;
+  int32 eta_max_minutes = 10;
+  int32 discount_percent = 11;
+}
+
+message OrderLine {
+  string key = 1;
+  string item_id = 2;
+  string name = 3;
+  // Price of one, including paid options (server-side, from catalog).
+  kade.common.v1.Money unit_price = 4;
+  int32 quantity = 5;
+  repeated kade.catalog.v1.SelectedOption options = 6;
+  // Chosen option names in menu order.
+  repeated string choice_names = 7;
+  // The customer's note for this dish ("No leeks please"; group orders: "For Kasun").
+  string note = 8;
+  string section_id = 9;
+}
+
+message OrderTotals {
+  int32 item_count = 1;
+  kade.common.v1.Money subtotal = 2;
+  kade.common.v1.Money saving = 3;
+  kade.common.v1.Money delivery_fee = 4;
+  kade.common.v1.Money small_order_fee = 5;
+  kade.common.v1.Money promo_discount = 6;
+  kade.common.v1.Money tip = 7;
+  kade.common.v1.Money credit = 8;
+  // What the customer pays by card or cash (after credit).
+  kade.common.v1.Money total = 9;
+}
+
+message OrderPromo {
+  string code = 1;
+  string label = 2;
+  string reservation_id = 3;
+  kade.promotion.v1.FundedBy funded_by = 4;
+  // Restaurant offer that produced `saving`, if any.
+  string offer_id = 5;
+}
+
+message OrderRider {
+  string rider_id = 1;
+  string name = 2;
+  string first_name = 3;
+  double rating = 4;
+  // "Bajaj Pulsar".
+  string vehicle = 5;
+  string plate = 6;
+  // Forwards to the rider, so neither side sees the other's phone.
+  string masked_phone = 7;
+  // Real number: ops only; gateways strip it for customers and restaurants.
+  string phone = 8;
+}
+
+message Cancellation {
+  string reason = 1;
+  Fault fault = 2;
+  CancelledBy cancelled_by = 3;
+  // Staff or customer display name.
+  string by = 4;
+  google.protobuf.Timestamp at = 5;
+}
+
+message Rejection {
+  RejectionReason reason = 1;
+  string note = 2;
+  google.protobuf.Timestamp at = 3;
+}
+
+message TimelineEvent {
+  google.protobuf.Timestamp at = 1;
+  OrderStatus status = 2;
+  // "Accepted by the kitchen (15 min)", "Refunded Rs 450 to card ending 4242".
+  string label = 3;
+  // Staff name when a person did it.
+  string by = 4;
+}
+
+message OrderNote {
+  string id = 1;
+  google.protobuf.Timestamp at = 2;
+  string author = 3;
+  string body = 4;
+}
+
+message Order {
+  // UUIDv7.
+  string id = 1;
+  // Human-facing "KD-4821"; the kitchen calls out the digits.
+  string order_number = 2;
+  OrderStatus status = 3;
+  kade.common.v1.FulfilmentMode mode = 4;
+  kade.common.v1.Contact customer = 5;
+  OrderRestaurant restaurant = 6;
+  repeated OrderLine lines = 7;
+  // Delivery only.
+  kade.common.v1.Address address = 8;
+  string rider_note = 9;
+  string kitchen_note = 10;
+  bool cutlery = 11;
+  // Scheduled orders: when it should arrive / be ready.
+  google.protobuf.Timestamp scheduled_for = 12;
+  kade.common.v1.PaymentMethod payment = 13;
+  // payment service id of the authorisation.
+  string payment_id = 14;
+  OrderPromo promo = 15;
+  OrderTotals totals = 16;
+  kade.common.v1.SubstitutionPreference substitution = 17;
+  // Set when the order came from a group order.
+  string group_id = 18;
+  string zone_id = 19;
+  // Restaurant → customer, km.
+  double distance_km = 20;
+  // Code the customer reads to the rider at the door (shown in the customer app).
+  string delivery_code = 21;
+  OrderRider rider = 22;
+  string delivery_id = 23;
+
+  google.protobuf.Timestamp created_at = 30;
+  google.protobuf.Timestamp placed_at = 31;
+  // The kitchen must accept before this, or the order is REJECTED (TIMEOUT) and the customer refunded.
+  google.protobuf.Timestamp accept_by = 32;
+  google.protobuf.Timestamp accepted_at = 33;
+  // Prep time the kitchen chose (busy mode added).
+  int32 prep_minutes = 34;
+  google.protobuf.Timestamp ready_by = 35;
+  google.protobuf.Timestamp ready_at = 36;
+  google.protobuf.Timestamp picked_up_at = 37;
+  google.protobuf.Timestamp delivered_at = 38;
+  google.protobuf.Timestamp collected_at = 39;
+  // Latest time the customer was promised; "late" = now > due_at while not final.
+  google.protobuf.Timestamp due_at = 40;
+  google.protobuf.Timestamp updated_at = 41;
+
+  Cancellation cancellation = 50;
+  Rejection rejection = 51;
+  // Sum of refunds so far.
+  kade.common.v1.Money refunded = 52;
+  repeated TimelineEvent timeline = 53;
+  // Internal notes (ops only; gateways strip them elsewhere).
+  repeated OrderNote notes = 54;
+  // FAILED: stable reason, e.g. PAYMENT_DECLINED.
+  string failure_reason = 55;
+  string failure_message = 56;
+  // How many earlier orders this customer has with this restaurant (kitchen ticket "repeat" badge).
+  int32 customer_repeat_count = 57;
+}
+
+message Refund {
+  string id = 1;
+  string order_id = 2;
+  string order_number = 3;
+  string customer_id = 4;
+  kade.common.v1.Money amount = 5;
+  kade.common.v1.RefundMethod method = 6;
+  string reason = 7;
+  // Staff name, or "Kadé" for automatic refunds.
+  string by = 8;
+  google.protobuf.Timestamp at = 9;
+  // Support ticket that raised it, if any.
+  string ticket_id = 10;
+  // payment refund id (card) or profile credit entry id (credit).
+  string external_ref = 11;
+}
+
+// =====================================================================================================
+// OrderService messages
+// =====================================================================================================
+
+message OrderLineInput {
+  string key = 1;
+  string item_id = 2;
+  int32 quantity = 3;
+  repeated kade.catalog.v1.SelectedOption options = 4;
+  string note = 5;
+}
+
+message PlaceOrderRequest {
+  string customer_id = 1;
+  string restaurant_id = 2;
+  kade.common.v1.FulfilmentMode mode = 3;
+  repeated OrderLineInput lines = 4;
+  kade.common.v1.Address address = 5;
+  string rider_note = 6;
+  string kitchen_note = 7;
+  bool cutlery = 8;
+  google.protobuf.Timestamp scheduled_for = 9;
+  kade.common.v1.PaymentMethod payment = 10;
+  string promo_code = 11;
+  kade.common.v1.Money tip = 12;
+  // Take the customer's Kadé credit off the total.
+  bool use_credit = 13;
+  kade.common.v1.SubstitutionPreference substitution = 14;
+  string group_id = 15;
+  // The total the customer saw; if the server total differs the order fails with PRICE_CHANGED.
+  kade.common.v1.Money expected_total = 16;
+  // Required. Retries with the same key return the first result.
+  string idempotency_key = 17;
+}
+
+message PlaceOrderResponse {
+  Order order = 1;
+}
+
+message GetOrderRequest {
+  string order_id = 1;
+  // Alternative lookup, "KD-4821".
+  string order_number = 2;
+}
+
+message GetOrderResponse {
+  Order order = 1;
+}
+
+message BatchGetOrdersRequest {
+  repeated string order_ids = 1;
+}
+
+message BatchGetOrdersResponse {
+  repeated Order orders = 1;
+}
+
+message ListOrdersRequest {
+  string customer_id = 1;
+  string restaurant_id = 2;
+  string rider_id = 3;
+  string zone_id = 4;
+  repeated OrderStatus statuses = 5;
+  // Only non-final orders past due_at.
+  bool late_only = 6;
+  // Only non-final orders (kitchen board, ops live list).
+  bool active_only = 7;
+  google.protobuf.Timestamp placed_after = 8;
+  google.protobuf.Timestamp placed_before = 9;
+  // Order number, customer name or phone fragment (ops).
+  string query = 10;
+  // Newest first unless set (kitchen board: oldest first).
+  bool oldest_first = 11;
+  kade.common.v1.PageRequest page = 12;
+}
+
+message ListOrdersResponse {
+  repeated Order orders = 1;
+  kade.common.v1.PageResponse page = 2;
+}
+
+message GetActiveOrderRequest {
+  string customer_id = 1;
+}
+
+message GetActiveOrderResponse {
+  // Unset when nothing is on its way.
+  Order order = 1;
+}
+
+message CancelOrderRequest {
+  string order_id = 1;
+  CancelledBy cancelled_by = 2;
+  string reason = 3;
+  // Ops only.
+  Fault fault = 4;
+  // Ops only: refund whatever hasn't been refunded yet (card orders → card).
+  bool refund = 5;
+  // Display name of who cancelled.
+  string by = 6;
+  string idempotency_key = 7;
+}
+
+message CancelOrderResponse {
+  Order order = 1;
+}
+
+message MarkCollectedRequest {
+  string order_id = 1;
+  string idempotency_key = 2;
+}
+
+message MarkCollectedResponse {
+  Order order = 1;
+}
+
+message UpdateTipRequest {
+  string order_id = 1;
+  kade.common.v1.Money tip = 2;
+  string idempotency_key = 3;
+}
+
+message UpdateTipResponse {
+  Order order = 1;
+}
+
+message RefundOrderRequest {
+  string order_id = 1;
+  kade.common.v1.Money amount = 2;
+  kade.common.v1.RefundMethod method = 3;
+  string reason = 4;
+  string by = 5;
+  string ticket_id = 6;
+  string idempotency_key = 7;
+}
+
+message RefundOrderResponse {
+  Order order = 1;
+  Refund refund = 2;
+}
+
+message ListOrderRefundsRequest {
+  string order_id = 1;
+}
+
+message ListOrderRefundsResponse {
+  repeated Refund refunds = 1;
+}
+
+message AddOrderNoteRequest {
+  string order_id = 1;
+  string author = 2;
+  string body = 3;
+}
+
+message AddOrderNoteResponse {
+  Order order = 1;
+}
+
+// =====================================================================================================
+// Group orders
+// =====================================================================================================
+
+enum GroupOrderStatus {
+  GROUP_ORDER_STATUS_UNSPECIFIED = 0;
+  GROUP_ORDER_STATUS_OPEN = 1;
+  GROUP_ORDER_STATUS_PLACED = 2;
+  GROUP_ORDER_STATUS_CLOSED = 3;
+}
+
+message GroupMember {
+  string id = 1;
+  // Empty for guests without an account.
+  string customer_id = 2;
+  string name = 3;
+  google.protobuf.Timestamp joined_at = 4;
+  repeated OrderLineInput lines = 5;
+  // Display copy of lines, priced from the menu.
+  repeated OrderLine priced_lines = 6;
+  kade.common.v1.Money subtotal = 7;
+}
+
+message GroupOrder {
+  string id = 1;
+  string restaurant_id = 2;
+  string restaurant_name = 3;
+  string host_customer_id = 4;
+  string host_name = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp closes_at = 7;
+  // Spending limit per person; zero = none.
+  kade.common.v1.Money limit = 8;
+  // Everyone except the host; the host's dishes are their cart.
+  repeated GroupMember members = 9;
+  // Set once the host places the order.
+  string order_id = 10;
+  GroupOrderStatus status = 11;
+  // Token in the share link.
+  string share_token = 12;
+}
+
+message CreateGroupOrderRequest {
+  string host_customer_id = 1;
+  string host_name = 2;
+  string restaurant_id = 3;
+  // Minutes until the group closes.
+  int32 minutes = 4;
+  kade.common.v1.Money limit = 5;
+  string idempotency_key = 6;
+}
+
+message CreateGroupOrderResponse {
+  GroupOrder group = 1;
+}
+
+message GetGroupOrderRequest {
+  string group_id = 1;
+  // Alternative lookup from the share link.
+  string share_token = 2;
+}
+
+message GetGroupOrderResponse {
+  GroupOrder group = 1;
+}
+
+message JoinGroupOrderRequest {
+  string share_token = 1;
+  string customer_id = 2;
+  string name = 3;
+}
+
+message JoinGroupOrderResponse {
+  GroupOrder group = 1;
+  string member_id = 2;
+}
+
+message SetGroupMemberLinesRequest {
+  string group_id = 1;
+  string member_id = 2;
+  repeated OrderLineInput lines = 3;
+}
+
+message SetGroupMemberLinesResponse {
+  GroupOrder group = 1;
+}
+
+message LeaveGroupOrderRequest {
+  string group_id = 1;
+  string member_id = 2;
+}
+
+message LeaveGroupOrderResponse {
+  GroupOrder group = 1;
+}
+
+message CloseGroupOrderRequest {
+  string group_id = 1;
+}
+
+message CloseGroupOrderResponse {
+  GroupOrder group = 1;
+}

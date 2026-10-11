@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package kade.common.v1;
+
+import "kade/common/v1/types.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.common.v1";
+
+// A delivery address. Saved addresses live in profile; orders and deliveries carry a copy (snapshot)
+// so later edits to the saved address never change a placed order.
+// The apps show addresses on an illustrated map; gateways convert `location` to map units and back.
+message Address {
+  // Saved-address id in profile; empty for a one-off address.
+  string id = 1;
+  // "Home", "Work", or a name the customer chose.
+  string label = 2;
+  // Street line, e.g. "42 Flower Road, Colombo 07".
+  string line = 3;
+  // Neighbourhood, e.g. "Kollupitiya".
+  string area = 4;
+  // Standing note for the rider, e.g. "Blue gate, ring twice".
+  string note = 5;
+  GeoPoint location = 6;
+  // Delivery zone (pricing) the address falls in; empty when outside every zone.
+  string zone_id = 7;
+}
+
+// Someone involved in an order as shown to ops: id, display name and a phone number.
+message Contact {
+  string id = 1;
+  string name = 2;
+  // E.164, e.g. "+94771234567". Customer/rider-facing screens use masked numbers instead.
+  string phone = 3;
+}

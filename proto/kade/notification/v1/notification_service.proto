@@ -1,0 +1,141 @@
+syntax = "proto3";
+
+package kade.notification.v1;
+
+import "google/protobuf/timestamp.proto";
+import "kade/common/v1/types.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.notification.v1";
+
+// Notification is mostly a pure event consumer: it subscribes to kade.order.events,
+// kade.delivery.events, kade.merchant.events, kade.promotion.events, kade.ticket.events,
+// kade.ledger.events and kade.customer.events (and kade.rider.events when it exists), renders a
+// template and sends SMS / push / email through mock providers with retries and dead-letter topics.
+// The RPCs are for the few synchronous needs: OTP codes (profile), masked rider↔customer messages
+// (dispatch), staff invites, and push-token registration from the gateways. Publishes no events.
+service NotificationService {
+  // Queues one message. Idempotent on idempotency_key (e.g. "otp:<challenge_id>").
+  rpc SendNotification(SendNotificationRequest) returns (SendNotificationResponse);
+  rpc GetNotification(GetNotificationRequest) returns (GetNotificationResponse);
+  // Delivery log for one recipient (ops/support).
+  rpc ListNotifications(ListNotificationsRequest) returns (ListNotificationsResponse);
+  rpc RegisterPushDevice(RegisterPushDeviceRequest) returns (RegisterPushDeviceResponse);
+  rpc UnregisterPushDevice(UnregisterPushDeviceRequest) returns (UnregisterPushDeviceResponse);
+}
+
+enum Channel {
+  CHANNEL_UNSPECIFIED = 0;
+  CHANNEL_SMS = 1;
+  CHANNEL_PUSH = 2;
+  CHANNEL_EMAIL = 3;
+}
+
+enum NotificationStatus {
+  NOTIFICATION_STATUS_UNSPECIFIED = 0;
+  NOTIFICATION_STATUS_QUEUED = 1;
+  NOTIFICATION_STATUS_SENT = 2;
+  NOTIFICATION_STATUS_DELIVERED = 3;
+  NOTIFICATION_STATUS_FAILED = 4;
+  // Recipient opted out (profile preferences / outlet notification settings).
+  NOTIFICATION_STATUS_SUPPRESSED = 5;
+}
+
+enum RecipientKind {
+  RECIPIENT_KIND_UNSPECIFIED = 0;
+  RECIPIENT_KIND_CUSTOMER = 1;
+  RECIPIENT_KIND_RIDER = 2;
+  RECIPIENT_KIND_MERCHANT_STAFF = 3;
+  RECIPIENT_KIND_KADE_STAFF = 4;
+  // Someone without an account (gift-card recipient, applicant).
+  RECIPIENT_KIND_ANONYMOUS = 5;
+}
+
+message Recipient {
+  RecipientKind kind = 1;
+  string user_id = 2;
+  // E.164; required for SMS to anonymous recipients.
+  string phone = 3;
+  string email = 4;
+  string name = 5;
+}
+
+message Notification {
+  string id = 1;
+  Channel channel = 2;
+  Recipient recipient = 3;
+  // Template id, e.g. "otp", "order_accepted", "rider_assigned", "gift_card", "staff_invite",
+  // "rider_message", "statement_ready".
+  string template = 4;
+  map<string, string> params = 5;
+  // Rendered text as sent.
+  string body = 6;
+  NotificationStatus status = 7;
+  string provider_reference = 8;
+  string error = 9;
+  int32 attempts = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp sent_at = 12;
+  // Related record, e.g. order id, for the support view.
+  string reference_id = 13;
+}
+
+message SendNotificationRequest {
+  Channel channel = 1;
+  Recipient recipient = 2;
+  string template = 3;
+  map<string, string> params = 4;
+  string reference_id = 5;
+  // Unset = now.
+  google.protobuf.Timestamp send_at = 6;
+  // Skip opt-out checks (OTP, security).
+  bool transactional = 7;
+  string idempotency_key = 8;
+}
+
+message SendNotificationResponse {
+  Notification notification = 1;
+}
+
+message GetNotificationRequest {
+  string notification_id = 1;
+}
+
+message GetNotificationResponse {
+  Notification notification = 1;
+}
+
+message ListNotificationsRequest {
+  string user_id = 1;
+  string reference_id = 2;
+  kade.common.v1.PageRequest page = 3;
+}
+
+message ListNotificationsResponse {
+  repeated Notification notifications = 1;
+  kade.common.v1.PageResponse page = 2;
+}
+
+enum PushPlatform {
+  PUSH_PLATFORM_UNSPECIFIED = 0;
+  PUSH_PLATFORM_WEB = 1;
+  PUSH_PLATFORM_ANDROID = 2;
+  PUSH_PLATFORM_IOS = 3;
+}
+
+message RegisterPushDeviceRequest {
+  string user_id = 1;
+  RecipientKind kind = 2;
+  PushPlatform platform = 3;
+  string token = 4;
+  string device_id = 5;
+}
+
+message RegisterPushDeviceResponse {}
+
+message UnregisterPushDeviceRequest {
+  string user_id = 1;
+  string device_id = 2;
+}
+
+message UnregisterPushDeviceResponse {}

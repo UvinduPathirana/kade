@@ -1,0 +1,92 @@
+syntax = "proto3";
+
+package kade.merchant.v1;
+
+import "google/protobuf/timestamp.proto";
+import "kade/common/v1/types.proto";
+import "kade/merchant/v1/merchant_service.proto";
+import "kade/order/v1/order_service.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.merchant.v1";
+
+// kade.merchant.events (aggregatetype "merchant"; key = outlet_id, so one outlet's kitchen actions stay
+// in order). Ticket* events are the kitchen's decisions; order consumes them and signals the workflow.
+
+message TicketAccepted {
+  string outlet_id = 1;
+  string order_id = 2;
+  string order_number = 3;
+  // Including busy-mode minutes.
+  int32 prep_minutes = 4;
+  google.protobuf.Timestamp ready_by = 5;
+  kade.common.v1.Actor actor = 6;
+  google.protobuf.Timestamp occurred_at = 7;
+}
+
+message TicketRejected {
+  string outlet_id = 1;
+  string order_id = 2;
+  string order_number = 3;
+  kade.order.v1.RejectionReason reason = 4;
+  string note = 5;
+  kade.common.v1.Actor actor = 6;
+  google.protobuf.Timestamp occurred_at = 7;
+}
+
+message TicketReady {
+  string outlet_id = 1;
+  string order_id = 2;
+  string order_number = 3;
+  kade.common.v1.Actor actor = 4;
+  google.protobuf.Timestamp occurred_at = 5;
+}
+
+message TicketHandedOver {
+  string outlet_id = 1;
+  string order_id = 2;
+  string order_number = 3;
+  kade.common.v1.Actor actor = 4;
+  google.protobuf.Timestamp occurred_at = 5;
+}
+
+// Busy mode, pause/resume, ops status or tablet connectivity changed. Catalog recomputes availability
+// and ETA; realtime updates the ops dashboard.
+message OutletStatusChanged {
+  string outlet_id = 1;
+  OutletStatus status = 2;
+  OutletStatus previous = 3;
+  kade.common.v1.Actor actor = 4;
+  google.protobuf.Timestamp occurred_at = 5;
+}
+
+// Ledger uses the rate in force when an order is delivered.
+message OutletCommissionChanged {
+  string outlet_id = 1;
+  int32 commission_bps = 2;
+  int32 previous_bps = 3;
+  kade.common.v1.Actor actor = 4;
+  google.protobuf.Timestamp occurred_at = 5;
+}
+
+message PartnerApplicationSubmitted {
+  string application_id = 1;
+  PartnerApplication application = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+}
+
+// Notification texts the owner; on approval the outlet exists and catalog has the restaurant.
+message PartnerApplicationDecided {
+  string application_id = 1;
+  PartnerApplication application = 2;
+  kade.common.v1.Actor actor = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+}
+
+// Notification sends the SMS invite.
+message OutletStaffInvited {
+  string outlet_id = 1;
+  OutletStaffMember member = 2;
+  string outlet_name = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+}

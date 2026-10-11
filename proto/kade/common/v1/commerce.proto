@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+package kade.common.v1;
+
+import "kade/common/v1/money.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.common.v1";
+
+// How the customer gets the food.
+enum FulfilmentMode {
+  FULFILMENT_MODE_UNSPECIFIED = 0;
+  FULFILMENT_MODE_DELIVERY = 1;
+  FULFILMENT_MODE_PICKUP = 2;
+}
+
+enum PaymentMethodKind {
+  PAYMENT_METHOD_KIND_UNSPECIFIED = 0;
+  PAYMENT_METHOD_KIND_CARD = 1;
+  // Cash on delivery (or at the counter for pickup).
+  PAYMENT_METHOD_KIND_CASH = 2;
+}
+
+enum CardBrand {
+  CARD_BRAND_UNSPECIFIED = 0;
+  CARD_BRAND_VISA = 1;
+  CARD_BRAND_MASTERCARD = 2;
+  CARD_BRAND_AMEX = 3;
+}
+
+// How an order (or a Plus subscription, or a gift card) is paid. Cards are always saved-card ids
+// (tokens held by payment); no card number ever reaches a Kadé service.
+message PaymentMethod {
+  PaymentMethodKind kind = 1;
+  // Card: saved card id in payment. Brand and last4 are a display snapshot.
+  string card_id = 2;
+  CardBrand card_brand = 3;
+  string card_last4 = 4;
+  // Cash: the note the customer said they'll pay with (e.g. Rs 5,000), so the rider brings change.
+  kade.common.v1.Money cash_paying_with = 5;
+}
+
+// Where a refund goes.
+enum RefundMethod {
+  REFUND_METHOD_UNSPECIFIED = 0;
+  // Back to the card that paid (card orders only).
+  REFUND_METHOD_CARD = 1;
+  // Kadé credit (always allowed; the only option for cash orders).
+  REFUND_METHOD_CREDIT = 2;
+}
+
+enum DayOfWeek {
+  DAY_OF_WEEK_UNSPECIFIED = 0;
+  DAY_OF_WEEK_MONDAY = 1;
+  DAY_OF_WEEK_TUESDAY = 2;
+  DAY_OF_WEEK_WEDNESDAY = 3;
+  DAY_OF_WEEK_THURSDAY = 4;
+  DAY_OF_WEEK_FRIDAY = 5;
+  DAY_OF_WEEK_SATURDAY = 6;
+  DAY_OF_WEEK_SUNDAY = 7;
+}
+
+// Calendar date in Asia/Colombo, as ISO "2026-10-12". Used where a whole day matters (closures,
+// statements, offers), never for instants (those are google.protobuf.Timestamp).
+message DateRange {
+  // Inclusive, "2026-10-05".
+  string from_date = 1;
+  // Inclusive, "2026-10-11".
+  string to_date = 2;
+}
+
+// Shop orders: what to do when a product is out of stock.
+enum SubstitutionPreference {
+  SUBSTITUTION_PREFERENCE_UNSPECIFIED = 0;
+  SUBSTITUTION_PREFERENCE_SIMILAR = 1;
+  SUBSTITUTION_PREFERENCE_REFUND = 2;
+}

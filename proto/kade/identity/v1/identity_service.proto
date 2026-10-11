@@ -1,0 +1,227 @@
+syntax = "proto3";
+
+package kade.identity.v1;
+
+import "google/protobuf/timestamp.proto";
+import "kade/common/v1/types.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.identity.v1";
+
+// Identity RPCs that Keycloak alone doesn't give the gateways. Served by the profile service
+// (same process and port, 50103): there is no separate identity deployment.
+//
+// - Phone OTP: the customer and rider apps sign in with an SMS code. Profile generates/stores the code
+//   (hashed, 5 min TTL, 5 attempts), sends it via notification.SendNotification (SMS), and on success
+//   ensures the Keycloak user (by phone) and mints tokens with Keycloak token exchange. Google/Apple
+//   sign-in is plain Keycloak identity brokering and needs no RPC.
+// - Staff (admin console team page): Kadé staff accounts and role permissions, backed by the Keycloak
+//   admin API. Merchant staff live in merchant; riders in dispatch.
+// - Audit: every staff write in any gateway is recorded here (gateway-admin calls RecordAudit).
+
+service PhoneSignInService {
+  // Sends a 6-digit code. Rate-limited per number (RESOURCE_EXHAUSTED, reason OTP_RATE_LIMITED).
+  rpc StartPhoneSignIn(StartPhoneSignInRequest) returns (StartPhoneSignInResponse);
+  // Checks the code; returns Keycloak tokens. Wrong code: INVALID_ARGUMENT, reason OTP_INVALID.
+  rpc VerifyPhoneSignIn(VerifyPhoneSignInRequest) returns (VerifyPhoneSignInResponse);
+}
+
+service StaffService {
+  rpc ListStaff(ListStaffRequest) returns (ListStaffResponse);
+  // Must be an @kade.lk email; sends an invite email.
+  rpc InviteStaff(InviteStaffRequest) returns (InviteStaffResponse);
+  // Fails with reason LAST_ADMIN if it would leave no admin.
+  rpc ChangeStaffRole(ChangeStaffRoleRequest) returns (ChangeStaffRoleResponse);
+  rpc RemoveStaff(RemoveStaffRequest) returns (RemoveStaffResponse);
+  rpc GetPermissionMatrix(GetPermissionMatrixRequest) returns (GetPermissionMatrixResponse);
+  rpc SavePermissionMatrix(SavePermissionMatrixRequest) returns (SavePermissionMatrixResponse);
+}
+
+service AuditService {
+  rpc RecordAudit(RecordAuditRequest) returns (RecordAuditResponse);
+  rpc ListAuditEntries(ListAuditEntriesRequest) returns (ListAuditEntriesResponse);
+}
+
+// ---------- Phone sign-in ----------
+
+enum SignInApp {
+  SIGN_IN_APP_UNSPECIFIED = 0;
+  SIGN_IN_APP_CUSTOMER = 1;
+  SIGN_IN_APP_RIDER = 2;
+  SIGN_IN_APP_MERCHANT = 3;
+}
+
+message StartPhoneSignInRequest {
+  // E.164, "+94771234567". Gateways normalise "077 123 4567".
+  string phone = 1;
+  SignInApp app = 2;
+}
+
+message StartPhoneSignInResponse {
+  string challenge_id = 1;
+  google.protobuf.Timestamp expires_at = 2;
+  // The app enables "Resend" after this.
+  google.protobuf.Timestamp resend_after = 3;
+}
+
+message VerifyPhoneSignInRequest {
+  string challenge_id = 1;
+  string code = 2;
+}
+
+message SessionTokens {
+  string access_token = 1;
+  string refresh_token = 2;
+  google.protobuf.Timestamp access_expires_at = 3;
+  google.protobuf.Timestamp refresh_expires_at = 4;
+}
+
+message VerifyPhoneSignInResponse {
+  // Keycloak subject.
+  string user_id = 1;
+  SessionTokens tokens = 2;
+  // First sign-in for this number: ask for a name.
+  bool is_new = 3;
+}
+
+// ---------- Staff ----------
+
+enum StaffRole {
+  STAFF_ROLE_UNSPECIFIED = 0;
+  STAFF_ROLE_ADMIN = 1;
+  STAFF_ROLE_OPS = 2;
+  STAFF_ROLE_FINANCE = 3;
+  STAFF_ROLE_SUPPORT = 4;
+}
+
+enum StaffStatus {
+  STAFF_STATUS_UNSPECIFIED = 0;
+  STAFF_STATUS_ACTIVE = 1;
+  STAFF_STATUS_INVITED = 2;
+}
+
+message Staff {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+  StaffRole role = 4;
+  // Job title, e.g. "Ops lead".
+  string title = 5;
+  google.protobuf.Timestamp last_active_at = 6;
+  StaffStatus status = 7;
+}
+
+message Permission {
+  string id = 1;
+  string label = 2;
+  string group = 3;
+}
+
+message RolePermissions {
+  StaffRole role = 1;
+  repeated string permission_ids = 2;
+}
+
+message ListStaffRequest {}
+
+message ListStaffResponse {
+  repeated Staff staff = 1;
+}
+
+message InviteStaffRequest {
+  string name = 1;
+  string email = 2;
+  StaffRole role = 3;
+  string title = 4;
+}
+
+message InviteStaffResponse {
+  Staff staff = 1;
+}
+
+message ChangeStaffRoleRequest {
+  string staff_id = 1;
+  StaffRole role = 2;
+}
+
+message ChangeStaffRoleResponse {
+  Staff staff = 1;
+}
+
+message RemoveStaffRequest {
+  string staff_id = 1;
+}
+
+message RemoveStaffResponse {}
+
+message GetPermissionMatrixRequest {}
+
+message GetPermissionMatrixResponse {
+  repeated Permission permissions = 1;
+  repeated RolePermissions matrix = 2;
+}
+
+message SavePermissionMatrixRequest {
+  repeated RolePermissions matrix = 1;
+}
+
+message SavePermissionMatrixResponse {
+  repeated Permission permissions = 1;
+  repeated RolePermissions matrix = 2;
+}
+
+// ---------- Audit ----------
+
+enum AuditRecordType {
+  AUDIT_RECORD_TYPE_UNSPECIFIED = 0;
+  AUDIT_RECORD_TYPE_ORDER = 1;
+  AUDIT_RECORD_TYPE_RESTAURANT = 2;
+  AUDIT_RECORD_TYPE_RIDER = 3;
+  AUDIT_RECORD_TYPE_CUSTOMER = 4;
+  AUDIT_RECORD_TYPE_PAYOUT = 5;
+  AUDIT_RECORD_TYPE_ZONE = 6;
+  AUDIT_RECORD_TYPE_VOUCHER = 7;
+  AUDIT_RECORD_TYPE_TICKET = 8;
+  AUDIT_RECORD_TYPE_CONTENT = 9;
+  AUDIT_RECORD_TYPE_TEAM = 10;
+}
+
+message AuditEntry {
+  string id = 1;
+  google.protobuf.Timestamp at = 2;
+  kade.common.v1.Actor actor = 3;
+  // Display name of the actor at the time.
+  string actor_name = 4;
+  // "Refunded order", "Suspended rider".
+  string action = 5;
+  AuditRecordType record_type = 6;
+  string record_id = 7;
+  string detail = 8;
+}
+
+message RecordAuditRequest {
+  kade.common.v1.Actor actor = 1;
+  string actor_name = 2;
+  string action = 3;
+  AuditRecordType record_type = 4;
+  string record_id = 5;
+  string detail = 6;
+  string idempotency_key = 7;
+}
+
+message RecordAuditResponse {
+  AuditEntry entry = 1;
+}
+
+message ListAuditEntriesRequest {
+  AuditRecordType record_type = 1;
+  string record_id = 2;
+  string actor_user_id = 3;
+  kade.common.v1.PageRequest page = 4;
+}
+
+message ListAuditEntriesResponse {
+  // Newest first.
+  repeated AuditEntry entries = 1;
+  kade.common.v1.PageResponse page = 2;
+}

@@ -1,0 +1,7 @@
+# Temporal dynamic config for the dev stack (mounted into the temporal container).
+limit.maxIDLength:
+  - value: 255
+    constraints: {}
+system.forceSearchAttributesCacheRefreshOnRead:
+  - value: true
+    constraints: {}

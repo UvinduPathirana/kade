@@ -1,0 +1,431 @@
+syntax = "proto3";
+
+package kade.profile.v1;
+
+import "google/protobuf/timestamp.proto";
+import "kade/common/v1/address.proto";
+import "kade/common/v1/money.proto";
+import "kade/common/v1/types.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.profile.v1";
+
+// Profile owns customers: name/phone/email, saved addresses, favourites, preferences, blocks and
+// fraud flags, the Kadé credit wallet and Kadé Plus membership. The customer id is the Keycloak
+// subject (x-user-id). "Me" RPCs take customer_id explicitly; gateways fill it from x-user-id.
+// Publishes kade.customer.events. Also hosts kade.identity.v1 (phone OTP, staff, audit) on the same port.
+
+service CustomerService {
+  rpc GetCustomer(GetCustomerRequest) returns (GetCustomerResponse);
+  // Creates the customer on first sign-in (idempotent on customer_id); returns is_new for the name step.
+  rpc EnsureCustomer(EnsureCustomerRequest) returns (EnsureCustomerResponse);
+  rpc UpdateProfile(UpdateProfileRequest) returns (UpdateProfileResponse);
+  rpc GetPreferences(GetPreferencesRequest) returns (GetPreferencesResponse);
+  rpc UpdatePreferences(UpdatePreferencesRequest) returns (UpdatePreferencesResponse);
+  // Admin: customers list with search.
+  rpc ListCustomers(ListCustomersRequest) returns (ListCustomersResponse);
+  // Admin: one customer with stats, flags and credit history.
+  rpc GetCustomerDetail(GetCustomerDetailRequest) returns (GetCustomerDetailResponse);
+  rpc SetCustomerBlocked(SetCustomerBlockedRequest) returns (SetCustomerBlockedResponse);
+  rpc ResolveFraudFlag(ResolveFraudFlagRequest) returns (ResolveFraudFlagResponse);
+}
+
+service AddressService {
+  rpc ListAddresses(ListAddressesRequest) returns (ListAddressesResponse);
+  // Adds a new address, or replaces the one with the same id. Resolves zone_id via pricing.
+  rpc SaveAddress(SaveAddressRequest) returns (SaveAddressResponse);
+  rpc RemoveAddress(RemoveAddressRequest) returns (RemoveAddressResponse);
+  // "Tell me when you deliver here."
+  rpc JoinWaitlist(JoinWaitlistRequest) returns (JoinWaitlistResponse);
+}
+
+service FavouriteService {
+  rpc ListFavourites(ListFavouritesRequest) returns (ListFavouritesResponse);
+  rpc AddFavourite(AddFavouriteRequest) returns (AddFavouriteResponse);
+  rpc RemoveFavourite(RemoveFavouriteRequest) returns (RemoveFavouriteResponse);
+}
+
+// Kadé credit wallet. Profile is the system of record for the balance; ledger mirrors it as a
+// liability account from CustomerCreditChanged.
+service CreditService {
+  rpc GetCreditAccount(GetCreditAccountRequest) returns (GetCreditAccountResponse);
+  // Adds (positive) or spends (negative) credit. Spending more than the balance fails with
+  // FAILED_PRECONDITION reason CREDIT_INSUFFICIENT. Idempotent on idempotency_key — the saga uses
+  // "order:<id>:credit" to spend and "order:<id>:credit:reverse" to compensate.
+  rpc ChangeCredit(ChangeCreditRequest) returns (ChangeCreditResponse);
+}
+
+service PlusService {
+  rpc GetPlusMembership(GetPlusMembershipRequest) returns (GetPlusMembershipResponse);
+  // Starts the free month; the card is charged (payment, purpose PLUS) when it ends.
+  rpc JoinPlus(JoinPlusRequest) returns (JoinPlusResponse);
+  // Benefits last until the end of the period already paid for.
+  rpc CancelPlus(CancelPlusRequest) returns (CancelPlusResponse);
+}
+
+// =====================================================================================================
+// Resources
+// =====================================================================================================
+
+message Customer {
+  // Keycloak subject.
+  string id = 1;
+  string name = 2;
+  // E.164, "+94771234567". Apps show national format without the leading 0.
+  string phone = 3;
+  string email = 4;
+  // Home neighbourhood (from the default address), for ops.
+  string area = 5;
+  google.protobuf.Timestamp joined_at = 6;
+  bool blocked = 7;
+  string block_reason = 8;
+  // Plus benefits apply right now (member, or cancelled but inside the paid period).
+  bool plus_active = 9;
+}
+
+message CustomerStats {
+  int32 orders_count = 1;
+  kade.common.v1.Money spend = 2;
+  google.protobuf.Timestamp last_order_at = 3;
+}
+
+enum FraudFlagKind {
+  FRAUD_FLAG_KIND_UNSPECIFIED = 0;
+  FRAUD_FLAG_KIND_REFUNDS = 1;
+  FRAUD_FLAG_KIND_CANCELLATIONS = 2;
+  FRAUD_FLAG_KIND_PAYMENT_FAILURES = 3;
+}
+
+enum FraudFlagStatus {
+  FRAUD_FLAG_STATUS_UNSPECIFIED = 0;
+  FRAUD_FLAG_STATUS_OPEN = 1;
+  FRAUD_FLAG_STATUS_CLEARED = 2;
+  FRAUD_FLAG_STATUS_ACTIONED = 3;
+}
+
+// Raised by profile's own consumers of order/payment/ticket events (e.g. 3 refunds in 7 days).
+message FraudFlag {
+  string id = 1;
+  FraudFlagKind kind = 2;
+  string detail = 3;
+  google.protobuf.Timestamp raised_at = 4;
+  FraudFlagStatus status = 5;
+  string resolution = 6;
+}
+
+message Preferences {
+  bool marketing_sms = 1;
+  bool marketing_email = 2;
+  bool order_updates_push = 3;
+  bool order_updates_sms = 4;
+  // Show vegetarian dishes first.
+  bool vegetarian = 5;
+  // "en", "si", "ta".
+  string language = 6;
+}
+
+message Favourite {
+  string restaurant_id = 1;
+  google.protobuf.Timestamp added_at = 2;
+}
+
+enum CreditReason {
+  CREDIT_REASON_UNSPECIFIED = 0;
+  // Spent at checkout (negative).
+  CREDIT_REASON_ORDER_SPEND = 1;
+  // Spend reversed because the order failed or was cancelled.
+  CREDIT_REASON_ORDER_SPEND_REVERSED = 2;
+  // Refund for an order paid to credit.
+  CREDIT_REASON_REFUND = 3;
+  // Goodwill credit issued by support/ops.
+  CREDIT_REASON_GOODWILL = 4;
+  CREDIT_REASON_GIFT_CARD = 5;
+  CREDIT_REASON_REFERRAL = 6;
+  CREDIT_REASON_ADJUSTMENT = 7;
+}
+
+message CreditEntry {
+  string id = 1;
+  google.protobuf.Timestamp at = 2;
+  // Positive when added, negative when spent.
+  kade.common.v1.Money amount = 3;
+  // "Used on order KD-4821", "Refund for order KD-4821".
+  string label = 4;
+  CreditReason reason = 5;
+  string order_id = 6;
+  string ticket_id = 7;
+  // Staff name for ops-issued credit; empty for system entries.
+  string by = 8;
+  kade.common.v1.Money balance_after = 9;
+}
+
+message CreditAccount {
+  string customer_id = 1;
+  kade.common.v1.Money balance = 2;
+  // Newest first.
+  repeated CreditEntry history = 3;
+}
+
+enum PlusPlan {
+  PLUS_PLAN_UNSPECIFIED = 0;
+  PLUS_PLAN_MONTHLY = 1;
+  PLUS_PLAN_YEARLY = 2;
+}
+
+enum PlusStatus {
+  PLUS_STATUS_UNSPECIFIED = 0;
+  PLUS_STATUS_NONE = 1;
+  PLUS_STATUS_MEMBER = 2;
+  PLUS_STATUS_CANCELLED = 3;
+}
+
+message PlusMembership {
+  PlusStatus status = 1;
+  PlusPlan plan = 2;
+  google.protobuf.Timestamp joined_at = 3;
+  // End of the free month.
+  google.protobuf.Timestamp trial_ends_at = 4;
+  // Benefits last until here after cancelling.
+  google.protobuf.Timestamp ends_at = 5;
+  // Next charge while a member.
+  google.protobuf.Timestamp renews_at = 6;
+  // Saved card charged on renewal (payment).
+  string card_id = 7;
+  // "Visa •••• 4242".
+  string card_label = 8;
+  kade.common.v1.Money price = 9;
+  bool active = 10;
+}
+
+// =====================================================================================================
+// CustomerService messages
+// =====================================================================================================
+
+message GetCustomerRequest {
+  string customer_id = 1;
+}
+
+message GetCustomerResponse {
+  Customer customer = 1;
+}
+
+message EnsureCustomerRequest {
+  string customer_id = 1;
+  string phone = 2;
+  // From Google/Apple sign-in, when available.
+  string name = 3;
+  string email = 4;
+  // Referral code entered at sign-up (forwarded to promotion via CustomerRegistered).
+  string referral_code = 5;
+}
+
+message EnsureCustomerResponse {
+  Customer customer = 1;
+  // First time this account signed in: the app asks for a name.
+  bool is_new = 2;
+}
+
+message UpdateProfileRequest {
+  string customer_id = 1;
+  string name = 2;
+  string email = 3;
+}
+
+message UpdateProfileResponse {
+  Customer customer = 1;
+}
+
+message GetPreferencesRequest {
+  string customer_id = 1;
+}
+
+message GetPreferencesResponse {
+  Preferences preferences = 1;
+}
+
+message UpdatePreferencesRequest {
+  string customer_id = 1;
+  Preferences preferences = 2;
+}
+
+message UpdatePreferencesResponse {
+  Preferences preferences = 1;
+}
+
+message CustomerSummary {
+  Customer customer = 1;
+  CustomerStats stats = 2;
+  kade.common.v1.Money credit_balance = 3;
+  int32 open_flags = 4;
+}
+
+message ListCustomersRequest {
+  // Name, phone or email fragment.
+  string query = 1;
+  bool flagged_only = 2;
+  bool blocked_only = 3;
+  kade.common.v1.PageRequest page = 4;
+}
+
+message ListCustomersResponse {
+  repeated CustomerSummary customers = 1;
+  kade.common.v1.PageResponse page = 2;
+}
+
+message GetCustomerDetailRequest {
+  string customer_id = 1;
+}
+
+message GetCustomerDetailResponse {
+  Customer customer = 1;
+  CustomerStats stats = 2;
+  CreditAccount credit = 3;
+  repeated FraudFlag flags = 4;
+  repeated kade.common.v1.Address addresses = 5;
+  PlusMembership plus = 6;
+}
+
+message SetCustomerBlockedRequest {
+  string customer_id = 1;
+  bool blocked = 2;
+  string reason = 3;
+}
+
+message SetCustomerBlockedResponse {
+  Customer customer = 1;
+}
+
+message ResolveFraudFlagRequest {
+  string customer_id = 1;
+  string flag_id = 2;
+  // CLEARED or ACTIONED.
+  FraudFlagStatus status = 3;
+  string resolution = 4;
+}
+
+message ResolveFraudFlagResponse {
+  FraudFlag flag = 1;
+}
+
+// =====================================================================================================
+// AddressService / FavouriteService messages
+// =====================================================================================================
+
+message ListAddressesRequest {
+  string customer_id = 1;
+}
+
+message ListAddressesResponse {
+  repeated kade.common.v1.Address addresses = 1;
+}
+
+message SaveAddressRequest {
+  string customer_id = 1;
+  // id empty = create.
+  kade.common.v1.Address address = 2;
+}
+
+message SaveAddressResponse {
+  kade.common.v1.Address address = 1;
+}
+
+message RemoveAddressRequest {
+  string customer_id = 1;
+  string address_id = 2;
+}
+
+message RemoveAddressResponse {}
+
+message JoinWaitlistRequest {
+  string customer_id = 1;
+  string place_id = 2;
+  string place_name = 3;
+  string area = 4;
+  kade.common.v1.GeoPoint location = 5;
+}
+
+message JoinWaitlistResponse {}
+
+message ListFavouritesRequest {
+  string customer_id = 1;
+}
+
+message ListFavouritesResponse {
+  repeated Favourite favourites = 1;
+}
+
+message AddFavouriteRequest {
+  string customer_id = 1;
+  string restaurant_id = 2;
+}
+
+message AddFavouriteResponse {
+  Favourite favourite = 1;
+}
+
+message RemoveFavouriteRequest {
+  string customer_id = 1;
+  string restaurant_id = 2;
+}
+
+message RemoveFavouriteResponse {}
+
+// =====================================================================================================
+// CreditService / PlusService messages
+// =====================================================================================================
+
+message GetCreditAccountRequest {
+  string customer_id = 1;
+  // History page; the balance is always current.
+  kade.common.v1.PageRequest page = 2;
+}
+
+message GetCreditAccountResponse {
+  CreditAccount account = 1;
+  kade.common.v1.PageResponse page = 2;
+}
+
+message ChangeCreditRequest {
+  string customer_id = 1;
+  // Signed: positive adds, negative spends.
+  kade.common.v1.Money amount = 2;
+  CreditReason reason = 3;
+  string label = 4;
+  string order_id = 5;
+  string ticket_id = 6;
+  // Staff name for ops-issued credit.
+  string by = 7;
+  string idempotency_key = 8;
+}
+
+message ChangeCreditResponse {
+  CreditEntry entry = 1;
+  kade.common.v1.Money balance = 2;
+}
+
+message GetPlusMembershipRequest {
+  string customer_id = 1;
+}
+
+message GetPlusMembershipResponse {
+  PlusMembership membership = 1;
+}
+
+message JoinPlusRequest {
+  string customer_id = 1;
+  PlusPlan plan = 2;
+  string card_id = 3;
+  string idempotency_key = 4;
+}
+
+message JoinPlusResponse {
+  PlusMembership membership = 1;
+}
+
+message CancelPlusRequest {
+  string customer_id = 1;
+}
+
+message CancelPlusResponse {
+  PlusMembership membership = 1;
+}

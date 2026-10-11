@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package kade.profile.v1;
+
+import "google/protobuf/timestamp.proto";
+import "kade/common/v1/types.proto";
+import "kade/profile/v1/profile_service.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.profile.v1";
+
+// kade.customer.events (aggregatetype "customer", key = customer_id).
+
+message CustomerRegistered {
+  string customer_id = 1;
+  Customer customer = 2;
+  // Referral code used at sign-up; promotion rewards both sides on the first order.
+  string referral_code = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+}
+
+message CustomerProfileUpdated {
+  string customer_id = 1;
+  Customer customer = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+}
+
+message CustomerBlockChanged {
+  string customer_id = 1;
+  bool blocked = 2;
+  string reason = 3;
+  kade.common.v1.Actor actor = 4;
+  google.protobuf.Timestamp occurred_at = 5;
+}
+
+// Every credit movement. Ledger posts it against the customer-credit liability account.
+message CustomerCreditChanged {
+  string customer_id = 1;
+  CreditEntry entry = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+}
+
+message PlusMembershipChanged {
+  string customer_id = 1;
+  PlusMembership membership = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+}
+
+message FraudFlagRaised {
+  string customer_id = 1;
+  FraudFlag flag = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+}

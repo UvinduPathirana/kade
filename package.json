@@ -16,7 +16,7 @@
     "dev:rider": "pnpm --filter @kade/rider dev",
     "dev:admin": "pnpm --filter @kade/admin dev",
     "screenshots": "node scripts/screenshots.mjs",
-    "proto:gen": "cd proto && buf generate && cd .. && pnpm --filter @kade/proto build",
+    "proto:gen": "rm -rf gen/ts/src gen/go/kade && cd proto && buf generate && cd .. && pnpm --filter @kade/proto build",
     "proto:lint": "cd proto && buf lint",
     "infra:up": "docker compose -f deploy/compose/compose.yaml up -d",
     "infra:down": "docker compose -f deploy/compose/compose.yaml down"

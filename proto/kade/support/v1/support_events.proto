@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+package kade.support.v1;
+
+import "google/protobuf/timestamp.proto";
+import "kade/common/v1/types.proto";
+import "kade/support/v1/support_service.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.support.v1";
+
+// kade.ticket.events (aggregatetype "ticket", key = ticket_id).
+
+message TicketOpened {
+  string ticket_id = 1;
+  // Without messages beyond the first.
+  Ticket ticket = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+}
+
+// realtime pushes it to ticket:<id>; notification pushes agent replies when the app is closed.
+message TicketMessageAdded {
+  string ticket_id = 1;
+  Requester requester = 2;
+  TicketMessage message = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+}
+
+message TicketAssigned {
+  string ticket_id = 1;
+  string assignee_id = 2;
+  string assignee_name = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+}
+
+message TicketPriorityChanged {
+  string ticket_id = 1;
+  TicketPriority priority = 2;
+  google.protobuf.Timestamp sla_due_at = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+}
+
+// No first response before sla_due_at.
+message TicketSlaBreached {
+  string ticket_id = 1;
+  TicketPriority priority = 2;
+  google.protobuf.Timestamp sla_due_at = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+}
+
+message TicketResolved {
+  string ticket_id = 1;
+  Requester requester = 2;
+  string order_id = 3;
+  TicketResolution resolution = 4;
+  kade.common.v1.Actor actor = 5;
+  google.protobuf.Timestamp occurred_at = 6;
+}
+
+message TicketReopened {
+  string ticket_id = 1;
+  kade.common.v1.Actor actor = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+}
+
+// Customer reported a problem with an order (profile watches refund-heavy customers).
+message OrderIssueReported {
+  string ticket_id = 1;
+  string customer_id = 2;
+  OrderIssue issue = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+}

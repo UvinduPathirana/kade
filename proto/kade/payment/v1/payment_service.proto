@@ -1,0 +1,305 @@
+syntax = "proto3";
+
+package kade.payment.v1;
+
+import "google/protobuf/timestamp.proto";
+import "kade/common/v1/commerce.proto";
+import "kade/common/v1/money.proto";
+import "kade/common/v1/types.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.payment.v1";
+
+// Payment owns card payments against a mock PSP, cash-on-delivery intents and saved cards (PSP tokens
+// only: no card number, CVC or full expiry ever reaches Kadé). Every mutation is idempotent on
+// idempotency_key; PSP calls go through retries with backoff and a circuit breaker; asynchronous PSP
+// outcomes arrive as webhooks. Publishes kade.payment.events; consumes kade.delivery.events
+// (DeliveryCompleted → cash collected).
+//
+// Card:  AuthorisePayment → AUTHORISED ─(OrderPickedUp)→ CapturePayment → CAPTURED ─→ RefundPayment
+//                         └→ DECLINED                  └ VoidPayment (reject/cancel before pickup) → VOIDED
+// Cash:  AuthorisePayment → CASH_DUE ─(rider collects; DeliveryCompleted)→ CAPTURED
+//                         └ VoidPayment (cancelled before delivery) → VOIDED
+//        Cash is never refunded in cash: order refunds cash orders as Kadé credit.
+service PaymentService {
+  // Saga step 3. Card: authorise the total on the saved card (DECLINED returns ok with status
+  // DECLINED; the saga maps it to PAYMENT_DECLINED). Cash: records the intent (CASH_DUE).
+  rpc AuthorisePayment(AuthorisePaymentRequest) returns (AuthorisePaymentResponse);
+  // Changes an open authorisation (tip changed after placing). Card only.
+  rpc AdjustAuthorisation(AdjustAuthorisationRequest) returns (AdjustAuthorisationResponse);
+  // Captures up to the authorised amount (card) — at pickup.
+  rpc CapturePayment(CapturePaymentRequest) returns (CapturePaymentResponse);
+  // Records cash taken at the door (normally driven by DeliveryCompleted; exposed for ops corrections).
+  rpc RecordCashCollection(RecordCashCollectionRequest) returns (RecordCashCollectionResponse);
+  // Releases an authorisation / cancels a cash intent. Saga compensation.
+  rpc VoidPayment(VoidPaymentRequest) returns (VoidPaymentResponse);
+  // Card refund, partial or full, of a captured payment.
+  rpc RefundPayment(RefundPaymentRequest) returns (RefundPaymentResponse);
+  rpc GetPayment(GetPaymentRequest) returns (GetPaymentResponse);
+  // By order or customer.
+  rpc ListPayments(ListPaymentsRequest) returns (ListPaymentsResponse);
+}
+
+service SavedCardService {
+  rpc ListSavedCards(ListSavedCardsRequest) returns (ListSavedCardsResponse);
+  // Starts a card-capture session with the PSP; the app posts the card to the PSP's hosted fields
+  // with client_secret and gets back a token.
+  rpc CreateCardSetupSession(CreateCardSetupSessionRequest) returns (CreateCardSetupSessionResponse);
+  // Saves the PSP token (duplicate card: ALREADY_EXISTS reason CARD_ALREADY_SAVED).
+  rpc AddSavedCard(AddSavedCardRequest) returns (AddSavedCardResponse);
+  rpc RemoveSavedCard(RemoveSavedCardRequest) returns (RemoveSavedCardResponse);
+}
+
+// The mock PSP (and later a real one) calls back here, via payment's HTTP port proxied to this RPC.
+service PspWebhookService {
+  // Verifies the signature, deduplicates on the PSP event id and applies the outcome.
+  rpc HandlePspWebhook(HandlePspWebhookRequest) returns (HandlePspWebhookResponse);
+}
+
+// =====================================================================================================
+// Resources
+// =====================================================================================================
+
+enum PaymentPurpose {
+  PAYMENT_PURPOSE_UNSPECIFIED = 0;
+  PAYMENT_PURPOSE_ORDER = 1;
+  PAYMENT_PURPOSE_PLUS_SUBSCRIPTION = 2;
+  PAYMENT_PURPOSE_GIFT_CARD = 3;
+}
+
+enum PaymentStatus {
+  PAYMENT_STATUS_UNSPECIFIED = 0;
+  // Waiting for the PSP (e.g. 3-D Secure); resolves by webhook.
+  PAYMENT_STATUS_PENDING = 1;
+  PAYMENT_STATUS_AUTHORISED = 2;
+  PAYMENT_STATUS_DECLINED = 3;
+  // Cash on delivery: amount expected at the door.
+  PAYMENT_STATUS_CASH_DUE = 4;
+  PAYMENT_STATUS_CAPTURED = 5;
+  PAYMENT_STATUS_VOIDED = 6;
+  PAYMENT_STATUS_PARTIALLY_REFUNDED = 7;
+  PAYMENT_STATUS_REFUNDED = 8;
+  // PSP error after retries (not a decline).
+  PAYMENT_STATUS_FAILED = 9;
+}
+
+enum RefundStatus {
+  REFUND_STATUS_UNSPECIFIED = 0;
+  REFUND_STATUS_PENDING = 1;
+  REFUND_STATUS_SUCCEEDED = 2;
+  REFUND_STATUS_FAILED = 3;
+}
+
+message PaymentRefund {
+  string id = 1;
+  string payment_id = 2;
+  kade.common.v1.Money amount = 3;
+  string reason = 4;
+  RefundStatus status = 5;
+  string psp_reference = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp completed_at = 8;
+}
+
+message Payment {
+  string id = 1;
+  PaymentPurpose purpose = 2;
+  // Order id, Plus membership id or gift card id, by purpose.
+  string reference_id = 3;
+  // "KD-4821" for orders.
+  string reference_label = 4;
+  string customer_id = 5;
+  kade.common.v1.PaymentMethod method = 6;
+  PaymentStatus status = 7;
+  kade.common.v1.Money amount_authorised = 8;
+  kade.common.v1.Money amount_captured = 9;
+  kade.common.v1.Money amount_refunded = 10;
+  string psp_reference = 11;
+  // PSP decline code and the user-facing message ("Your bank declined Visa •••• 0002 …").
+  string decline_code = 12;
+  string decline_message = 13;
+  // Cash: rider who collected it.
+  string collected_by_rider_id = 14;
+  repeated PaymentRefund refunds = 15;
+  google.protobuf.Timestamp created_at = 16;
+  google.protobuf.Timestamp authorised_at = 17;
+  google.protobuf.Timestamp captured_at = 18;
+  google.protobuf.Timestamp voided_at = 19;
+}
+
+message SavedCard {
+  string id = 1;
+  string customer_id = 2;
+  kade.common.v1.CardBrand brand = 3;
+  string last4 = 4;
+  int32 expiry_month = 5;
+  int32 expiry_year = 6;
+  string holder_name = 7;
+  google.protobuf.Timestamp added_at = 8;
+}
+
+// =====================================================================================================
+// PaymentService messages
+// =====================================================================================================
+
+message AuthorisePaymentRequest {
+  PaymentPurpose purpose = 1;
+  string reference_id = 2;
+  string reference_label = 3;
+  string customer_id = 4;
+  kade.common.v1.PaymentMethod method = 5;
+  kade.common.v1.Money amount = 6;
+  // "order:<id>:authorise".
+  string idempotency_key = 7;
+}
+
+message AuthorisePaymentResponse {
+  Payment payment = 1;
+}
+
+message AdjustAuthorisationRequest {
+  string payment_id = 1;
+  kade.common.v1.Money new_amount = 2;
+  string idempotency_key = 3;
+}
+
+message AdjustAuthorisationResponse {
+  Payment payment = 1;
+}
+
+message CapturePaymentRequest {
+  string payment_id = 1;
+  // Unset = everything authorised.
+  kade.common.v1.Money amount = 2;
+  string idempotency_key = 3;
+}
+
+message CapturePaymentResponse {
+  Payment payment = 1;
+}
+
+message RecordCashCollectionRequest {
+  string payment_id = 1;
+  kade.common.v1.Money amount = 2;
+  string rider_id = 3;
+  string delivery_id = 4;
+  string idempotency_key = 5;
+}
+
+message RecordCashCollectionResponse {
+  Payment payment = 1;
+}
+
+message VoidPaymentRequest {
+  string payment_id = 1;
+  string reason = 2;
+  string idempotency_key = 3;
+}
+
+message VoidPaymentResponse {
+  Payment payment = 1;
+}
+
+message RefundPaymentRequest {
+  string payment_id = 1;
+  kade.common.v1.Money amount = 2;
+  string reason = 3;
+  // Order refund id, so ledger can tie the two together.
+  string order_refund_id = 4;
+  string idempotency_key = 5;
+}
+
+message RefundPaymentResponse {
+  Payment payment = 1;
+  PaymentRefund refund = 2;
+}
+
+message GetPaymentRequest {
+  string payment_id = 1;
+}
+
+message GetPaymentResponse {
+  Payment payment = 1;
+}
+
+message ListPaymentsRequest {
+  string reference_id = 1;
+  string customer_id = 2;
+  kade.common.v1.PageRequest page = 3;
+}
+
+message ListPaymentsResponse {
+  repeated Payment payments = 1;
+  kade.common.v1.PageResponse page = 2;
+}
+
+// =====================================================================================================
+// SavedCardService messages
+// =====================================================================================================
+
+message ListSavedCardsRequest {
+  string customer_id = 1;
+}
+
+message ListSavedCardsResponse {
+  repeated SavedCard cards = 1;
+}
+
+message CreateCardSetupSessionRequest {
+  string customer_id = 1;
+}
+
+message CreateCardSetupSessionResponse {
+  string session_id = 1;
+  string client_secret = 2;
+  // Mock PSP hosted-fields URL.
+  string psp_url = 3;
+  google.protobuf.Timestamp expires_at = 4;
+}
+
+message AddSavedCardRequest {
+  string customer_id = 1;
+  string session_id = 2;
+  // PSP token for the card.
+  string psp_token = 3;
+  // Display details returned by the PSP with the token.
+  kade.common.v1.CardBrand brand = 4;
+  string last4 = 5;
+  int32 expiry_month = 6;
+  int32 expiry_year = 7;
+  string holder_name = 8;
+  // PSP fingerprint used to spot duplicates.
+  string fingerprint = 9;
+}
+
+message AddSavedCardResponse {
+  SavedCard card = 1;
+}
+
+message RemoveSavedCardRequest {
+  string customer_id = 1;
+  string card_id = 2;
+}
+
+message RemoveSavedCardResponse {}
+
+// =====================================================================================================
+// Webhooks
+// =====================================================================================================
+
+message HandlePspWebhookRequest {
+  // "mockpsp".
+  string provider = 1;
+  // Signature header value.
+  string signature = 2;
+  // Raw body, verified before parsing.
+  bytes payload = 3;
+  google.protobuf.Timestamp received_at = 4;
+}
+
+message HandlePspWebhookResponse {
+  // False when the event was a duplicate (already applied).
+  bool applied = 1;
+  string payment_id = 2;
+}
+

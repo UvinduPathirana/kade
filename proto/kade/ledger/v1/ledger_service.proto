@@ -1,0 +1,579 @@
+syntax = "proto3";
+
+package kade.ledger.v1;
+
+import "google/protobuf/timestamp.proto";
+import "kade/common/v1/commerce.proto";
+import "kade/common/v1/money.proto";
+import "kade/common/v1/types.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.ledger.v1";
+
+// Ledger is Kadé's double-entry book. It is driven almost entirely by events (exactly-once effects via
+// processed_events + one journal entry per source event id) and is the read model for every money
+// screen: restaurant sales and weekly statements, admin payout batches, rider earnings, cash held,
+// settlements, deposits and the refunds ledger. Every journal entry balances (Σ debits = Σ credits).
+//
+// Postings (amounts come from the event snapshots; F = food = subtotal, C = commission =
+// commission_bps × F, Rf = restaurant-funded discounts (saving + restaurant-funded promo),
+// Kp = Kadé-funded promo):
+//   OrderDelivered/Collected  Dr ORDER_CLEARING   total + credit      Cr RESTAURANT_PAYABLE  F − C − Rf
+//                             Dr PROMO_EXPENSE    Kp                  Cr COMMISSION_REVENUE  C
+//                                                                     Cr DELIVERY_FEE_REVENUE delivery_fee
+//                                                                     Cr SERVICE_FEE_REVENUE small_order_fee
+//                                                                     Cr RIDER_PAYABLE       tip
+//   PaymentCaptured (card)    Dr PSP_CLEARING                         Cr ORDER_CLEARING
+//   PaymentCaptured (cash)    Dr RIDER_CASH_HELD                      Cr ORDER_CLEARING   (rider holds Kadé's cash)
+//   CustomerCreditChanged     ORDER_SPEND:          Dr CUSTOMER_CREDIT  Cr ORDER_CLEARING
+//                             ORDER_SPEND_REVERSED: Dr ORDER_CLEARING   Cr CUSTOMER_CREDIT
+//                             GOODWILL/REFERRAL:    Dr PROMO_EXPENSE    Cr CUSTOMER_CREDIT
+//                             GIFT_CARD:            Dr GIFT_CARD_LIABILITY Cr CUSTOMER_CREDIT
+//                             REFUND: not posted here (posted once, from OrderRefunded)
+//   DeliveryCompleted         Dr DELIVERY_COST  base+distance+boost   Cr RIDER_PAYABLE
+//   OrderRefunded             Dr REFUND_EXPENSE, or RESTAURANT_PAYABLE when the restaurant is at fault
+//                                                                     Cr PSP_CLEARING (card) / CUSTOMER_CREDIT (credit)
+//                             (PaymentRefunded only confirms the PSP side; it posts nothing.)
+//   RecordCashDeposit         Dr BANK                                 Cr RIDER_CASH_HELD
+//   SettleRider               Dr RIDER_PAYABLE                        Cr RIDER_CASH_HELD (offset), Cr BANK (rest)
+//   MarkPayoutBatchPaid       Dr RESTAURANT_PAYABLE                   Cr BANK
+// Balance check for a delivered order: total + credit + Kp = F − Rf + delivery_fee + small_order_fee + tip.
+service LedgerService {
+  rpc GetAccount(GetAccountRequest) returns (GetAccountResponse);
+  rpc ListAccounts(ListAccountsRequest) returns (ListAccountsResponse);
+  rpc ListJournalEntries(ListJournalEntriesRequest) returns (ListJournalEntriesResponse);
+  // Finance-only manual adjustment; must balance (INVALID_ARGUMENT reason ENTRY_UNBALANCED).
+  rpc PostAdjustment(PostAdjustmentRequest) returns (PostAdjustmentResponse);
+  // Every entry touching an order, for the admin order page and reconciliation.
+  rpc GetOrderLedger(GetOrderLedgerRequest) returns (GetOrderLedgerResponse);
+  // Admin finance refunds ledger (from OrderRefunded).
+  rpc ListRefunds(ListRefundsRequest) returns (ListRefundsResponse);
+}
+
+// Restaurant app: sales and weekly statements (18% default commission; payouts every Tuesday for the
+// Monday–Sunday week before).
+service RestaurantFinanceService {
+  rpc GetOutletSales(GetOutletSalesRequest) returns (GetOutletSalesResponse);
+  // The current week (still adding up) and earlier ones, newest first.
+  rpc ListOutletStatements(ListOutletStatementsRequest) returns (ListOutletStatementsResponse);
+  rpc GetOutletStatement(GetOutletStatementRequest) returns (GetOutletStatementResponse);
+  // One row per day, then the totals.
+  rpc ExportOutletStatementCsv(ExportOutletStatementCsvRequest) returns (ExportOutletStatementCsvResponse);
+}
+
+// Admin finance: weekly restaurant payout batches.
+service PayoutService {
+  rpc ListPayoutBatches(ListPayoutBatchesRequest) returns (ListPayoutBatchesResponse);
+  rpc GetPayoutBatch(GetPayoutBatchRequest) returns (GetPayoutBatchResponse);
+  // DRAFT → APPROVED (reason BATCH_NOT_DRAFT otherwise).
+  rpc ApprovePayoutBatch(ApprovePayoutBatchRequest) returns (ApprovePayoutBatchResponse);
+  // APPROVED → PAID once the bank file is confirmed; emits PayoutCompleted per outlet.
+  rpc MarkPayoutBatchPaid(MarkPayoutBatchPaidRequest) returns (MarkPayoutBatchPaidResponse);
+}
+
+// Rider app earnings/cash and admin rider settlements and cash deposits.
+service RiderFinanceService {
+  rpc GetRiderEarnings(GetRiderEarningsRequest) returns (GetRiderEarningsResponse);
+  rpc GetRiderCashBalance(GetRiderCashBalanceRequest) returns (GetRiderCashBalanceResponse);
+  rpc ListRiderPayouts(ListRiderPayoutsRequest) returns (ListRiderPayoutsResponse);
+  rpc ListDepositPoints(ListDepositPointsRequest) returns (ListDepositPointsResponse);
+  rpc ListRiderSettlements(ListRiderSettlementsRequest) returns (ListRiderSettlementsResponse);
+  // Nets earnings against cash held for the week and closes it.
+  rpc SettleRider(SettleRiderRequest) returns (SettleRiderResponse);
+  rpc ListCashRecords(ListCashRecordsRequest) returns (ListCashRecordsResponse);
+  // Matches a bank deposit slip against a rider's cash (bank_ref required).
+  rpc RecordCashDeposit(RecordCashDepositRequest) returns (RecordCashDepositResponse);
+}
+
+// =====================================================================================================
+// Double entry
+// =====================================================================================================
+
+enum AccountType {
+  ACCOUNT_TYPE_UNSPECIFIED = 0;
+  // Asset: Kadé's bank account.
+  ACCOUNT_TYPE_BANK = 1;
+  // Asset: card money held by the PSP until settlement.
+  ACCOUNT_TYPE_PSP_CLEARING = 2;
+  // Transit account per order: what the customer owes, cleared by payment and credit.
+  ACCOUNT_TYPE_ORDER_CLEARING = 3;
+  // Asset per rider: cash collected that belongs to Kadé.
+  ACCOUNT_TYPE_RIDER_CASH_HELD = 4;
+  // Liability per outlet.
+  ACCOUNT_TYPE_RESTAURANT_PAYABLE = 5;
+  // Liability per rider: earnings and tips owed.
+  ACCOUNT_TYPE_RIDER_PAYABLE = 6;
+  // Liability per customer: Kadé credit.
+  ACCOUNT_TYPE_CUSTOMER_CREDIT = 7;
+  // Liability: unredeemed gift cards.
+  ACCOUNT_TYPE_GIFT_CARD_LIABILITY = 8;
+  ACCOUNT_TYPE_COMMISSION_REVENUE = 9;
+  ACCOUNT_TYPE_DELIVERY_FEE_REVENUE = 10;
+  ACCOUNT_TYPE_SERVICE_FEE_REVENUE = 11;
+  ACCOUNT_TYPE_SUBSCRIPTION_REVENUE = 12;
+  ACCOUNT_TYPE_DELIVERY_COST = 13;
+  ACCOUNT_TYPE_PROMO_EXPENSE = 14;
+  ACCOUNT_TYPE_REFUND_EXPENSE = 15;
+}
+
+message Account {
+  string id = 1;
+  AccountType type = 2;
+  // Outlet, rider or customer id for per-party accounts; empty for Kadé-level accounts.
+  string owner_id = 3;
+  string name = 4;
+  // Signed: positive on the account's normal side (debit for assets/expenses, credit otherwise).
+  kade.common.v1.Money balance = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+message JournalLine {
+  string account_id = 1;
+  AccountType account_type = 2;
+  string owner_id = 3;
+  // Exactly one of debit/credit is non-zero.
+  kade.common.v1.Money debit = 4;
+  kade.common.v1.Money credit = 5;
+  string memo = 6;
+}
+
+message JournalEntry {
+  string id = 1;
+  google.protobuf.Timestamp posted_at = 2;
+  // When the business event happened (may be earlier than posted_at).
+  google.protobuf.Timestamp effective_at = 3;
+  string description = 4;
+  // "order", "payment", "delivery", "payout", "adjustment"…
+  string reference_type = 5;
+  string reference_id = 6;
+  // Kafka event id that produced the entry (unique: exactly-once).
+  string source_event_id = 7;
+  repeated JournalLine lines = 8;
+  kade.common.v1.Actor actor = 9;
+}
+
+message GetAccountRequest {
+  string account_id = 1;
+  // Alternative lookup.
+  AccountType type = 2;
+  string owner_id = 3;
+}
+
+message GetAccountResponse {
+  Account account = 1;
+}
+
+message ListAccountsRequest {
+  AccountType type = 1;
+  kade.common.v1.PageRequest page = 2;
+}
+
+message ListAccountsResponse {
+  repeated Account accounts = 1;
+  kade.common.v1.PageResponse page = 2;
+}
+
+message ListJournalEntriesRequest {
+  string account_id = 1;
+  string reference_type = 2;
+  string reference_id = 3;
+  google.protobuf.Timestamp from = 4;
+  google.protobuf.Timestamp to = 5;
+  kade.common.v1.PageRequest page = 6;
+}
+
+message ListJournalEntriesResponse {
+  repeated JournalEntry entries = 1;
+  kade.common.v1.PageResponse page = 2;
+}
+
+message PostAdjustmentRequest {
+  string description = 1;
+  string reference_type = 2;
+  string reference_id = 3;
+  repeated JournalLine lines = 4;
+  kade.common.v1.Actor actor = 5;
+  string idempotency_key = 6;
+}
+
+message PostAdjustmentResponse {
+  JournalEntry entry = 1;
+}
+
+message GetOrderLedgerRequest {
+  string order_id = 1;
+}
+
+message GetOrderLedgerResponse {
+  repeated JournalEntry entries = 1;
+}
+
+message RefundRecord {
+  string id = 1;
+  google.protobuf.Timestamp at = 2;
+  string order_id = 3;
+  string order_number = 4;
+  string customer_id = 5;
+  string restaurant_id = 6;
+  kade.common.v1.Money amount = 7;
+  kade.common.v1.RefundMethod method = 8;
+  string reason = 9;
+  string by = 10;
+}
+
+message ListRefundsRequest {
+  google.protobuf.Timestamp from = 1;
+  google.protobuf.Timestamp to = 2;
+  kade.common.v1.RefundMethod method = 3;
+  kade.common.v1.PageRequest page = 4;
+}
+
+message ListRefundsResponse {
+  repeated RefundRecord refunds = 1;
+  kade.common.v1.Money total = 2;
+  kade.common.v1.PageResponse page = 3;
+}
+
+// =====================================================================================================
+// Restaurant finance
+// =====================================================================================================
+
+message DailySales {
+  // ISO date.
+  string date = 1;
+  int32 orders = 2;
+  kade.common.v1.Money card = 3;
+  kade.common.v1.Money cash = 4;
+  // Discounts from offers the restaurant funded.
+  kade.common.v1.Money offer_cost = 5;
+}
+
+enum StatementStatus {
+  STATEMENT_STATUS_UNSPECIFIED = 0;
+  // Current week, still adding up.
+  STATEMENT_STATUS_OPEN = 1;
+  STATEMENT_STATUS_PENDING = 2;
+  STATEMENT_STATUS_PAID = 3;
+}
+
+message Statement {
+  string id = 1;
+  string outlet_id = 2;
+  // Monday–Sunday.
+  kade.common.v1.DateRange period = 3;
+  int32 orders = 4;
+  kade.common.v1.Money gross = 5;
+  kade.common.v1.Money commission = 6;
+  kade.common.v1.Money offer_cost = 7;
+  // Refunds charged to the restaurant and manual adjustments.
+  kade.common.v1.Money adjustments = 8;
+  kade.common.v1.Money net = 9;
+  StatementStatus status = 10;
+  // ISO date the money reached (or will reach) the bank.
+  string pay_date = 11;
+  int32 commission_bps = 12;
+}
+
+message GetOutletSalesRequest {
+  string outlet_id = 1;
+  kade.common.v1.DateRange period = 2;
+}
+
+message GetOutletSalesResponse {
+  repeated DailySales days = 1;
+}
+
+message ListOutletStatementsRequest {
+  string outlet_id = 1;
+  kade.common.v1.PageRequest page = 2;
+}
+
+message ListOutletStatementsResponse {
+  repeated Statement statements = 1;
+  kade.common.v1.PageResponse page = 2;
+}
+
+message GetOutletStatementRequest {
+  string outlet_id = 1;
+  string statement_id = 2;
+}
+
+message GetOutletStatementResponse {
+  Statement statement = 1;
+  repeated DailySales days = 2;
+}
+
+message ExportOutletStatementCsvRequest {
+  string outlet_id = 1;
+  string statement_id = 2;
+}
+
+message ExportOutletStatementCsvResponse {
+  string file_name = 1;
+  bytes csv = 2;
+}
+
+// =====================================================================================================
+// Payout batches
+// =====================================================================================================
+
+enum PayoutBatchStatus {
+  PAYOUT_BATCH_STATUS_UNSPECIFIED = 0;
+  PAYOUT_BATCH_STATUS_DRAFT = 1;
+  PAYOUT_BATCH_STATUS_APPROVED = 2;
+  PAYOUT_BATCH_STATUS_PAID = 3;
+}
+
+message PayoutLine {
+  string outlet_id = 1;
+  string outlet_name = 2;
+  int32 orders = 3;
+  kade.common.v1.Money gross = 4;
+  kade.common.v1.Money commission = 5;
+  kade.common.v1.Money adjustments = 6;
+  kade.common.v1.Money net = 7;
+  string statement_id = 8;
+}
+
+message PayoutBatch {
+  string id = 1;
+  kade.common.v1.DateRange period = 2;
+  // ISO date.
+  string pay_date = 3;
+  PayoutBatchStatus status = 4;
+  string approved_by = 5;
+  google.protobuf.Timestamp approved_at = 6;
+  google.protobuf.Timestamp paid_at = 7;
+  repeated PayoutLine lines = 8;
+  kade.common.v1.Money total = 9;
+  int32 outlets = 10;
+}
+
+message ListPayoutBatchesRequest {
+  PayoutBatchStatus status = 1;
+  kade.common.v1.PageRequest page = 2;
+}
+
+message ListPayoutBatchesResponse {
+  // Lines omitted; totals filled.
+  repeated PayoutBatch batches = 1;
+  kade.common.v1.PageResponse page = 2;
+}
+
+message GetPayoutBatchRequest {
+  string batch_id = 1;
+}
+
+message GetPayoutBatchResponse {
+  PayoutBatch batch = 1;
+}
+
+message ApprovePayoutBatchRequest {
+  string batch_id = 1;
+  kade.common.v1.Actor actor = 2;
+  string approver_name = 3;
+}
+
+message ApprovePayoutBatchResponse {
+  PayoutBatch batch = 1;
+}
+
+message MarkPayoutBatchPaidRequest {
+  string batch_id = 1;
+  string bank_reference = 2;
+  string idempotency_key = 3;
+}
+
+message MarkPayoutBatchPaidResponse {
+  PayoutBatch batch = 1;
+}
+
+// =====================================================================================================
+// Rider finance
+// =====================================================================================================
+
+enum EarningsPeriod {
+  EARNINGS_PERIOD_UNSPECIFIED = 0;
+  EARNINGS_PERIOD_TODAY = 1;
+  EARNINGS_PERIOD_WEEK = 2;
+  EARNINGS_PERIOD_MONTH = 3;
+}
+
+message EarningsBar {
+  // Start of the bucket (hour for today, day for week/month); apps format the labels.
+  google.protobuf.Timestamp start = 1;
+  kade.common.v1.Money amount = 2;
+  int32 trips = 3;
+}
+
+enum ComparisonTone {
+  COMPARISON_TONE_UNSPECIFIED = 0;
+  COMPARISON_TONE_GOOD = 1;
+  COMPARISON_TONE_BAD = 2;
+  COMPARISON_TONE_NEUTRAL = 3;
+}
+
+message EarningsSummary {
+  EarningsPeriod period = 1;
+  kade.common.v1.Money total = 2;
+  int32 trips = 3;
+  // From kade.rider.events status changes.
+  int32 online_minutes = 4;
+  kade.common.v1.Money tips = 5;
+  kade.common.v1.Money boosts = 6;
+  repeated EarningsBar bars = 7;
+  // total − the same period last time (e.g. last Saturday).
+  kade.common.v1.Money comparison_delta = 8;
+  // "last Saturday", "last week".
+  string comparison_label = 9;
+  ComparisonTone comparison_tone = 10;
+}
+
+message RiderCashBalance {
+  string rider_id = 1;
+  // Cash taken from customers since the last deposit.
+  kade.common.v1.Money collected = 2;
+  // Earnings Kadé owes the rider, set against the cash.
+  kade.common.v1.Money owed_to_rider = 3;
+  // max(0, collected − owed_to_rider).
+  kade.common.v1.Money holding = 4;
+  kade.common.v1.Money limit = 5;
+  bool over_limit = 6;
+  google.protobuf.Timestamp last_deposit_at = 7;
+}
+
+enum RiderPayoutStatus {
+  RIDER_PAYOUT_STATUS_UNSPECIFIED = 0;
+  RIDER_PAYOUT_STATUS_SCHEDULED = 1;
+  RIDER_PAYOUT_STATUS_PAID = 2;
+}
+
+message RiderPayout {
+  string id = 1;
+  string rider_id = 2;
+  // ISO date of the Monday.
+  string week_of = 3;
+  google.protobuf.Timestamp paid_at = 4;
+  kade.common.v1.Money amount = 5;
+  // Cash held back from the payout to settle what the rider was holding.
+  kade.common.v1.Money cash_offset = 6;
+  RiderPayoutStatus status = 7;
+}
+
+message DepositPoint {
+  string name = 1;
+  string where = 2;
+  string hours = 3;
+}
+
+enum SettlementStatus {
+  SETTLEMENT_STATUS_UNSPECIFIED = 0;
+  SETTLEMENT_STATUS_OPEN = 1;
+  SETTLEMENT_STATUS_SETTLED = 2;
+}
+
+message RiderSettlement {
+  string rider_id = 1;
+  string rider_name = 2;
+  kade.common.v1.DateRange period = 3;
+  int32 trips = 4;
+  kade.common.v1.Money earnings = 5;
+  kade.common.v1.Money cash_held = 6;
+  // Positive: Kadé pays the rider. Negative: the rider owes Kadé.
+  kade.common.v1.Money net = 7;
+  SettlementStatus status = 8;
+}
+
+message CashRecord {
+  string id = 1;
+  string rider_id = 2;
+  string rider_name = 3;
+  // ISO date.
+  string date = 4;
+  kade.common.v1.Money collected = 5;
+  // Unset while no deposit has been recorded.
+  kade.common.v1.Money deposited = 6;
+  string bank_ref = 7;
+  // collected − deposited; positive means cash is missing.
+  kade.common.v1.Money short = 8;
+}
+
+message GetRiderEarningsRequest {
+  string rider_id = 1;
+  EarningsPeriod period = 2;
+}
+
+message GetRiderEarningsResponse {
+  EarningsSummary summary = 1;
+}
+
+message GetRiderCashBalanceRequest {
+  string rider_id = 1;
+}
+
+message GetRiderCashBalanceResponse {
+  RiderCashBalance balance = 1;
+}
+
+message ListRiderPayoutsRequest {
+  string rider_id = 1;
+  kade.common.v1.PageRequest page = 2;
+}
+
+message ListRiderPayoutsResponse {
+  repeated RiderPayout payouts = 1;
+  kade.common.v1.PageResponse page = 2;
+}
+
+message ListDepositPointsRequest {}
+
+message ListDepositPointsResponse {
+  repeated DepositPoint points = 1;
+}
+
+message ListRiderSettlementsRequest {
+  SettlementStatus status = 1;
+  kade.common.v1.DateRange period = 2;
+  kade.common.v1.PageRequest page = 3;
+}
+
+message ListRiderSettlementsResponse {
+  repeated RiderSettlement settlements = 1;
+  kade.common.v1.PageResponse page = 2;
+}
+
+message SettleRiderRequest {
+  string rider_id = 1;
+  kade.common.v1.DateRange period = 2;
+  kade.common.v1.Actor actor = 3;
+  string idempotency_key = 4;
+}
+
+message SettleRiderResponse {
+  RiderSettlement settlement = 1;
+}
+
+message ListCashRecordsRequest {
+  string rider_id = 1;
+  // Only records with no deposit or a shortfall.
+  bool unmatched_only = 2;
+  kade.common.v1.PageRequest page = 3;
+}
+
+message ListCashRecordsResponse {
+  repeated CashRecord records = 1;
+  kade.common.v1.PageResponse page = 2;
+}
+
+message RecordCashDepositRequest {
+  string cash_record_id = 1;
+  kade.common.v1.Money amount = 2;
+  string bank_ref = 3;
+  kade.common.v1.Actor actor = 4;
+  string idempotency_key = 5;
+}
+
+message RecordCashDepositResponse {
+  CashRecord record = 1;
+  RiderCashBalance balance = 2;
+}

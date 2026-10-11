@@ -1,0 +1,156 @@
+syntax = "proto3";
+
+package kade.realtime.v1;
+
+import "google/protobuf/timestamp.proto";
+import "kade/catalog/v1/catalog_service.proto";
+import "kade/dispatch/v1/dispatch_service.proto";
+import "kade/location/v1/location_events.proto";
+import "kade/merchant/v1/merchant_service.proto";
+import "kade/order/v1/order_service.proto";
+import "kade/support/v1/support_service.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.realtime.v1";
+
+// realtime has no gRPC API (registry: no gRPC port). It is a Kafka → WebSocket fan-out:
+//
+//   1. Consumes kade.order.events, kade.delivery.events, kade.merchant.events, kade.restaurant.events,
+//      kade.menu.events, kade.ticket.events and kade.rider.locations (consumer group "realtime").
+//   2. Maps each event to a RealtimeMessage on one or more channels and PUBLISHes it to Redis
+//      pub/sub channel "rt:<channel>", so any realtime replica can deliver it.
+//   3. Serves WebSockets on :8112/ws. Gateways authenticate the JWT and reverse-proxy the upgrade
+//      to realtime with x-user-id / x-roles / x-outlet-id headers; realtime authorises each Subscribe
+//      against those headers (customer → own orders/groups; merchant_staff → own outlet; rider → self;
+//      ops/support → ops:* and any order).
+//   4. Frames are these messages in proto3 JSON (camelCase), one per WebSocket text frame.
+//
+// No Publish RPC: anything worth pushing is already an event on Kafka, which keeps one path and
+// makes pushes replayable. Clients treat messages as hints and refetch over REST when they reconnect.
+//
+// Channels:
+//   order:<order_id>        customer tracking (status, rider, rider position)
+//   customer:<customer_id>  the customer's active orders list
+//   group:<group_id>        group order members and dishes
+//   outlet:<outlet_id>      kitchen board tickets, rider at the counter
+//   restaurant:<id>         public: availability and sold-out changes on open restaurant pages
+//   rider:<rider_id>        offers, job changes for one rider
+//   ticket:<ticket_id>      support chat messages
+//   ops:live                admin dashboard (snapshot deltas, rider dots, attention items)
+
+// ---------- Client → server ----------
+
+message ClientFrame {
+  oneof frame {
+    Subscribe subscribe = 1;
+    Unsubscribe unsubscribe = 2;
+    Ping ping = 3;
+  }
+}
+
+message Subscribe {
+  repeated string channels = 1;
+  // Resume after reconnect: replay buffered messages newer than this (best effort, short window).
+  google.protobuf.Timestamp since = 2;
+}
+
+message Unsubscribe {
+  repeated string channels = 1;
+}
+
+message Ping {
+  string nonce = 1;
+}
+
+// ---------- Server → client ----------
+
+message ServerFrame {
+  oneof frame {
+    RealtimeMessage message = 1;
+    SubscribeResult subscribed = 2;
+    Pong pong = 3;
+  }
+}
+
+message SubscribeResult {
+  repeated string granted = 1;
+  // Channels refused by authorisation.
+  repeated string denied = 2;
+}
+
+message Pong {
+  string nonce = 1;
+}
+
+message RealtimeMessage {
+  // Source Kafka event id (dedupe on reconnect).
+  string id = 1;
+  string channel = 2;
+  // Source event type, e.g. "kade.order.v1.OrderAccepted".
+  string source_type = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+  oneof payload {
+    OrderUpdate order = 10;
+    RiderPositionUpdate rider_position = 11;
+    KitchenTicketUpdate kitchen_ticket = 12;
+    RiderOfferUpdate rider_offer = 13;
+    RiderJobUpdate rider_job = 14;
+    RestaurantAvailabilityUpdate restaurant_availability = 15;
+    MenuItemAvailabilityUpdate menu_item_availability = 16;
+    GroupOrderUpdate group_order = 17;
+    SupportMessageUpdate support_message = 18;
+    OpsLiveUpdate ops_live = 19;
+  }
+}
+
+// Order status/rider/eta changed. Carries the order so the tracking screen re-renders without a fetch
+// (gateways strip ops-only fields such as notes and real phone numbers).
+message OrderUpdate {
+  kade.order.v1.Order order = 1;
+}
+
+message RiderPositionUpdate {
+  string order_id = 1;
+  kade.location.v1.RiderLocation location = 2;
+}
+
+message KitchenTicketUpdate {
+  kade.merchant.v1.Ticket ticket = 1;
+  // Play the new-order chime.
+  bool is_new = 2;
+}
+
+message RiderOfferUpdate {
+  // Unset when the open offer was withdrawn or expired.
+  kade.dispatch.v1.DeliveryOffer offer = 1;
+}
+
+message RiderJobUpdate {
+  kade.dispatch.v1.Delivery delivery = 1;
+  // "Food is ready", "Order cancelled".
+  string notice = 2;
+}
+
+message RestaurantAvailabilityUpdate {
+  string restaurant_id = 1;
+  kade.catalog.v1.RestaurantAvailability availability = 2;
+}
+
+message MenuItemAvailabilityUpdate {
+  string restaurant_id = 1;
+  string item_id = 2;
+  bool sold_out = 3;
+}
+
+message GroupOrderUpdate {
+  kade.order.v1.GroupOrder group = 1;
+}
+
+message SupportMessageUpdate {
+  string ticket_id = 1;
+  kade.support.v1.TicketMessage message = 2;
+}
+
+message OpsLiveUpdate {
+  kade.dispatch.v1.LiveSnapshot snapshot = 1;
+}

@@ -1,0 +1,723 @@
+syntax = "proto3";
+
+package kade.dispatch.v1;
+
+import "google/protobuf/timestamp.proto";
+import "kade/common/v1/commerce.proto";
+import "kade/common/v1/money.proto";
+import "kade/common/v1/onboarding.proto";
+import "kade/common/v1/types.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.dispatch.v1";
+
+// Dispatch owns the rider fleet (profiles, vehicles, documents, onboarding, zones, suspension,
+// online state) and deliveries: matching with Redis GEO, one-rider-at-a-time offers with a 30 s
+// timeout, assignments and every pickup/drop-off step, proof of delivery and cash collected.
+// Matching starts from OrderAccepted (choreography, no RPC). Offers reach riders as
+// DeliveryOfferSent → realtime → rider WebSocket; GetCurrentOffer is the polling fallback.
+// Riders over their cash limit (ledger RiderCashBalanceChanged) only get card orders.
+// Publishes kade.delivery.events (and rider lifecycle events, see dispatch_events.proto).
+
+// Rider app: shift, offers and the active job.
+service DispatchService {
+  // Go online/offline. Online riders are in the GEO index (positions come from location).
+  rpc SetAvailability(SetAvailabilityRequest) returns (SetAvailabilityResponse);
+  rpc GetCurrentOffer(GetCurrentOfferRequest) returns (GetCurrentOfferResponse);
+  // Fails with FAILED_PRECONDITION reason OFFER_EXPIRED ("It's gone to another rider").
+  rpc AcceptOffer(AcceptOfferRequest) returns (AcceptOfferResponse);
+  rpc DeclineOffer(DeclineOfferRequest) returns (DeclineOfferResponse);
+  rpc GetActiveJob(GetActiveJobRequest) returns (GetActiveJobResponse);
+  // Records arrival so waiting time can be paid.
+  rpc ArriveAtRestaurant(ArriveAtRestaurantRequest) returns (ArriveAtRestaurantResponse);
+  // The food isn't ready; returns the kitchen's ready_by.
+  rpc ReportFoodNotReady(ReportFoodNotReadyRequest) returns (ReportFoodNotReadyResponse);
+  // Every item ticked or the bag sealed (reason ITEMS_NOT_CHECKED otherwise).
+  rpc ConfirmPickup(ConfirmPickupRequest) returns (ConfirmPickupResponse);
+  rpc ArriveAtCustomer(ArriveAtCustomerRequest) returns (ArriveAtCustomerResponse);
+  // Proof (code or photo) and cash. Errors: DELIVERY_CODE_MISMATCH, CASH_SHORT.
+  rpc CompleteDelivery(CompleteDeliveryRequest) returns (CompleteDeliveryResponse);
+  // Quick reply to the customer through masked messaging (notification sends it).
+  rpc SendCustomerMessage(SendCustomerMessageRequest) returns (SendCustomerMessageResponse);
+  rpc ListTrips(ListTripsRequest) returns (ListTripsResponse);
+  rpc GetTrip(GetTripRequest) returns (GetTripResponse);
+  // Trip-count bonuses and boosts in progress.
+  rpc ListQuests(ListQuestsRequest) returns (ListQuestsResponse);
+}
+
+// Admin console: live dashboard and order interventions.
+service DispatchOpsService {
+  rpc GetLiveSnapshot(GetLiveSnapshotRequest) returns (GetLiveSnapshotResponse);
+  rpc ListNearbyRiders(ListNearbyRidersRequest) returns (ListNearbyRidersResponse);
+  // The new rider has to collect it again if it was already picked up.
+  rpc ReassignRider(ReassignRiderRequest) returns (ReassignRiderResponse);
+  rpc GetDelivery(GetDeliveryRequest) returns (GetDeliveryResponse);
+}
+
+// Riders: profile, documents, onboarding, and the admin fleet screens.
+service RiderService {
+  rpc GetRiderProfile(GetRiderProfileRequest) returns (GetRiderProfileResponse);
+  rpc ListRiderDocuments(ListRiderDocumentsRequest) returns (ListRiderDocumentsResponse);
+  rpc SubmitRiderApplication(SubmitRiderApplicationRequest) returns (SubmitRiderApplicationResponse);
+  rpc GetRiderApplicationStatus(GetRiderApplicationStatusRequest) returns (GetRiderApplicationStatusResponse);
+  // Re-upload the document the reviewer asked about.
+  rpc ResubmitRiderDocument(ResubmitRiderDocumentRequest) returns (ResubmitRiderDocumentResponse);
+  // Admin.
+  rpc ListRiders(ListRidersRequest) returns (ListRidersResponse);
+  rpc GetRider(GetRiderRequest) returns (GetRiderResponse);
+  rpc ListRiderApplications(ListRiderApplicationsRequest) returns (ListRiderApplicationsResponse);
+  rpc ReviewRiderDocument(ReviewRiderDocumentRequest) returns (ReviewRiderDocumentResponse);
+  // Approve only when every document is approved (reason DOCUMENTS_NOT_APPROVED).
+  rpc DecideRiderApplication(DecideRiderApplicationRequest) returns (DecideRiderApplicationResponse);
+  rpc SetRiderZones(SetRiderZonesRequest) returns (SetRiderZonesResponse);
+  rpc SetRiderSuspended(SetRiderSuspendedRequest) returns (SetRiderSuspendedResponse);
+}
+
+// =====================================================================================================
+// Deliveries and offers
+// =====================================================================================================
+
+enum DeliveryStatus {
+  DELIVERY_STATUS_UNSPECIFIED = 0;
+  // Looking for a rider.
+  DELIVERY_STATUS_MATCHING = 1;
+  DELIVERY_STATUS_ASSIGNED = 2;
+  DELIVERY_STATUS_AT_RESTAURANT = 3;
+  DELIVERY_STATUS_PICKED_UP = 4;
+  DELIVERY_STATUS_AT_CUSTOMER = 5;
+  DELIVERY_STATUS_DELIVERED = 6;
+  DELIVERY_STATUS_CANCELLED = 7;
+  // No rider accepted after every round; ops must step in.
+  DELIVERY_STATUS_UNMATCHED = 8;
+}
+
+message RiderPay {
+  kade.common.v1.Money base = 1;
+  kade.common.v1.Money distance = 2;
+  kade.common.v1.Money tip = 3;
+  // Busy-time or quest boost paid on this trip.
+  kade.common.v1.Money boost = 4;
+  kade.common.v1.Money total = 5;
+}
+
+message PickupStop {
+  string restaurant_id = 1;
+  string name = 2;
+  string area = 3;
+  string address = 4;
+  string phone = 5;
+  kade.common.v1.GeoPoint location = 6;
+}
+
+message DropoffStop {
+  string first_name = 1;
+  string area = 2;
+  string address = 3;
+  // Standing note / rider note from the order.
+  string note = 4;
+  // Calls go through Kadé so neither side sees the other's number.
+  string masked_phone = 5;
+  kade.common.v1.GeoPoint location = 6;
+}
+
+message DeliveryItem {
+  string id = 1;
+  int32 quantity = 2;
+  string name = 3;
+  // "Large, extra cheese".
+  string options = 4;
+}
+
+enum ProofKind {
+  PROOF_KIND_UNSPECIFIED = 0;
+  // Customer read the delivery code from the app.
+  PROOF_KIND_CODE = 1;
+  PROOF_KIND_PHOTO = 2;
+}
+
+message Delivery {
+  string id = 1;
+  string order_id = 2;
+  string order_number = 3;
+  string zone_id = 4;
+  DeliveryStatus status = 5;
+  // Unset while matching.
+  string rider_id = 6;
+  PickupStop pickup = 7;
+  DropoffStop dropoff = 8;
+  double to_pickup_km = 9;
+  double trip_km = 10;
+  // Minutes for the whole job.
+  int32 minutes = 11;
+  RiderPay pay = 12;
+  kade.common.v1.PaymentMethodKind payment = 13;
+  // What the rider collects at the door; zero for card orders.
+  kade.common.v1.Money cash_to_collect = 14;
+  // The note the customer said they'll pay with.
+  kade.common.v1.Money customer_pays_with = 15;
+  repeated DeliveryItem items = 16;
+  // The kitchen sealed the bag.
+  bool sealed = 17;
+  google.protobuf.Timestamp ready_by = 18;
+  google.protobuf.Timestamp requested_at = 19;
+  google.protobuf.Timestamp assigned_at = 20;
+  google.protobuf.Timestamp arrived_at_restaurant_at = 21;
+  google.protobuf.Timestamp picked_up_at = 22;
+  google.protobuf.Timestamp arrived_at_customer_at = 23;
+  google.protobuf.Timestamp delivered_at = 24;
+  ProofKind proof = 25;
+  string proof_photo_ref = 26;
+  kade.common.v1.Money cash_collected = 27;
+  // Matching rounds so far.
+  int32 attempts = 28;
+}
+
+enum OfferStatus {
+  OFFER_STATUS_UNSPECIFIED = 0;
+  OFFER_STATUS_OFFERED = 1;
+  OFFER_STATUS_ACCEPTED = 2;
+  OFFER_STATUS_DECLINED = 3;
+  OFFER_STATUS_EXPIRED = 4;
+  // Order cancelled or reassigned while the offer was open.
+  OFFER_STATUS_WITHDRAWN = 5;
+}
+
+// A job offered to one rider at a time.
+message DeliveryOffer {
+  string id = 1;
+  string delivery_id = 2;
+  string rider_id = 3;
+  // Job preview (rider_id unset inside).
+  Delivery delivery = 4;
+  // Rider's position when the offer was made: start of the pickup leg.
+  kade.common.v1.GeoPoint from = 5;
+  google.protobuf.Timestamp offered_at = 6;
+  // offered_at + 30 s.
+  google.protobuf.Timestamp expires_at = 7;
+  OfferStatus status = 8;
+  string decline_reason = 9;
+  // Minutes the kitchen still needs if the rider arrives before the food is ready.
+  int32 not_ready_minutes = 10;
+}
+
+message Trip {
+  // Delivery id.
+  string id = 1;
+  string order_number = 2;
+  string restaurant_name = 3;
+  string pickup_area = 4;
+  string dropoff_area = 5;
+  string customer_first_name = 6;
+  double km = 7;
+  RiderPay pay = 8;
+  kade.common.v1.PaymentMethodKind payment = 9;
+  kade.common.v1.Money cash_collected = 10;
+  google.protobuf.Timestamp accepted_at = 11;
+  google.protobuf.Timestamp arrived_at_restaurant_at = 12;
+  google.protobuf.Timestamp picked_up_at = 13;
+  google.protobuf.Timestamp delivered_at = 14;
+  ProofKind proof = 15;
+  // Stars the customer gave the rider (review), 0 if none.
+  int32 customer_rating = 16;
+  kade.common.v1.GeoPoint from = 17;
+  kade.common.v1.GeoPoint pickup_point = 18;
+  kade.common.v1.GeoPoint dropoff_point = 19;
+}
+
+message Quest {
+  string id = 1;
+  string title = 2;
+  string detail = 3;
+  int32 done = 4;
+  int32 target = 5;
+  kade.common.v1.Money bonus = 6;
+  google.protobuf.Timestamp ends_at = 7;
+}
+
+message SetAvailabilityRequest {
+  string rider_id = 1;
+  bool online = 2;
+  kade.common.v1.GeoPoint position = 3;
+}
+
+message SetAvailabilityResponse {
+  Rider rider = 1;
+  // False while over the cash limit: only card orders until a deposit.
+  bool cash_allowed = 2;
+}
+
+message GetCurrentOfferRequest {
+  string rider_id = 1;
+}
+
+message GetCurrentOfferResponse {
+  // Unset when no offer is open.
+  DeliveryOffer offer = 1;
+}
+
+message AcceptOfferRequest {
+  string rider_id = 1;
+  string offer_id = 2;
+  string idempotency_key = 3;
+}
+
+message AcceptOfferResponse {
+  Delivery delivery = 1;
+}
+
+message DeclineOfferRequest {
+  string rider_id = 1;
+  string offer_id = 2;
+  // "Too far", "Pay is too low", "Don't want cash orders", "Heading home", "Vehicle problem".
+  string reason = 3;
+}
+
+message DeclineOfferResponse {}
+
+message GetActiveJobRequest {
+  string rider_id = 1;
+}
+
+message GetActiveJobResponse {
+  // Unset when the rider has no job.
+  Delivery delivery = 1;
+}
+
+message ArriveAtRestaurantRequest {
+  string rider_id = 1;
+  string delivery_id = 2;
+  string idempotency_key = 3;
+}
+
+message ArriveAtRestaurantResponse {
+  Delivery delivery = 1;
+}
+
+message ReportFoodNotReadyRequest {
+  string rider_id = 1;
+  string delivery_id = 2;
+}
+
+message ReportFoodNotReadyResponse {
+  google.protobuf.Timestamp ready_at = 1;
+}
+
+message ConfirmPickupRequest {
+  string rider_id = 1;
+  string delivery_id = 2;
+  repeated string checked_item_ids = 3;
+  bool sealed = 4;
+  string idempotency_key = 5;
+}
+
+message ConfirmPickupResponse {
+  Delivery delivery = 1;
+}
+
+message ArriveAtCustomerRequest {
+  string rider_id = 1;
+  string delivery_id = 2;
+  string idempotency_key = 3;
+}
+
+message ArriveAtCustomerResponse {
+  Delivery delivery = 1;
+}
+
+message CompleteDeliveryRequest {
+  string rider_id = 1;
+  string delivery_id = 2;
+  ProofKind proof = 3;
+  // PROOF_KIND_CODE: what the customer read out (checked against the order's delivery_code).
+  string code = 4;
+  // PROOF_KIND_PHOTO: uploaded photo.
+  string photo_ref = 5;
+  kade.common.v1.Money cash_collected = 6;
+  string idempotency_key = 7;
+}
+
+message CompleteDeliveryResponse {
+  Trip trip = 1;
+}
+
+message SendCustomerMessageRequest {
+  string rider_id = 1;
+  string delivery_id = 2;
+  string text = 3;
+}
+
+message SendCustomerMessageResponse {}
+
+message ListTripsRequest {
+  string rider_id = 1;
+  google.protobuf.Timestamp from = 2;
+  google.protobuf.Timestamp to = 3;
+  kade.common.v1.PageRequest page = 4;
+}
+
+message ListTripsResponse {
+  // Newest first.
+  repeated Trip trips = 1;
+  kade.common.v1.PageResponse page = 2;
+}
+
+message GetTripRequest {
+  string rider_id = 1;
+  string trip_id = 2;
+}
+
+message GetTripResponse {
+  Trip trip = 1;
+}
+
+message ListQuestsRequest {
+  string rider_id = 1;
+}
+
+message ListQuestsResponse {
+  repeated Quest quests = 1;
+}
+
+// =====================================================================================================
+// Ops
+// =====================================================================================================
+
+enum AttentionKind {
+  ATTENTION_KIND_UNSPECIFIED = 0;
+  ATTENTION_KIND_LATE_ORDER = 1;
+  ATTENTION_KIND_RESTAURANT_NOT_ACCEPTING = 2;
+  ATTENTION_KIND_RIDER_CASH = 3;
+  ATTENTION_KIND_RIDERS_SHORT = 4;
+  ATTENTION_KIND_UNMATCHED_DELIVERY = 5;
+}
+
+message AttentionItem {
+  string id = 1;
+  AttentionKind kind = 2;
+  string title = 3;
+  string detail = 4;
+  // Bigger is more urgent.
+  int32 severity = 5;
+  // What it is about: "order", "restaurant", "rider", "zone".
+  string record_type = 6;
+  string record_id = 7;
+  string phone = 8;
+}
+
+enum DotKind {
+  DOT_KIND_UNSPECIFIED = 0;
+  DOT_KIND_WAITING = 1;
+  DOT_KIND_ON_THE_WAY = 2;
+  DOT_KIND_LATE = 3;
+  DOT_KIND_RIDER = 4;
+}
+
+message MapDot {
+  string id = 1;
+  DotKind kind = 2;
+  string zone_id = 3;
+  kade.common.v1.GeoPoint location = 4;
+  string label = 5;
+}
+
+message HourCount {
+  int32 hour = 1;
+  int32 today = 2;
+  int32 last_week = 3;
+}
+
+message ZoneLoad {
+  string zone_id = 1;
+  string zone_code = 2;
+  int32 orders = 3;
+  int32 riders = 4;
+  int32 riders_needed = 5;
+  bool open = 6;
+}
+
+message LiveSnapshot {
+  google.protobuf.Timestamp at = 1;
+  int32 in_progress = 2;
+  int32 waiting_for_rider = 3;
+  int32 late = 4;
+  int32 riders_online = 5;
+  int32 riders_needed = 6;
+  // Zone with the biggest rider shortfall.
+  string shortest_zone_code = 7;
+  int32 shortest_zone_short = 8;
+  double avg_delivery_minutes = 9;
+  int32 cancellations_today = 10;
+  int32 orders_today = 11;
+  repeated AttentionItem attention = 12;
+  repeated HourCount orders_by_hour = 13;
+  repeated MapDot dots = 14;
+  repeated ZoneLoad zones = 15;
+}
+
+message GetLiveSnapshotRequest {}
+
+message GetLiveSnapshotResponse {
+  LiveSnapshot snapshot = 1;
+}
+
+message NearbyRider {
+  Rider rider = 1;
+  // Straight-line estimate from the restaurant.
+  double km = 2;
+  int32 minutes = 3;
+}
+
+message ListNearbyRidersRequest {
+  string order_id = 1;
+  int32 limit = 2;
+}
+
+message ListNearbyRidersResponse {
+  repeated NearbyRider riders = 1;
+}
+
+message ReassignRiderRequest {
+  string order_id = 1;
+  string rider_id = 2;
+  string reason = 3;
+  // Staff name.
+  string by = 4;
+  string idempotency_key = 5;
+}
+
+message ReassignRiderResponse {
+  Delivery delivery = 1;
+}
+
+message GetDeliveryRequest {
+  string delivery_id = 1;
+  // Alternative lookup.
+  string order_id = 2;
+}
+
+message GetDeliveryResponse {
+  Delivery delivery = 1;
+  repeated DeliveryOffer offers = 2;
+}
+
+// =====================================================================================================
+// Riders
+// =====================================================================================================
+
+enum VehicleType {
+  VEHICLE_TYPE_UNSPECIFIED = 0;
+  VEHICLE_TYPE_MOTORBIKE = 1;
+  VEHICLE_TYPE_TUK_TUK = 2;
+  VEHICLE_TYPE_BICYCLE = 3;
+}
+
+enum RiderStatus {
+  RIDER_STATUS_UNSPECIFIED = 0;
+  RIDER_STATUS_ONLINE = 1;
+  RIDER_STATUS_ON_JOB = 2;
+  RIDER_STATUS_OFFLINE = 3;
+  RIDER_STATUS_SUSPENDED = 4;
+}
+
+message Vehicle {
+  VehicleType type = 1;
+  // "Bajaj Pulsar".
+  string model = 2;
+  string plate = 3;
+}
+
+message Rider {
+  string id = 1;
+  string name = 2;
+  string first_name = 3;
+  string phone = 4;
+  // Proxy number shown to customers and restaurants.
+  string masked_phone = 5;
+  Vehicle vehicle = 6;
+  RiderStatus status = 7;
+  string status_reason = 8;
+  repeated string zone_ids = 9;
+  double rating = 10;
+  int32 rating_count = 11;
+  // 0–1, last 7 days.
+  double acceptance_rate = 12;
+  // From ledger (RiderCashBalanceChanged).
+  kade.common.v1.Money cash_held = 13;
+  kade.common.v1.Money cash_limit = 14;
+  bool cash_allowed = 15;
+  int32 trips_week = 16;
+  google.protobuf.Timestamp joined_at = 17;
+  // Bank details: last4 only.
+  kade.common.v1.BankAccount bank = 18;
+  // Reference to quote when depositing cash.
+  string deposit_reference = 19;
+  repeated kade.common.v1.PartnerDocument documents = 20;
+  // Last known position (location) and its zone.
+  kade.common.v1.GeoPoint position = 21;
+  string position_zone_id = 22;
+  google.protobuf.Timestamp last_seen_at = 23;
+}
+
+message RiderApplication {
+  string id = 1;
+  string name = 2;
+  string nic = 3;
+  string phone = 4;
+  string city = 5;
+  VehicleType vehicle = 6;
+  repeated string zone_ids = 7;
+  // licence, revenue, insurance, nicFront, nicBack (bicycles have no revenue licence).
+  repeated kade.common.v1.PartnerDocument documents = 8;
+  kade.common.v1.BankAccount bank = 9;
+  // Safety lessons completed in the app.
+  repeated string lessons = 10;
+  kade.common.v1.ApplicationStatus status = 11;
+  string decision_note = 12;
+  google.protobuf.Timestamp submitted_at = 13;
+  google.protobuf.Timestamp decided_at = 14;
+  // Set on approval.
+  string rider_id = 15;
+}
+
+message GetRiderProfileRequest {
+  string rider_id = 1;
+}
+
+message GetRiderProfileResponse {
+  Rider rider = 1;
+}
+
+message ListRiderDocumentsRequest {
+  string rider_id = 1;
+}
+
+message ListRiderDocumentsResponse {
+  repeated kade.common.v1.PartnerDocument documents = 1;
+}
+
+message SubmitRiderApplicationRequest {
+  string name = 1;
+  string nic = 2;
+  string phone = 3;
+  string city = 4;
+  VehicleType vehicle = 5;
+  repeated kade.common.v1.PartnerDocument documents = 6;
+  kade.common.v1.BankAccount bank = 7;
+  repeated string lessons = 8;
+  string idempotency_key = 9;
+}
+
+message SubmitRiderApplicationResponse {
+  RiderApplication application = 1;
+}
+
+message GetRiderApplicationStatusRequest {
+  string phone = 1;
+}
+
+message GetRiderApplicationStatusResponse {
+  // Unset when the number has not applied.
+  RiderApplication application = 1;
+  // CHANGES_REQUESTED: the document to fix (its reject_reason says why).
+  kade.common.v1.PartnerDocument needs_fix = 2;
+}
+
+message ResubmitRiderDocumentRequest {
+  string application_id = 1;
+  string document_kind = 2;
+  string file_name = 3;
+  string file_ref = 4;
+}
+
+message ResubmitRiderDocumentResponse {
+  RiderApplication application = 1;
+}
+
+message ListRidersRequest {
+  RiderStatus status = 1;
+  string zone_id = 2;
+  string query = 3;
+  // Only riders holding more cash than their limit.
+  bool over_cash_limit = 4;
+  kade.common.v1.PageRequest page = 5;
+}
+
+message ListRidersResponse {
+  repeated Rider riders = 1;
+  kade.common.v1.PageResponse page = 2;
+}
+
+message GetRiderRequest {
+  string rider_id = 1;
+}
+
+message GetRiderResponse {
+  Rider rider = 1;
+}
+
+message ListRiderApplicationsRequest {
+  kade.common.v1.ApplicationStatus status = 1;
+  kade.common.v1.PageRequest page = 2;
+}
+
+message ListRiderApplicationsResponse {
+  repeated RiderApplication applications = 1;
+  kade.common.v1.PageResponse page = 2;
+}
+
+message ReviewRiderDocumentRequest {
+  // Application or rider (for renewals of approved riders' documents).
+  string application_id = 1;
+  string rider_id = 2;
+  string document_id = 3;
+  kade.common.v1.DocumentStatus status = 4;
+  string reject_reason = 5;
+}
+
+message ReviewRiderDocumentResponse {
+  repeated kade.common.v1.PartnerDocument documents = 1;
+}
+
+message DecideRiderApplicationRequest {
+  string application_id = 1;
+  kade.common.v1.ApplicationStatus decision = 2;
+  string note = 3;
+  string idempotency_key = 4;
+}
+
+message DecideRiderApplicationResponse {
+  RiderApplication application = 1;
+}
+
+message SetRiderZonesRequest {
+  string rider_id = 1;
+  // At least one (reason ZONES_REQUIRED).
+  repeated string zone_ids = 2;
+}
+
+message SetRiderZonesResponse {
+  Rider rider = 1;
+}
+
+message SetRiderSuspendedRequest {
+  string rider_id = 1;
+  bool suspended = 2;
+  string reason = 3;
+}
+
+message SetRiderSuspendedResponse {
+  Rider rider = 1;
+}
+
+// Used by events: a rider as customers and restaurants see them.
+message RiderCard {
+  string rider_id = 1;
+  string name = 2;
+  string first_name = 3;
+  double rating = 4;
+  string vehicle = 5;
+  string plate = 6;
+  string masked_phone = 7;
+  // Real number for ops consumers only.
+  string phone = 8;
+}

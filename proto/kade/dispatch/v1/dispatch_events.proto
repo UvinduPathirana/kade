@@ -1,0 +1,164 @@
+syntax = "proto3";
+
+package kade.dispatch.v1;
+
+import "google/protobuf/timestamp.proto";
+import "kade/common/v1/money.proto";
+import "kade/common/v1/types.proto";
+import "kade/dispatch/v1/dispatch_service.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.dispatch.v1";
+
+// ---------- kade.delivery.events (aggregatetype "delivery", key = delivery_id) ----------
+// One delivery per order (reassignment keeps the delivery and changes the rider). Every event carries
+// order_id so order, realtime and notification can route without a lookup.
+
+// Matching started (from OrderAccepted).
+message DeliveryRequested {
+  string delivery_id = 1;
+  string order_id = 2;
+  Delivery delivery = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+}
+
+// Offer pushed to one rider (realtime → that rider's socket). Expires after 30 s.
+message DeliveryOfferSent {
+  string delivery_id = 1;
+  string order_id = 2;
+  DeliveryOffer offer = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+}
+
+message DeliveryOfferDeclined {
+  string delivery_id = 1;
+  string order_id = 2;
+  string offer_id = 3;
+  string rider_id = 4;
+  string reason = 5;
+  google.protobuf.Timestamp occurred_at = 6;
+}
+
+// The 30 s timer fired; dispatch offers the next rider.
+message DeliveryOfferExpired {
+  string delivery_id = 1;
+  string order_id = 2;
+  string offer_id = 3;
+  string rider_id = 4;
+  google.protobuf.Timestamp occurred_at = 5;
+}
+
+// Offer accepted or ops reassigned. Order stores the rider for the customer's tracking screen and the
+// kitchen ticket; notification tells the customer.
+message RiderAssigned {
+  string delivery_id = 1;
+  string order_id = 2;
+  string order_number = 3;
+  string restaurant_id = 4;
+  RiderCard rider = 5;
+  // Estimated arrival at the counter.
+  google.protobuf.Timestamp arrives_at_restaurant_at = 6;
+  // True when ops assigned the rider.
+  bool reassigned = 7;
+  string reason = 8;
+  google.protobuf.Timestamp occurred_at = 9;
+}
+
+// Rider removed from the job (reassignment, rider gave up); matching resumes unless reassigned.
+message RiderUnassigned {
+  string delivery_id = 1;
+  string order_id = 2;
+  string rider_id = 3;
+  string reason = 4;
+  google.protobuf.Timestamp occurred_at = 5;
+}
+
+message RiderArrivedAtRestaurant {
+  string delivery_id = 1;
+  string order_id = 2;
+  string restaurant_id = 3;
+  string rider_id = 4;
+  google.protobuf.Timestamp occurred_at = 5;
+}
+
+// Rider confirmed pickup. Order → PICKED_UP and captures card payment.
+message DeliveryPickedUp {
+  string delivery_id = 1;
+  string order_id = 2;
+  string restaurant_id = 3;
+  string rider_id = 4;
+  bool sealed = 5;
+  google.protobuf.Timestamp occurred_at = 6;
+}
+
+message RiderArrivedAtCustomer {
+  string delivery_id = 1;
+  string order_id = 2;
+  string rider_id = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+}
+
+// Done. Order → DELIVERED; payment records cash collected (cash orders); ledger credits rider pay and
+// cash held; review asks the customer to rate.
+message DeliveryCompleted {
+  string delivery_id = 1;
+  string order_id = 2;
+  string order_number = 3;
+  string rider_id = 4;
+  Delivery delivery = 5;
+  ProofKind proof = 6;
+  kade.common.v1.Money cash_collected = 7;
+  RiderPay pay = 8;
+  double km = 9;
+  string zone_id = 10;
+  google.protobuf.Timestamp occurred_at = 11;
+}
+
+// No rider after every round; ops attention item. Order may cancel (CANCELLED_BY_SYSTEM, FAULT_KADE).
+message DeliveryMatchingFailed {
+  string delivery_id = 1;
+  string order_id = 2;
+  int32 attempts = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+}
+
+// Order cancelled while the delivery was open.
+message DeliveryCancelled {
+  string delivery_id = 1;
+  string order_id = 2;
+  string rider_id = 3;
+  string reason = 4;
+  // Rider is still paid for the trip so far (e.g. already at the restaurant).
+  RiderPay compensation = 5;
+  google.protobuf.Timestamp occurred_at = 6;
+}
+
+// ---------- Rider lifecycle (proposed topic kade.rider.events, aggregatetype "rider", key = rider_id) ----
+// The registry lists only kade.delivery.events for dispatch; these are rider-aggregate events and need
+// their own topic so keys stay per aggregate. Until the registry adds kade.rider.events, publish them
+// with aggregatetype "rider".
+
+message RiderApplicationSubmitted {
+  string application_id = 1;
+  RiderApplication application = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+}
+
+// Notification texts the applicant; on approval the rider exists.
+message RiderApplicationDecided {
+  string application_id = 1;
+  RiderApplication application = 2;
+  kade.common.v1.Actor actor = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+}
+
+// Online/offline/on job/suspended, zones changed. realtime updates the ops map.
+message RiderStatusChanged {
+  string rider_id = 1;
+  RiderStatus status = 2;
+  RiderStatus previous = 3;
+  string reason = 4;
+  repeated string zone_ids = 5;
+  kade.common.v1.Actor actor = 6;
+  google.protobuf.Timestamp occurred_at = 7;
+}

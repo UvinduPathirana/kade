@@ -1,0 +1,333 @@
+# Kadé shared infrastructure stack. See docs/backend/RUNBOOK.md.
+#
+#   pnpm infra:up      # = docker compose -f deploy/compose/compose.yaml up -d
+#   pnpm infra:down
+#
+# Profiles (services without a profile always start; that set is "core"):
+#   core        infra only (default, no flag needed)
+#   ordering    cart, pricing, promotion, order, payment, catalog, search, profile, gateway-customer
+#   fulfilment  merchant, dispatch, location, realtime, gateway-merchant, gateway-rider
+#   money       ledger (+ payment, promotion)
+#   engagement  notification, review, support, gateway-admin
+#   obs         reserved for heavier observability add-ons (otel-lgtm itself is always on)
+#   tools       Kafka UI
+#
+# Host ports default to docs/backend/CONVENTIONS.md and can be overridden per machine in
+# deploy/compose/.env (git-ignored), e.g. POSTGRES_HOST_PORT=15432 when a local Postgres owns 5432.
+#
+# Memory: every container has a hard limit (deploy.resources.limits.memory) and every JVM has a
+# heap cap. Measured figures live in the runbook.
+
+name: kade
+
+include:
+  - services.yaml
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: 10m, max-file: "2" }
+
+services:
+  # ---------------------------------------------------------------- data
+  postgres:
+    image: postgres:17.11-alpine
+    command:
+      - postgres
+      - -c
+      - wal_level=logical
+      - -c
+      - max_replication_slots=24
+      - -c
+      - max_wal_senders=24
+      - -c
+      - max_slot_wal_keep_size=1GB # an abandoned Debezium slot cannot fill the disk
+      - -c
+      - max_connections=300
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - work_mem=4MB
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports: ["${POSTGRES_HOST_PORT:-5432}:5432"]
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres && psql -U postgres -tAc 'select 1' -d keycloak >/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    shm_size: 128m
+    deploy: { resources: { limits: { memory: 512m } } }
+    logging: *logging
+    networks: [kade]
+
+  redis:
+    image: redis:7.4.11-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "96mb", "--maxmemory-policy", "noeviction"]
+    ports: ["${REDIS_HOST_PORT:-6379}:6379"]
+    volumes: [redis-data:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    deploy: { resources: { limits: { memory: 128m } } }
+    logging: *logging
+    networks: [kade]
+
+  # ---------------------------------------------------------------- kafka
+  kafka:
+    image: apache/kafka:4.3.1
+    hostname: kafka
+    environment:
+      CLUSTER_ID: a2FkZS1kZXYta3JhZnQtMQ
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: INTERNAL://:9092,EXTERNAL://:19092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:${KAFKA_HOST_PORT:-19092}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_NUM_PARTITIONS: 6
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_OFFSETS_TOPIC_NUM_PARTITIONS: 10
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_SHARE_COORDINATOR_STATE_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_SHARE_COORDINATOR_STATE_TOPIC_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_HEAP_OPTS: -Xms256m -Xmx512m
+    ports: ["${KAFKA_HOST_PORT:-19092}:19092"]
+    volumes: [kafka-data:/var/lib/kafka/data]
+    healthcheck:
+      test: ["CMD-SHELL", "KAFKA_HEAP_OPTS=-Xmx64m /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 15s
+      retries: 20
+      start_period: 15s
+    deploy: { resources: { limits: { memory: 1g } } }
+    logging: *logging
+    networks: [kade]
+
+  kafka-init:
+    image: apache/kafka:4.3.1
+    entrypoint: ["/bin/bash", "/scripts/create-topics.sh"]
+    environment:
+      KAFKA_HEAP_OPTS: -Xmx128m
+      BOOTSTRAP: kafka:9092
+    volumes: [./kafka/create-topics.sh:/scripts/create-topics.sh:ro]
+    depends_on:
+      kafka: { condition: service_healthy }
+    restart: "no"
+    deploy: { resources: { limits: { memory: 256m } } }
+    logging: *logging
+    networks: [kade]
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:8.2.4
+    hostname: schema-registry
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:9092
+      SCHEMA_REGISTRY_KAFKASTORE_TOPIC_REPLICATION_FACTOR: 1
+      SCHEMA_REGISTRY_HEAP_OPTS: -Xms64m -Xmx192m
+    ports: ["${SCHEMA_REGISTRY_HOST_PORT:-8085}:8081"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/subjects"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+    depends_on:
+      kafka: { condition: service_healthy }
+    deploy: { resources: { limits: { memory: 384m } } }
+    logging: *logging
+    networks: [kade]
+
+  connect:
+    image: quay.io/debezium/connect:3.7.0.Final
+    hostname: connect
+    environment:
+      BOOTSTRAP_SERVERS: kafka:9092
+      GROUP_ID: kade-connect
+      CONFIG_STORAGE_TOPIC: _connect_configs
+      OFFSET_STORAGE_TOPIC: _connect_offsets
+      STATUS_STORAGE_TOPIC: _connect_status
+      CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      STATUS_STORAGE_REPLICATION_FACTOR: 1
+      OFFSET_FLUSH_INTERVAL_MS: 5000
+      CONNECT_REST_ADVERTISED_HOST_NAME: connect
+      HEAP_OPTS: -Xms128m -Xmx512m
+    ports: ["${CONNECT_HOST_PORT:-8083}:8083"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8083/connectors"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    depends_on:
+      kafka: { condition: service_healthy }
+      kafka-init: { condition: service_completed_successfully }
+      postgres: { condition: service_healthy }
+    deploy: { resources: { limits: { memory: 1g } } }
+    logging: *logging
+    networks: [kade]
+
+  # ---------------------------------------------------------------- temporal
+  temporal:
+    # auto-setup is the last image line that creates schema + namespace on boot (1.29.x).
+    image: temporalio/auto-setup:1.29.7
+    hostname: temporal
+    environment:
+      DB: postgres12
+      DB_PORT: 5432
+      POSTGRES_SEEDS: postgres
+      POSTGRES_USER: temporal
+      POSTGRES_PWD: temporal
+      DBNAME: temporal
+      VISIBILITY_DBNAME: temporal_visibility
+      SKIP_DB_CREATE: "true" # created by postgres/init
+      DEFAULT_NAMESPACE: kade
+      DEFAULT_NAMESPACE_RETENTION: 72h
+      NUM_HISTORY_SHARDS: 4
+      DYNAMIC_CONFIG_FILE_PATH: /etc/temporal/config/dynamicconfig/kade.yaml
+    ports: ["${TEMPORAL_HOST_PORT:-7233}:7233"]
+    volumes: [./temporal/dynamicconfig.yaml:/etc/temporal/config/dynamicconfig/kade.yaml:ro]
+    healthcheck:
+      test: ["CMD-SHELL", "temporal operator namespace describe -n kade --address $$(hostname -i):7233 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    depends_on:
+      postgres: { condition: service_healthy }
+    deploy: { resources: { limits: { memory: 512m } } }
+    logging: *logging
+    networks: [kade]
+
+  temporal-admin-tools:
+    # CLI box: docker compose -f deploy/compose/compose.yaml exec temporal-admin-tools temporal ...
+    image: temporalio/admin-tools:1.29.7-tctl-1.18.4-cli-1.7.2
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: kade
+      TEMPORAL_CLI_ADDRESS: temporal:7233
+    entrypoint: ["sleep", "infinity"]
+    depends_on:
+      temporal: { condition: service_healthy }
+    deploy: { resources: { limits: { memory: 64m } } }
+    logging: *logging
+    networks: [kade]
+
+  temporal-ui:
+    image: temporalio/ui:2.55.0
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_DEFAULT_NAMESPACE: kade
+      TEMPORAL_CORS_ORIGINS: http://localhost:3000
+    ports: ["${TEMPORAL_UI_HOST_PORT:-8233}:8080"]
+    depends_on:
+      temporal: { condition: service_healthy }
+    deploy: { resources: { limits: { memory: 128m } } }
+    logging: *logging
+    networks: [kade]
+
+  # ---------------------------------------------------------------- identity
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.0
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak
+      KC_DB_POOL_MAX_SIZE: 10
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HEALTH_ENABLED: "true"
+      # Tokens always carry iss=http://localhost:8080/realms/kade (what the browser apps see);
+      # containers can still reach discovery/JWKS on http://keycloak:8080 (backchannel).
+      KC_HOSTNAME: http://localhost:${KEYCLOAK_HOST_PORT:-8080}
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      JAVA_OPTS_KC_HEAP: -Xms64m -Xmx384m -XX:MaxMetaspaceSize=192m
+    ports: ["${KEYCLOAK_HOST_PORT:-8080}:8080"]
+    volumes: [./keycloak/kade-realm.json:/opt/keycloak/data/import/kade-realm.json:ro]
+    healthcheck:
+      # no curl in the image: raw HTTP over bash /dev/tcp to the management port
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '\"UP\"' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 40
+      start_period: 40s
+    depends_on:
+      postgres: { condition: service_healthy }
+    deploy: { resources: { limits: { memory: 768m } } }
+    logging: *logging
+    networks: [kade]
+
+  # ---------------------------------------------------------------- observability
+  otel:
+    # Grafana + OTel Collector + Tempo + Loki + Prometheus in one container. The OTLP endpoint
+    # every service sends to (http://otel:4318), so it is part of the default stack.
+    image: grafana/otel-lgtm:0.36.0
+    hostname: otel
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      # Six Go processes (Grafana, collector, Tempo, Loki, Prometheus, Pyroscope): a soft per-process
+      # limit makes their GC give memory back instead of growing to the container cap.
+      GOMEMLIMIT: 128MiB
+    ports:
+      - "${GRAFANA_HOST_PORT:-3000}:3000"
+      - "${OTLP_GRPC_HOST_PORT:-4317}:4317"
+      - "${OTLP_HTTP_HOST_PORT:-4318}:4318"
+    volumes: [otel-data:/data]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3000/api/health >/dev/null && curl -s -o /dev/null http://localhost:4318/v1/traces"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    deploy: { resources: { limits: { memory: 1g } } }
+    logging: *logging
+    networks: [kade]
+
+  # ---------------------------------------------------------------- tools profile
+  kafka-ui:
+    image: kafbat/kafka-ui:v1.5.0
+    profiles: [tools]
+    environment:
+      KAFKA_CLUSTERS_0_NAME: kade
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: debezium
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: http://connect:8083
+      DYNAMIC_CONFIG_ENABLED: "false"
+      JAVA_OPTS: -Xms64m -Xmx256m
+    ports: ["${KAFKA_UI_HOST_PORT:-8090}:8080"]
+    depends_on:
+      kafka: { condition: service_healthy }
+    deploy: { resources: { limits: { memory: 384m } } }
+    logging: *logging
+    networks: [kade]
+
+networks:
+  kade:
+    name: kade
+
+volumes:
+  postgres-data:
+  redis-data:
+  kafka-data:
+  otel-data:

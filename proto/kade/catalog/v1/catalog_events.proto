@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package kade.catalog.v1;
+
+import "google/protobuf/timestamp.proto";
+import "kade/catalog/v1/catalog_service.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.catalog.v1";
+
+// ---------- kade.restaurant.events (aggregatetype "restaurant", key = restaurant_id) ----------
+// Snapshot-style events: consumers (search, merchant, order) can rebuild their projection from the
+// latest event alone. Restaurant.delivery_fee and distance_km are not set in events.
+
+message RestaurantCreated {
+  string restaurant_id = 1;
+  Restaurant restaurant = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+}
+
+// Any change to details, rating, offer label or derived fields. Carries the full snapshot.
+message RestaurantUpdated {
+  string restaurant_id = 1;
+  Restaurant restaurant = 2;
+  // Top-level field names that changed, e.g. ["name", "rating"]; informational.
+  repeated string changed_fields = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+}
+
+// Opened, closed, paused, resumed, suspended, or busy mode changed. realtime pushes it to the feed.
+message RestaurantAvailabilityChanged {
+  string restaurant_id = 1;
+  RestaurantAvailability availability = 2;
+  RestaurantAvailability previous = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+}
+
+message RestaurantHoursChanged {
+  string restaurant_id = 1;
+  repeated DayHours hours = 2;
+  repeated Closure closures = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+}
+
+// ---------- kade.menu.events (aggregatetype "menu", key = restaurant_id) ----------
+
+// Any structural menu change (item saved/deleted, section added/moved, option group changed).
+// Carries the whole menu so search can re-index a restaurant from one event.
+message MenuUpdated {
+  string restaurant_id = 1;
+  Menu menu = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+}
+
+// Sold out / back in stock. Small and frequent; realtime greys the dish out on open restaurant pages.
+message MenuItemAvailabilityChanged {
+  string restaurant_id = 1;
+  string item_id = 2;
+  string item_name = 3;
+  bool sold_out = 4;
+  google.protobuf.Timestamp sold_out_until = 5;
+  // Menu version after the change.
+  int64 menu_version = 6;
+  google.protobuf.Timestamp occurred_at = 7;
+}

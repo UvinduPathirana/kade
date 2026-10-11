@@ -1,0 +1,22 @@
+# Service fragments. Each service owns services/<name>/compose.yaml and the lead enables it here.
+#
+# A fragment must:
+#   - put its service in exactly one profile (ordering | fulfilment | money | engagement), so
+#     `pnpm infra:up` keeps starting infra only;
+#   - join the shared network:     networks: [kade]   plus   networks: { kade: { name: kade, external: true } }
+#   - set deploy.resources.limits.memory and a healthcheck (docs/backend/CONVENTIONS.md checklist);
+#   - use in-network addresses (postgres:5432, kafka:9092, temporal:7233, otel:4318, ...).
+#
+# Profile membership (BACKEND.md):
+#   ordering    catalog, search, profile, cart, pricing, promotion, order, payment, gateway-customer
+#   fulfilment  merchant, dispatch, location, realtime, gateway-merchant, gateway-rider
+#   money       ledger (payment, promotion also list `money` as a second profile)
+#   engagement  notification, review, support, gateway-admin
+#   templates   the three service templates (profile `templates`)
+#
+# Paths are relative to this file.
+include: []
+  # Templates (wave 0) - uncomment when the template agents have committed their fragments:
+  # - ../../services/_templates/ts/compose.yaml
+  # - ../../services/_templates/go/compose.yaml
+  # - ../../services/_templates/java/compose.yaml

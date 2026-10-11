@@ -1,0 +1,168 @@
+syntax = "proto3";
+
+package kade.cart.v1;
+
+import "google/protobuf/timestamp.proto";
+import "kade/catalog/v1/catalog_service.proto";
+import "kade/common/v1/address.proto";
+import "kade/common/v1/commerce.proto";
+import "kade/common/v1/money.proto";
+import "kade/pricing/v1/pricing_service.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.cart.v1";
+
+// Cart keeps one cart per customer in Redis (TTL 7 days, refreshed on every write). One restaurant per
+// cart: adding from another restaurant fails with FAILED_PRECONDITION reason CART_OTHER_RESTAURANT
+// unless `replace_cart` is set. Prices in the cart are display snapshots; GetCartQuote and the order
+// saga always re-validate against catalog and re-price with pricing. Publishes no events.
+service CartService {
+  rpc GetCart(GetCartRequest) returns (GetCartResponse);
+  // Adds a dish (merges with an identical line: same item, options and note).
+  rpc AddCartLine(AddCartLineRequest) returns (AddCartLineResponse);
+  // Quantity 0 removes the line.
+  rpc UpdateCartLine(UpdateCartLineRequest) returns (UpdateCartLineResponse);
+  rpc RemoveCartLine(RemoveCartLineRequest) returns (RemoveCartLineResponse);
+  rpc ClearCart(ClearCartRequest) returns (ClearCartResponse);
+  // Checkout choices: mode, address, schedule, payment, promo code, tip, credit, notes.
+  rpc UpdateCheckoutOptions(UpdateCheckoutOptionsRequest) returns (UpdateCheckoutOptionsResponse);
+  // Validates (catalog), checks the promo (promotion) and prices (pricing): the checkout preview.
+  rpc GetCartQuote(GetCartQuoteRequest) returns (GetCartQuoteResponse);
+}
+
+message CartLine {
+  // Stable key: item id + option choice ids + note.
+  string key = 1;
+  string item_id = 2;
+  string name = 3;
+  // Display snapshot: item + paid options.
+  kade.common.v1.Money unit_price = 4;
+  int32 quantity = 5;
+  repeated kade.catalog.v1.SelectedOption options = 6;
+  // Chosen option names in menu order.
+  repeated string choice_names = 7;
+  // The customer's note for this dish.
+  string note = 8;
+  string image_id = 9;
+}
+
+message CheckoutOptions {
+  kade.common.v1.FulfilmentMode mode = 1;
+  // Delivery only.
+  kade.common.v1.Address address = 2;
+  string rider_note = 3;
+  // Note for the whole order to the kitchen.
+  string kitchen_note = 4;
+  bool cutlery = 5;
+  // Unset = as soon as possible.
+  google.protobuf.Timestamp scheduled_for = 6;
+  kade.common.v1.PaymentMethod payment = 7;
+  string promo_code = 8;
+  kade.common.v1.Money tip = 9;
+  bool use_credit = 10;
+  kade.common.v1.SubstitutionPreference substitution = 11;
+}
+
+message Cart {
+  string customer_id = 1;
+  // Empty when the cart has no lines.
+  string restaurant_id = 2;
+  string restaurant_name = 3;
+  repeated CartLine lines = 4;
+  CheckoutOptions options = 5;
+  // Set while this cart is the host's cart for a group order.
+  string group_id = 6;
+  google.protobuf.Timestamp updated_at = 7;
+  google.protobuf.Timestamp expires_at = 8;
+}
+
+message GetCartRequest {
+  string customer_id = 1;
+}
+
+message GetCartResponse {
+  Cart cart = 1;
+}
+
+message AddCartLineRequest {
+  string customer_id = 1;
+  string restaurant_id = 2;
+  string item_id = 3;
+  int32 quantity = 4;
+  repeated kade.catalog.v1.SelectedOption options = 5;
+  string note = 6;
+  // Start a new cart at this restaurant, dropping the current one.
+  bool replace_cart = 7;
+}
+
+message AddCartLineResponse {
+  Cart cart = 1;
+}
+
+message UpdateCartLineRequest {
+  string customer_id = 1;
+  string line_key = 2;
+  int32 quantity = 3;
+  optional string note = 4;
+}
+
+message UpdateCartLineResponse {
+  Cart cart = 1;
+}
+
+message RemoveCartLineRequest {
+  string customer_id = 1;
+  string line_key = 2;
+}
+
+message RemoveCartLineResponse {
+  Cart cart = 1;
+}
+
+message ClearCartRequest {
+  string customer_id = 1;
+}
+
+message ClearCartResponse {
+  Cart cart = 1;
+}
+
+message UpdateCheckoutOptionsRequest {
+  string customer_id = 1;
+  // Replaces all options.
+  CheckoutOptions options = 2;
+}
+
+message UpdateCheckoutOptionsResponse {
+  Cart cart = 1;
+}
+
+message GetCartQuoteRequest {
+  string customer_id = 1;
+}
+
+message PromoCheck {
+  string code = 1;
+  bool ok = 2;
+  // "Rs 100 off".
+  string label = 3;
+  kade.common.v1.Money discount = 4;
+  // Stable reason when not ok, e.g. PROMO_MIN_SUBTOTAL.
+  string error_reason = 5;
+  // User-facing message the app shows under the code field.
+  string error_message = 6;
+}
+
+message GetCartQuoteResponse {
+  Cart cart = 1;
+  kade.pricing.v1.Totals totals = 2;
+  kade.pricing.v1.DeliveryFeeBreakdown delivery_fee_breakdown = 3;
+  kade.pricing.v1.DeliveryFeeWaiver waiver = 4;
+  // Line-level problems (sold out, option no longer valid).
+  repeated kade.catalog.v1.ValidatedLine lines = 5;
+  kade.catalog.v1.RestaurantProblem restaurant_problem = 6;
+  string restaurant_problem_message = 7;
+  PromoCheck promo = 8;
+  kade.common.v1.Money credit_balance = 9;
+  bool out_of_zone = 10;
+}

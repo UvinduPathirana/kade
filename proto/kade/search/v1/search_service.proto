@@ -1,0 +1,89 @@
+syntax = "proto3";
+
+package kade.search.v1;
+
+import "google/protobuf/timestamp.proto";
+import "kade/catalog/v1/catalog_service.proto";
+import "kade/common/v1/types.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.search.v1";
+
+// Search is a CQRS projection: it consumes kade.restaurant.events and kade.menu.events (snapshot
+// events, so a restaurant re-indexes from its latest event) and never calls catalog on the read path.
+// It also owns the place index used by the address picker. It publishes no events.
+service SearchService {
+  // Dishes and restaurants matching every word of the query; open places and name matches first,
+  // sold-out dishes after available ones.
+  rpc Search(SearchRequest) returns (SearchResponse);
+  // Suggestions under the empty search box.
+  rpc ListPopularSearches(ListPopularSearchesRequest) returns (ListPopularSearchesResponse);
+  // Address picker: places/landmarks matching the query, each marked in or out of the delivery zone.
+  rpc SearchPlaces(SearchPlacesRequest) returns (SearchPlacesResponse);
+  // Reverse lookup for a dragged pin: the nearest named place.
+  rpc ReverseGeocode(ReverseGeocodeRequest) returns (ReverseGeocodeResponse);
+  // Ops: drop the projection and rebuild it by replaying the catalog topics from the beginning.
+  rpc RebuildIndex(RebuildIndexRequest) returns (RebuildIndexResponse);
+}
+
+message DishHit {
+  kade.catalog.v1.MenuItem item = 1;
+  kade.catalog.v1.Restaurant restaurant = 2;
+}
+
+message SearchRequest {
+  string query = 1;
+  kade.common.v1.GeoPoint deliver_to = 2;
+  // Default 40 dishes.
+  int32 max_dishes = 3;
+  kade.common.v1.PageRequest page = 4;
+}
+
+message SearchResponse {
+  string query = 1;
+  repeated DishHit dishes = 2;
+  repeated kade.catalog.v1.Restaurant restaurants = 3;
+  kade.common.v1.PageResponse page = 4;
+}
+
+message ListPopularSearchesRequest {}
+
+message ListPopularSearchesResponse {
+  repeated string queries = 1;
+}
+
+message Place {
+  string id = 1;
+  string name = 2;
+  // Second line, e.g. "Kollupitiya, Colombo 03".
+  string detail = 3;
+  string area = 4;
+  kade.common.v1.GeoPoint location = 5;
+  // Inside a delivery zone that is open (Colombo 01–15 and Dehiwala today).
+  bool in_zone = 6;
+  string zone_id = 7;
+}
+
+message SearchPlacesRequest {
+  string query = 1;
+  int32 limit = 2;
+}
+
+message SearchPlacesResponse {
+  // Names that start with the query first.
+  repeated Place places = 1;
+}
+
+message ReverseGeocodeRequest {
+  kade.common.v1.GeoPoint location = 1;
+}
+
+message ReverseGeocodeResponse {
+  Place place = 1;
+}
+
+message RebuildIndexRequest {}
+
+message RebuildIndexResponse {
+  google.protobuf.Timestamp started_at = 1;
+}

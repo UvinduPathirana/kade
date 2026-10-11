@@ -1,0 +1,204 @@
+syntax = "proto3";
+
+package kade.review.v1;
+
+import "google/protobuf/timestamp.proto";
+import "kade/common/v1/types.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.review.v1";
+
+// Review owns ratings: the customer's rating of a delivered order (rider stars and tags, thumbs per
+// dish, restaurant stars, comment), restaurant reviews with one editable public reply, rider rating
+// summaries, and riders' feedback on customers/restaurants. It consumes OrderDelivered/OrderCollected
+// to know who may rate what (and to snapshot names), and publishes kade.review.events, from which
+// catalog/search (restaurant rating) and dispatch (rider rating) update their projections.
+service ReviewService {
+  // One per order, by its customer, after DELIVERED/COLLECTED (reason ORDER_NOT_RATEABLE);
+  // a second call replaces the first within 7 days.
+  rpc SubmitOrderRating(SubmitOrderRatingRequest) returns (SubmitOrderRatingResponse);
+  rpc BatchGetOrderRatings(BatchGetOrderRatingsRequest) returns (BatchGetOrderRatingsResponse);
+  // Customer restaurant page and restaurant app reviews tab.
+  rpc ListRestaurantReviews(ListRestaurantReviewsRequest) returns (ListRestaurantReviewsResponse);
+  // Posts or replaces the outlet's reply; empty text removes it.
+  rpc ReplyToReview(ReplyToReviewRequest) returns (ReplyToReviewResponse);
+  rpc GetRestaurantRatingSummary(GetRestaurantRatingSummaryRequest) returns (GetRestaurantRatingSummaryResponse);
+  // Share of thumbs-up per dish (menu "liked by 92%").
+  rpc GetDishRatings(GetDishRatingsRequest) returns (GetDishRatingsResponse);
+  // Rider app ratings screen.
+  rpc GetRiderRatingsSummary(GetRiderRatingsSummaryRequest) returns (GetRiderRatingsSummaryResponse);
+  // The rider's thumbs on the customer and the restaurant after a trip.
+  rpc SubmitTripFeedback(SubmitTripFeedbackRequest) returns (SubmitTripFeedbackResponse);
+}
+
+enum Thumb {
+  THUMB_UNSPECIFIED = 0;
+  THUMB_UP = 1;
+  THUMB_DOWN = 2;
+}
+
+message DishRating {
+  string item_id = 1;
+  string item_name = 2;
+  Thumb thumb = 3;
+}
+
+message OrderRating {
+  string order_id = 1;
+  string order_number = 2;
+  string customer_id = 3;
+  string restaurant_id = 4;
+  // Delivery orders only.
+  string rider_id = 5;
+  // 1–5; 0 = not rated.
+  int32 rider_stars = 6;
+  // Compliments or problems, e.g. "Friendly", "Careful with food", "Late".
+  repeated string rider_tags = 7;
+  repeated DishRating dishes = 8;
+  // 1–5; 0 = not rated.
+  int32 restaurant_stars = 9;
+  string comment = 10;
+  google.protobuf.Timestamp rated_at = 11;
+}
+
+message ReviewReply {
+  string text = 1;
+  google.protobuf.Timestamp at = 2;
+  string by = 3;
+}
+
+// A restaurant review as shown publicly: derived from an OrderRating with restaurant stars.
+message Review {
+  string id = 1;
+  string order_id = 2;
+  string restaurant_id = 3;
+  // "Nadeesha P."
+  string customer_name = 4;
+  // Dish the review is about (first rated dish).
+  string dish = 5;
+  int32 stars = 6;
+  string text = 7;
+  google.protobuf.Timestamp created_at = 8;
+  ReviewReply reply = 9;
+}
+
+message SubmitOrderRatingRequest {
+  string order_id = 1;
+  string customer_id = 2;
+  int32 rider_stars = 3;
+  repeated string rider_tags = 4;
+  repeated DishRating dishes = 5;
+  int32 restaurant_stars = 6;
+  string comment = 7;
+  string idempotency_key = 8;
+}
+
+message SubmitOrderRatingResponse {
+  OrderRating rating = 1;
+}
+
+message BatchGetOrderRatingsRequest {
+  repeated string order_ids = 1;
+}
+
+message BatchGetOrderRatingsResponse {
+  repeated OrderRating ratings = 1;
+}
+
+message ListRestaurantReviewsRequest {
+  string restaurant_id = 1;
+  // Only reviews with text (customer page).
+  bool with_text_only = 2;
+  bool unreplied_only = 3;
+  // 0 = any.
+  int32 max_stars = 4;
+  kade.common.v1.PageRequest page = 5;
+}
+
+message ListRestaurantReviewsResponse {
+  // Newest first.
+  repeated Review reviews = 1;
+  kade.common.v1.PageResponse page = 2;
+}
+
+message ReplyToReviewRequest {
+  string review_id = 1;
+  // From x-outlet-id; must own the review.
+  string outlet_id = 2;
+  string text = 3;
+  string by = 4;
+}
+
+message ReplyToReviewResponse {
+  Review review = 1;
+}
+
+message RatingSummary {
+  double average = 1;
+  int32 count = 2;
+  // Counts by stars, index 0 = 5 stars … index 4 = 1 star.
+  repeated int32 breakdown = 3;
+}
+
+message GetRestaurantRatingSummaryRequest {
+  string restaurant_id = 1;
+}
+
+message GetRestaurantRatingSummaryResponse {
+  RatingSummary summary = 1;
+}
+
+message DishScore {
+  string item_id = 1;
+  int32 up = 2;
+  int32 down = 3;
+}
+
+message GetDishRatingsRequest {
+  string restaurant_id = 1;
+}
+
+message GetDishRatingsResponse {
+  repeated DishScore dishes = 1;
+}
+
+message TagCount {
+  string label = 1;
+  int32 count = 2;
+}
+
+message ImprovementTip {
+  string label = 1;
+  string detail = 2;
+}
+
+message RecentRiderRating {
+  string id = 1;
+  int32 stars = 2;
+  string comment = 3;
+  google.protobuf.Timestamp at = 4;
+  // Drop-off neighbourhood.
+  string area = 5;
+}
+
+message GetRiderRatingsSummaryRequest {
+  string rider_id = 1;
+}
+
+message GetRiderRatingsSummaryResponse {
+  // Overall plus breakdown of the last 100 ratings.
+  RatingSummary summary = 1;
+  repeated TagCount compliments = 2;
+  repeated ImprovementTip improve = 3;
+  repeated RecentRiderRating recent = 4;
+}
+
+message SubmitTripFeedbackRequest {
+  string rider_id = 1;
+  string delivery_id = 2;
+  string order_id = 3;
+  Thumb customer = 4;
+  Thumb restaurant = 5;
+}
+
+message SubmitTripFeedbackResponse {}

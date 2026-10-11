@@ -1,0 +1,387 @@
+{
+  "realm": "kade",
+  "displayName": "Kadé",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "rememberMe": true,
+  "bruteForceProtected": false,
+  "accessTokenLifespan": 900,
+  "ssoSessionIdleTimeout": 86400,
+  "ssoSessionMaxLifespan": 604800,
+  "defaultRole": {
+    "name": "default-roles-kade",
+    "description": "Default roles",
+    "composite": true,
+    "composites": {
+      "realm": [
+        "offline_access",
+        "uma_authorization",
+        "customer"
+      ]
+    }
+  },
+  "roles": {
+    "realm": [
+      {
+        "name": "customer",
+        "description": "Orders food"
+      },
+      {
+        "name": "merchant_staff",
+        "description": "Works an outlet's kitchen board"
+      },
+      {
+        "name": "merchant_owner",
+        "description": "Owns and configures a restaurant"
+      },
+      {
+        "name": "rider",
+        "description": "Delivers orders"
+      },
+      {
+        "name": "ops",
+        "description": "Operations console"
+      },
+      {
+        "name": "finance",
+        "description": "Payouts, ledger, reconciliation"
+      },
+      {
+        "name": "support",
+        "description": "Customer support tickets"
+      },
+      {
+        "name": "admin",
+        "description": "Platform administrator"
+      },
+      {
+        "name": "offline_access",
+        "description": "${role_offline-access}"
+      },
+      {
+        "name": "uma_authorization",
+        "description": "${role_uma_authorization}"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "customer-app",
+      "name": "Kadé customer",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": true,
+      "rootUrl": "http://localhost:5174",
+      "baseUrl": "/",
+      "redirectUris": [
+        "http://localhost:5174/*"
+      ],
+      "webOrigins": [
+        "http://localhost:5174"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5174/*"
+      },
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "basic",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access"
+      ]
+    },
+    {
+      "clientId": "merchant-app",
+      "name": "Kadé restaurant",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": true,
+      "rootUrl": "http://localhost:5175",
+      "baseUrl": "/",
+      "redirectUris": [
+        "http://localhost:5175/*"
+      ],
+      "webOrigins": [
+        "http://localhost:5175"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5175/*"
+      },
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "basic",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access"
+      ]
+    },
+    {
+      "clientId": "rider-app",
+      "name": "Kadé rider",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": true,
+      "rootUrl": "http://localhost:5176",
+      "baseUrl": "/",
+      "redirectUris": [
+        "http://localhost:5176/*"
+      ],
+      "webOrigins": [
+        "http://localhost:5176"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5176/*"
+      },
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "basic",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access"
+      ]
+    },
+    {
+      "clientId": "admin-app",
+      "name": "Kadé Ops",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": true,
+      "rootUrl": "http://localhost:5177",
+      "baseUrl": "/",
+      "redirectUris": [
+        "http://localhost:5177/*"
+      ],
+      "webOrigins": [
+        "http://localhost:5177"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5177/*"
+      },
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "basic",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "dilini",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Dilini",
+      "lastName": "Perera",
+      "email": "dilini@kade.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "kade123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-kade",
+        "customer"
+      ],
+      "requiredActions": []
+    },
+    {
+      "username": "ruwan",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Ruwan",
+      "lastName": "Fernando",
+      "email": "ruwan@kade.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "kade123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-kade",
+        "merchant_owner",
+        "merchant_staff"
+      ],
+      "requiredActions": []
+    },
+    {
+      "username": "kasun",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Kasun",
+      "lastName": "Silva",
+      "email": "kasun@kade.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "kade123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-kade",
+        "merchant_staff"
+      ],
+      "requiredActions": []
+    },
+    {
+      "username": "nimal",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Nimal",
+      "lastName": "Jayasinghe",
+      "email": "nimal@kade.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "kade123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-kade",
+        "rider"
+      ],
+      "requiredActions": []
+    },
+    {
+      "username": "ops",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Ops",
+      "lastName": "Desk",
+      "email": "ops@kade.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "kade123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-kade",
+        "ops"
+      ],
+      "requiredActions": []
+    },
+    {
+      "username": "finance",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Finance",
+      "lastName": "Desk",
+      "email": "finance@kade.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "kade123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-kade",
+        "finance"
+      ],
+      "requiredActions": []
+    },
+    {
+      "username": "support",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Support",
+      "lastName": "Desk",
+      "email": "support@kade.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "kade123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-kade",
+        "support"
+      ],
+      "requiredActions": []
+    },
+    {
+      "username": "admin",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Platform",
+      "lastName": "Admin",
+      "email": "admin@kade.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "kade123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-kade",
+        "admin",
+        "ops",
+        "finance",
+        "support"
+      ],
+      "requiredActions": []
+    }
+  ]
+}

@@ -1,0 +1,305 @@
+syntax = "proto3";
+
+package kade.pricing.v1;
+
+import "google/protobuf/timestamp.proto";
+import "kade/common/v1/commerce.proto";
+import "kade/common/v1/money.proto";
+import "kade/common/v1/types.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.pricing.v1";
+
+// Pricing is a pure calculation service over versioned rules (zones, fees, surcharges). It holds no
+// orders and publishes no events. QuoteCart is THE price calculation: cart, checkout preview and the
+// order saga all call it, so what the customer sees is what they're charged. It mirrors
+// apps/customer/src/features/cart/totals.ts exactly:
+//
+//   count         = Σ qty
+//   subtotal      = Σ unit_price × qty
+//   saving        = offer_saving set ? min(offer_saving, subtotal)
+//                                    : round(subtotal × restaurant_discount_percent / 100)
+//   plus_waives   = plus_active && subtotal ≥ plus_free_delivery_from (Rs 1,500)
+//   delivery_fee  = mode == DELIVERY && count > 0 && !plus_waives && !free_delivery_offer
+//                     ? zone delivery fee (base + per-km beyond 2 km + active surcharges) : 0
+//   small_order   = count > 0 && subtotal < zone.small_order_under (Rs 500) ? zone.small_order_fee (Rs 60) : 0
+//   promo         = min(promo_discount, subtotal − saving)       // a promo can't take food below zero
+//   tip           = mode == DELIVERY ? max(0, tip) : 0
+//   before_credit = subtotal − saving − promo + delivery_fee + small_order + tip
+//   credit        = min(max(0, credit_available), before_credit)  // never more than the bill
+//   total         = before_credit − credit
+//
+// Rounding: all amounts are minor units; percentages round half away from zero to whole rupees
+// (multiples of 100 minor units) to match the apps, which only show whole rupees.
+service PricingService {
+  // Prices a cart. Pure: no side effects, safe to retry.
+  rpc QuoteCart(QuoteCartRequest) returns (QuoteCartResponse);
+  // Delivery fee for one restaurant → location, line by line (admin fee preview, catalog cards).
+  rpc QuoteDeliveryFee(QuoteDeliveryFeeRequest) returns (QuoteDeliveryFeeResponse);
+  // Many restaurants to one location; catalog uses it to fill Restaurant.delivery_fee on listings.
+  rpc BatchQuoteDeliveryFees(BatchQuoteDeliveryFeesRequest) returns (BatchQuoteDeliveryFeesResponse);
+  // Which zone a point is in (address picker "in zone?", order zone_id, dispatch).
+  rpc ResolveZone(ResolveZoneRequest) returns (ResolveZoneResponse);
+  // Admin: zones, surcharge rules and the rain surcharge in one read.
+  rpc GetPricingConfig(GetPricingConfigRequest) returns (GetPricingConfigResponse);
+  rpc ListZones(ListZonesRequest) returns (ListZonesResponse);
+  rpc SetZoneOpen(SetZoneOpenRequest) returns (SetZoneOpenResponse);
+  rpc UpdateZoneFees(UpdateZoneFeesRequest) returns (UpdateZoneFeesResponse);
+  // Creates (empty id) or updates a time-window surcharge ("Dinner peak").
+  rpc SaveSurchargeRule(SaveSurchargeRuleRequest) returns (SaveSurchargeRuleResponse);
+  rpc SetSurchargeRuleEnabled(SetSurchargeRuleEnabledRequest) returns (SetSurchargeRuleEnabledResponse);
+  rpc SetWeatherSurcharge(SetWeatherSurchargeRequest) returns (SetWeatherSurchargeResponse);
+}
+
+// ---------- Rules ----------
+
+message Zone {
+  string id = 1;
+  // "Colombo 03" or "Dehiwala".
+  string code = 2;
+  // Neighbourhood customers know it by: "Kollupitiya".
+  string name = 3;
+  bool open = 4;
+  // Covers the first 2 km.
+  kade.common.v1.Money base_fee = 5;
+  kade.common.v1.Money per_km = 6;
+  kade.common.v1.Money small_order_fee = 7;
+  // Orders under this subtotal pay the small-order fee.
+  kade.common.v1.Money small_order_under = 8;
+  // Riders the dispatch model wants online right now (dispatch writes, ops reads).
+  int32 riders_needed = 9;
+  // Polygon outline (lat/lng ring).
+  repeated kade.common.v1.GeoPoint boundary = 10;
+}
+
+enum SurchargeDays {
+  SURCHARGE_DAYS_UNSPECIFIED = 0;
+  SURCHARGE_DAYS_EVERY_DAY = 1;
+  SURCHARGE_DAYS_MON_TO_FRI = 2;
+  SURCHARGE_DAYS_FRI_TO_SUN = 3;
+  SURCHARGE_DAYS_SAT_AND_SUN = 4;
+}
+
+message SurchargeRule {
+  string id = 1;
+  string label = 2;
+  SurchargeDays days = 3;
+  // 24h "19:00", Asia/Colombo. A window that passes midnight ("23:00" to "02:00") wraps; the
+  // early-morning part belongs to the previous day's rule.
+  string start = 4;
+  string end = 5;
+  kade.common.v1.Money amount = 6;
+  bool enabled = 7;
+}
+
+message WeatherSurcharge {
+  bool enabled = 1;
+  kade.common.v1.Money amount = 2;
+}
+
+message PricingConfig {
+  repeated Zone zones = 1;
+  repeated SurchargeRule surcharges = 2;
+  WeatherSurcharge weather = 3;
+  // Members pay no delivery fee from this subtotal up (Rs 1,500).
+  kade.common.v1.Money plus_free_delivery_from = 4;
+  // Increments on every change; quotes record it.
+  int64 rules_version = 5;
+}
+
+// ---------- Quotes ----------
+
+message PricedLine {
+  string line_key = 1;
+  // Server-side unit price from catalog.ValidateCart (item + paid options).
+  kade.common.v1.Money unit_price = 2;
+  int32 quantity = 3;
+}
+
+message SurchargeLine {
+  string label = 1;
+  kade.common.v1.Money amount = 2;
+}
+
+message DeliveryFeeBreakdown {
+  string zone_id = 1;
+  double distance_km = 2;
+  kade.common.v1.Money base = 3;
+  // per_km × max(0, km − 2).
+  kade.common.v1.Money distance = 4;
+  repeated SurchargeLine surcharges = 5;
+  // base + distance + surcharges, before any waiver.
+  kade.common.v1.Money total = 6;
+}
+
+// Totals in the exact shape of the apps' OrderTotals (plus count and the fee breakdown).
+message Totals {
+  int32 item_count = 1;
+  kade.common.v1.Money subtotal = 2;
+  // Restaurant-funded percent discount.
+  kade.common.v1.Money saving = 3;
+  kade.common.v1.Money delivery_fee = 4;
+  kade.common.v1.Money small_order_fee = 5;
+  kade.common.v1.Money promo_discount = 6;
+  kade.common.v1.Money tip = 7;
+  // Kadé credit taken off the total.
+  kade.common.v1.Money credit = 8;
+  kade.common.v1.Money total = 9;
+}
+
+enum DeliveryFeeWaiver {
+  DELIVERY_FEE_WAIVER_UNSPECIFIED = 0;
+  DELIVERY_FEE_WAIVER_NONE = 1;
+  DELIVERY_FEE_WAIVER_PLUS = 2;
+  DELIVERY_FEE_WAIVER_OFFER = 3;
+  DELIVERY_FEE_WAIVER_PICKUP = 4;
+}
+
+message QuoteCartRequest {
+  string restaurant_id = 1;
+  // Restaurant location and zone (from the catalog snapshot), for the distance part of the fee.
+  kade.common.v1.GeoPoint restaurant_location = 2;
+  kade.common.v1.FulfilmentMode mode = 3;
+  repeated PricedLine lines = 4;
+  // Delivery only.
+  kade.common.v1.GeoPoint deliver_to = 5;
+  // From the restaurant's running offer (catalog snapshot / promotion).
+  int32 restaurant_discount_percent = 6;
+  bool free_delivery_offer = 7;
+  // Already validated by promotion.ValidatePromo; pricing only caps it.
+  kade.common.v1.Money promo_discount = 8;
+  kade.common.v1.Money tip = 9;
+  // The customer's credit balance when "use credit" is on; zero otherwise.
+  kade.common.v1.Money credit_available = 10;
+  // Plus benefits active (profile).
+  bool plus_active = 11;
+  // When surcharges are evaluated: now, or the scheduled time.
+  google.protobuf.Timestamp at = 12;
+  // Non-percent restaurant offers (amount, BOGO, capped percent) from
+  // promotion.EvaluateRestaurantOffer; when set it replaces the percent formula for `saving`.
+  kade.common.v1.Money offer_saving = 13;
+}
+
+message QuoteCartResponse {
+  Totals totals = 1;
+  DeliveryFeeBreakdown delivery_fee_breakdown = 2;
+  DeliveryFeeWaiver waiver = 3;
+  // Delivery address is outside every open zone (delivery mode only).
+  bool out_of_zone = 4;
+  int64 rules_version = 5;
+  // Stable hash of inputs + rules_version; the order stores it for audit.
+  string quote_id = 6;
+}
+
+message QuoteDeliveryFeeRequest {
+  string restaurant_id = 1;
+  kade.common.v1.GeoPoint restaurant_location = 2;
+  kade.common.v1.GeoPoint deliver_to = 3;
+  // Optional: admin preview passes a zone and km directly instead of locations.
+  string zone_id = 4;
+  double distance_km = 5;
+  // For the small-order line in the admin preview.
+  kade.common.v1.Money subtotal = 6;
+  google.protobuf.Timestamp at = 7;
+}
+
+message QuoteDeliveryFeeResponse {
+  DeliveryFeeBreakdown breakdown = 1;
+  kade.common.v1.Money small_order_fee = 2;
+  // breakdown.total + small_order_fee.
+  kade.common.v1.Money delivery_total = 3;
+  // subtotal + delivery_total.
+  kade.common.v1.Money total = 4;
+}
+
+message RestaurantLocation {
+  string restaurant_id = 1;
+  kade.common.v1.GeoPoint location = 2;
+}
+
+message BatchQuoteDeliveryFeesRequest {
+  repeated RestaurantLocation restaurants = 1;
+  kade.common.v1.GeoPoint deliver_to = 2;
+  google.protobuf.Timestamp at = 3;
+}
+
+message RestaurantDeliveryFee {
+  string restaurant_id = 1;
+  double distance_km = 2;
+  kade.common.v1.Money fee = 3;
+  bool out_of_zone = 4;
+}
+
+message BatchQuoteDeliveryFeesResponse {
+  repeated RestaurantDeliveryFee fees = 1;
+}
+
+message ResolveZoneRequest {
+  kade.common.v1.GeoPoint location = 1;
+}
+
+message ResolveZoneResponse {
+  // Unset when outside every zone.
+  Zone zone = 1;
+  bool in_zone = 2;
+}
+
+// ---------- Admin ----------
+
+message GetPricingConfigRequest {}
+
+message GetPricingConfigResponse {
+  PricingConfig config = 1;
+}
+
+message ListZonesRequest {}
+
+message ListZonesResponse {
+  repeated Zone zones = 1;
+}
+
+message SetZoneOpenRequest {
+  string zone_id = 1;
+  bool open = 2;
+}
+
+message SetZoneOpenResponse {
+  Zone zone = 1;
+}
+
+message UpdateZoneFeesRequest {
+  string zone_id = 1;
+  kade.common.v1.Money base_fee = 2;
+  kade.common.v1.Money per_km = 3;
+  kade.common.v1.Money small_order_fee = 4;
+  kade.common.v1.Money small_order_under = 5;
+}
+
+message UpdateZoneFeesResponse {
+  Zone zone = 1;
+}
+
+message SaveSurchargeRuleRequest {
+  SurchargeRule rule = 1;
+}
+
+message SaveSurchargeRuleResponse {
+  SurchargeRule rule = 1;
+}
+
+message SetSurchargeRuleEnabledRequest {
+  string id = 1;
+  bool enabled = 2;
+}
+
+message SetSurchargeRuleEnabledResponse {
+  SurchargeRule rule = 1;
+}
+
+message SetWeatherSurchargeRequest {
+  WeatherSurcharge weather = 1;
+}
+
+message SetWeatherSurchargeResponse {
+  WeatherSurcharge weather = 1;
+}

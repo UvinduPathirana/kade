@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package kade.location.v1;
+
+import "google/protobuf/timestamp.proto";
+import "kade/common/v1/types.proto";
+import "kade/location/v1/location_events.proto";
+
+option java_multiple_files = true;
+option java_package = "lk.kade.location.v1";
+
+// Location ingests rider GPS (about 1 Hz while online) from gateway-rider and produces it straight to
+// kade.rider.locations (no outbox: high volume, Confluent Protobuf serializer + Schema Registry,
+// key = rider_id). It keeps only the last known position per rider (in memory/Redis) and applies
+// backpressure on the stream. Consumers: dispatch (Redis GEO index), realtime (live maps).
+service LocationService {
+  // Gateway-rider forwards each rider's socket positions on one long-lived client stream.
+  rpc StreamRiderLocations(stream StreamRiderLocationsRequest) returns (StreamRiderLocationsResponse);
+  // Unary fallback for a batch of positions (e.g. buffered while offline).
+  rpc ReportRiderLocations(ReportRiderLocationsRequest) returns (ReportRiderLocationsResponse);
+  rpc GetLastKnownLocation(GetLastKnownLocationRequest) returns (GetLastKnownLocationResponse);
+  rpc BatchGetLastKnownLocations(BatchGetLastKnownLocationsRequest) returns (BatchGetLastKnownLocationsResponse);
+}
+
+message StreamRiderLocationsRequest {
+  RiderLocation location = 1;
+}
+
+message StreamRiderLocationsResponse {
+  int64 accepted = 1;
+  // Dropped as duplicates, out of order or implausible jumps.
+  int64 dropped = 2;
+}
+
+message ReportRiderLocationsRequest {
+  repeated RiderLocation locations = 1;
+}
+
+message ReportRiderLocationsResponse {
+  int64 accepted = 1;
+  int64 dropped = 2;
+}
+
+message GetLastKnownLocationRequest {
+  string rider_id = 1;
+}
+
+message GetLastKnownLocationResponse {
+  // Unset when the rider hasn't reported recently.
+  RiderLocation location = 1;
+}
+
+message BatchGetLastKnownLocationsRequest {
+  repeated string rider_ids = 1;
+  // Or everyone inside this box.
+  kade.common.v1.GeoPoint south_west = 2;
+  kade.common.v1.GeoPoint north_east = 3;
+  // Ignore positions older than this.
+  google.protobuf.Timestamp since = 4;
+}
+
+message BatchGetLastKnownLocationsResponse {
+  repeated RiderLocation locations = 1;
+}
