@@ -76,3 +76,19 @@ export async function signedInName(): Promise<string | undefined> {
   const p = user?.profile;
   return p?.name ?? p?.given_name ?? p?.preferred_username;
 }
+
+/** Realm roles that may use this app; anyone else is signed in but gets the "wrong account" screen. */
+export const APP_ROLES = ["merchant_owner", "merchant_staff"];
+
+/** Kadé realm roles from the access token (realm_access.roles); the gateway checks them again. */
+export function rolesOf(user: User): string[] {
+  try {
+    const payload = JSON.parse(
+      atob(user.access_token.split(".")[1]!.replace(/-/g, "+").replace(/_/g, "/")),
+    ) as { realm_access?: { roles?: string[] } };
+    return payload.realm_access?.roles ?? [];
+  } catch {
+    // Opaque token: let the gateway decide.
+    return APP_ROLES;
+  }
+}
