@@ -1,0 +1,38 @@
+package dispatch
+
+import "github.com/UvinduPathirana/kade/services/dispatch/internal/platform/apperr"
+
+// Stable error reasons (API contract; gateways map them to the apps' messages).
+var (
+	errRiderIDRequired   = apperr.InvalidArgument("RIDER_ID_REQUIRED", "rider_id is required (or call as the rider with x-user-id)")
+	errRiderNotFound     = apperr.NotFound("RIDER_NOT_FOUND", "rider not found")
+	errRiderMismatch     = apperr.PermissionDenied("RIDER_MISMATCH", "riders can only act for themselves")
+	errStaffOnly         = apperr.PermissionDenied("STAFF_ONLY", "ops, support, finance or admin role required")
+	errRiderSuspended    = apperr.FailedPrecondition("RIDER_SUSPENDED", "the rider is suspended")
+	errRiderOnJob        = apperr.FailedPrecondition("RIDER_ON_JOB", "finish the current delivery first")
+	errRiderBusy         = apperr.FailedPrecondition("RIDER_BUSY", "the rider already has a delivery")
+	errOfferNotFound     = apperr.NotFound("OFFER_NOT_FOUND", "offer not found")
+	errOfferExpired      = apperr.FailedPrecondition("OFFER_EXPIRED", "the offer ended; it has gone to another rider")
+	errDeliveryNotFound  = apperr.NotFound("DELIVERY_NOT_FOUND", "delivery not found")
+	errNotYourDelivery   = apperr.PermissionDenied("DELIVERY_NOT_ASSIGNED_TO_RIDER", "this delivery is not assigned to the rider")
+	errDeliveryCancelled = apperr.FailedPrecondition("DELIVERY_CANCELLED", "the order was cancelled")
+	errNotPickedUp       = apperr.FailedPrecondition("DELIVERY_NOT_PICKED_UP", "confirm pickup first")
+	errItemsNotChecked   = apperr.FailedPrecondition("ITEMS_NOT_CHECKED", "tick every item against the bag, or confirm the bag is sealed")
+	errCodeMismatch      = apperr.FailedPrecondition("DELIVERY_CODE_MISMATCH", "the delivery code does not match")
+	errCashShort         = apperr.FailedPrecondition("CASH_SHORT", "collect the full amount before finishing the delivery")
+	errProofRequired     = apperr.InvalidArgument("PROOF_REQUIRED", "proof of delivery (code or photo) is required")
+	errPhotoRequired     = apperr.InvalidArgument("PHOTO_REQUIRED", "photo_ref is required for photo proof")
+	errMessageRequired   = apperr.InvalidArgument("MESSAGE_REQUIRED", "text is required")
+	errTripNotFound      = apperr.NotFound("TRIP_NOT_FOUND", "trip not found")
+	errAppNotFound       = apperr.NotFound("APPLICATION_NOT_FOUND", "rider application not found")
+	errAppInvalid        = apperr.InvalidArgument("APPLICATION_INVALID", "name and phone are required")
+	errDocNotFound       = apperr.NotFound("DOCUMENT_NOT_FOUND", "document not found")
+	errDocsNotApproved   = apperr.FailedPrecondition("DOCUMENTS_NOT_APPROVED", "approve every document first")
+	errDecisionInvalid   = apperr.InvalidArgument("DECISION_INVALID", "decision must be APPROVED, CHANGES_REQUESTED or REJECTED")
+	errAppDecided        = apperr.FailedPrecondition("APPLICATION_ALREADY_DECIDED", "the application was already approved or rejected")
+	errZonesRequired     = apperr.InvalidArgument("ZONES_REQUIRED", "at least one zone is required")
+	errZoneUnknown       = apperr.InvalidArgument("ZONE_UNKNOWN", "unknown zone id")
+	errOrderIDRequired   = apperr.InvalidArgument("ORDER_ID_REQUIRED", "order_id is required")
+	errIDRequired        = apperr.InvalidArgument("ID_REQUIRED", "delivery_id or order_id is required")
+	errKeyReused         = apperr.FailedPrecondition("IDEMPOTENCY_KEY_REUSED", "idempotency_key was already used for a different request")
+)

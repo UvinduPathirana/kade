@@ -16,20 +16,38 @@ type Config struct {
 	ServiceName string // SERVICE_NAME: also the OTel service name and Kafka consumer group
 	Version     string // SERVICE_VERSION (optional, defaults to "dev")
 	GRPCPort    int    // GRPC_PORT
-	HTTPPort    int    // HTTP_PORT: /health/*, /metrics, /ws
+	HTTPPort    int    // HTTP_PORT: /health/*, /metrics
 
-	DatabaseURL       string   // DATABASE_URL (required)
-	KafkaBrokers      []string // KAFKA_BROKERS: comma-separated; empty disables Kafka
-	SchemaRegistryURL string   // SCHEMA_REGISTRY_URL: empty disables the registry-encoded stream producer
-	RedisURL          string   // REDIS_URL: empty disables Redis (GEO + WebSocket hub)
-	OTLPEndpoint      string   // OTEL_EXPORTER_OTLP_ENDPOINT: empty keeps telemetry local (stdout logs, /metrics)
+	DatabaseURL  string   // DATABASE_URL (required)
+	KafkaBrokers []string // KAFKA_BROKERS: comma-separated; empty disables the consumers
+	RedisURL     string   // REDIS_URL (required): the GEO index of available riders
+	OTLPEndpoint string   // OTEL_EXPORTER_OTLP_ENDPOINT: empty keeps telemetry local
+
+	LocationGRPC     string // LOCATION_GRPC (optional): simulated riders report positions through location
+	NotificationGRPC string // NOTIFICATION_GRPC (optional): rider → customer quick replies
 
 	LogLevel slog.Level // LOG_LEVEL: debug|info|warn|error
 
-	// Template-specific knobs. Real services keep the ones they need.
-	NoteEventsTopic string        // NOTE_EVENTS_TOPIC (default kade.note.events): consumed idempotently
-	StreamTopic     string        // STREAM_TOPIC (default kade.note.views): registry-encoded direct produce demo
-	RPCTimeout      time.Duration // RPC_DEFAULT_TIMEOUT (default 5s): server-side cap when the caller sent no deadline
+	// Topics.
+	EventTopics    []string // EVENT_TOPICS (default kade.order.events,kade.ledger.events,kade.review.events)
+	LocationsTopic string   // LOCATIONS_TOPIC (default kade.rider.locations); empty disables the GPS consumer
+
+	// Matching.
+	OfferTimeout     time.Duration // OFFER_TIMEOUT (30s): how long one rider has to accept
+	MatchRadiiKm     []float64     // MATCH_RADII_KM (3,6,12): search rings around the restaurant
+	MatchFailAfter   int           // MATCH_FAIL_AFTER (12): empty rounds before DeliveryMatchingFailed
+	ReofferAfter     time.Duration // REOFFER_AFTER (2m): a rider who declined/missed may get the same job again after this
+	RiderStaleAfter  time.Duration // RIDER_STALE_AFTER (2h): online riders without a position update for longer are skipped
+	PreferRealRiders bool          // PREFER_REAL_RIDERS (true): riders with a login (e.g. Nimal) get offers before simulated ones
+	MaxEventAge      time.Duration // MAX_EVENT_AGE (6h): older OrderAccepted events (history replay) start no matching
+
+	// Demo fleet.
+	SeedOnStart     bool          // SEED_ON_START (true): seeded riders, applications and Nimal's trip history
+	SimulateRiders  bool          // SIMULATE_RIDERS (false): seeded riders without logins accept and run their jobs
+	SimSecondsPerKm time.Duration // SIM_SECONDS_PER_KM (20s): simulated travel pace
+	SimAcceptDelay  time.Duration // SIM_ACCEPT_DELAY (5s)
+
+	RPCTimeout      time.Duration // RPC_DEFAULT_TIMEOUT (default 5s)
 	ShutdownTimeout time.Duration // SHUTDOWN_TIMEOUT (default 20s)
 	MigrateOnStart  bool          // MIGRATE_ON_START (default true)
 }
@@ -68,22 +86,75 @@ func Load(getenv func(string) string) (Config, error) {
 		}
 		return d
 	}
+	boolean := func(key string, def bool) bool {
+		raw := str(key, "")
+		if raw == "" {
+			return def
+		}
+		b, err := strconv.ParseBool(raw)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("%s=%q is not a boolean", key, raw))
+			return def
+		}
+		return b
+	}
+	integer := func(key string, def int) int {
+		raw := str(key, "")
+		if raw == "" {
+			return def
+		}
+		n, err := strconv.Atoi(raw)
+		if err != nil || n <= 0 {
+			errs = append(errs, fmt.Errorf("%s=%q is not a positive integer", key, raw))
+			return def
+		}
+		return n
+	}
 
 	c := Config{
-		ServiceName:       str("SERVICE_NAME", ""),
-		Version:           str("SERVICE_VERSION", "dev"),
-		GRPCPort:          port("GRPC_PORT"),
-		HTTPPort:          port("HTTP_PORT"),
-		DatabaseURL:       str("DATABASE_URL", ""),
-		KafkaBrokers:      splitList(getenv("KAFKA_BROKERS")),
-		SchemaRegistryURL: str("SCHEMA_REGISTRY_URL", ""),
-		RedisURL:          str("REDIS_URL", ""),
-		OTLPEndpoint:      str("OTEL_EXPORTER_OTLP_ENDPOINT", ""),
-		NoteEventsTopic:   str("NOTE_EVENTS_TOPIC", "kade.note.events"),
-		StreamTopic:       str("STREAM_TOPIC", "kade.note.views"),
-		RPCTimeout:        dur("RPC_DEFAULT_TIMEOUT", 5*time.Second),
-		ShutdownTimeout:   dur("SHUTDOWN_TIMEOUT", 20*time.Second),
-		MigrateOnStart:    true,
+		ServiceName:      str("SERVICE_NAME", ""),
+		Version:          str("SERVICE_VERSION", "dev"),
+		GRPCPort:         port("GRPC_PORT"),
+		HTTPPort:         port("HTTP_PORT"),
+		DatabaseURL:      str("DATABASE_URL", ""),
+		KafkaBrokers:     splitList(getenv("KAFKA_BROKERS")),
+		RedisURL:         str("REDIS_URL", ""),
+		OTLPEndpoint:     str("OTEL_EXPORTER_OTLP_ENDPOINT", ""),
+		LocationGRPC:     str("LOCATION_GRPC", ""),
+		NotificationGRPC: str("NOTIFICATION_GRPC", ""),
+		EventTopics:      splitList(str("EVENT_TOPICS", "kade.order.events,kade.ledger.events,kade.review.events")),
+		LocationsTopic:   strings.TrimSpace(getenv("LOCATIONS_TOPIC")),
+		OfferTimeout:     dur("OFFER_TIMEOUT", 30*time.Second),
+		MatchFailAfter:   integer("MATCH_FAIL_AFTER", 12),
+		ReofferAfter:     dur("REOFFER_AFTER", 2*time.Minute),
+		RiderStaleAfter:  dur("RIDER_STALE_AFTER", 2*time.Hour),
+		PreferRealRiders: boolean("PREFER_REAL_RIDERS", true),
+		MaxEventAge:      dur("MAX_EVENT_AGE", 6*time.Hour),
+		SeedOnStart:      boolean("SEED_ON_START", true),
+		SimulateRiders:   boolean("SIMULATE_RIDERS", false),
+		SimSecondsPerKm:  dur("SIM_SECONDS_PER_KM", 20*time.Second),
+		SimAcceptDelay:   dur("SIM_ACCEPT_DELAY", 5*time.Second),
+		RPCTimeout:       dur("RPC_DEFAULT_TIMEOUT", 5*time.Second),
+		ShutdownTimeout:  dur("SHUTDOWN_TIMEOUT", 20*time.Second),
+		MigrateOnStart:   boolean("MIGRATE_ON_START", true),
+	}
+	if getenv("LOCATIONS_TOPIC") == "" {
+		c.LocationsTopic = "kade.rider.locations"
+	}
+	if c.LocationsTopic == "-" {
+		c.LocationsTopic = ""
+	}
+	c.MatchRadiiKm = []float64{3, 6, 12}
+	if raw := str("MATCH_RADII_KM", ""); raw != "" {
+		c.MatchRadiiKm = nil
+		for _, p := range splitList(raw) {
+			v, err := strconv.ParseFloat(p, 64)
+			if err != nil || v <= 0 {
+				errs = append(errs, fmt.Errorf("MATCH_RADII_KM=%q: want positive km, e.g. 3,6,12", raw))
+				break
+			}
+			c.MatchRadiiKm = append(c.MatchRadiiKm, v)
+		}
 	}
 
 	if c.ServiceName == "" {
@@ -97,18 +168,10 @@ func Load(getenv func(string) string) (Config, error) {
 	} else if err := checkURL(c.DatabaseURL, "postgres", "postgresql"); err != nil {
 		errs = append(errs, fmt.Errorf("DATABASE_URL: %w", err))
 	}
-	if c.RedisURL != "" {
-		if err := checkURL(c.RedisURL, "redis", "rediss"); err != nil {
-			errs = append(errs, fmt.Errorf("REDIS_URL: %w", err))
-		}
-	}
-	if c.SchemaRegistryURL != "" {
-		if err := checkURL(c.SchemaRegistryURL, "http", "https"); err != nil {
-			errs = append(errs, fmt.Errorf("SCHEMA_REGISTRY_URL: %w", err))
-		}
-		if len(c.KafkaBrokers) == 0 {
-			errs = append(errs, errors.New("SCHEMA_REGISTRY_URL is set but KAFKA_BROKERS is empty"))
-		}
+	if c.RedisURL == "" {
+		errs = append(errs, errors.New("REDIS_URL is required (GEO index of available riders)"))
+	} else if err := checkURL(c.RedisURL, "redis", "rediss"); err != nil {
+		errs = append(errs, fmt.Errorf("REDIS_URL: %w", err))
 	}
 	if c.OTLPEndpoint != "" {
 		if err := checkURL(c.OTLPEndpoint, "http", "https"); err != nil {
@@ -119,13 +182,6 @@ func Load(getenv func(string) string) (Config, error) {
 		if err := c.LogLevel.UnmarshalText([]byte(raw)); err != nil {
 			errs = append(errs, fmt.Errorf("LOG_LEVEL=%q: want debug|info|warn|error", raw))
 		}
-	}
-	if raw := str("MIGRATE_ON_START", ""); raw != "" {
-		b, err := strconv.ParseBool(raw)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("MIGRATE_ON_START=%q is not a boolean", raw))
-		}
-		c.MigrateOnStart = b
 	}
 	return c, errors.Join(errs...)
 }

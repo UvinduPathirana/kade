@@ -1,24 +1,27 @@
-# Compose fragment, included from deploy/compose/services.yaml. Paths are relative to this file.
-#   docker compose -f deploy/compose/compose.yaml --profile templates up -d --build location
+# Compose fragment for location. Included from deploy/compose/services.yaml; paths are relative to
+# this file. Start it with the shared stack:
+#   docker compose -f deploy/compose/compose.yaml --profile fulfilment up -d --build location
+# No database: positions go straight to kade.rider.locations (Schema Registry) and Redis.
 services:
   location:
     build:
       context: ../..
       dockerfile: services/location/Dockerfile
     image: kade/location:dev
-    profiles: [CHANGE_ME] # ordering, fulfilment, money or engagement
+    profiles: [fulfilment]
     environment:
       SERVICE_NAME: location
       GRPC_PORT: "50111"
       HTTP_PORT: "8111"
-      DATABASE_URL: postgres://location:location@postgres:5432/location
       KAFKA_BROKERS: kafka:9092
       SCHEMA_REGISTRY_URL: http://schema-registry:8081
       REDIS_URL: redis://redis:6379
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel:4318
-      STREAM_TOPIC: kade.note.views
+      STREAM_TOPIC: kade.rider.locations
+      LAST_KNOWN_TTL: 30m
+      RETAIN_POSITIONS: 6h
       LOG_LEVEL: info
-      GOMEMLIMIT: 48MiB # soft limit below the 64 MB cap: the GC works harder instead of OOM-killing
+      GOMEMLIMIT: 48MiB # soft limit below the 64 MB cap
       GOMAXPROCS: "2"
     ports:
       - "50111:50111"
@@ -29,9 +32,8 @@ services:
       timeout: 5s
       retries: 6
       start_period: 20s
-    stop_grace_period: 25s # > SHUTDOWN_TIMEOUT (20s default)
+    stop_grace_period: 25s
     depends_on:
-      postgres: { condition: service_healthy }
       kafka: { condition: service_healthy }
       kafka-init: { condition: service_completed_successfully }
       schema-registry: { condition: service_healthy }

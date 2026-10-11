@@ -13,25 +13,24 @@ import (
 )
 
 type Config struct {
-	ServiceName string // SERVICE_NAME: also the OTel service name and Kafka consumer group
+	ServiceName string // SERVICE_NAME: also the OTel service name
 	Version     string // SERVICE_VERSION (optional, defaults to "dev")
 	GRPCPort    int    // GRPC_PORT
-	HTTPPort    int    // HTTP_PORT: /health/*, /metrics, /ws
+	HTTPPort    int    // HTTP_PORT: /health/*, /metrics
 
-	DatabaseURL       string   // DATABASE_URL (required)
-	KafkaBrokers      []string // KAFKA_BROKERS: comma-separated; empty disables Kafka
-	SchemaRegistryURL string   // SCHEMA_REGISTRY_URL: empty disables the registry-encoded stream producer
-	RedisURL          string   // REDIS_URL: empty disables Redis (GEO + WebSocket hub)
-	OTLPEndpoint      string   // OTEL_EXPORTER_OTLP_ENDPOINT: empty keeps telemetry local (stdout logs, /metrics)
+	KafkaBrokers      []string // KAFKA_BROKERS (required): kade.rider.locations is produced directly
+	SchemaRegistryURL string   // SCHEMA_REGISTRY_URL (required): Confluent Protobuf wire format
+	RedisURL          string   // REDIS_URL (required): last known positions
+	OTLPEndpoint      string   // OTEL_EXPORTER_OTLP_ENDPOINT: empty keeps telemetry local
 
 	LogLevel slog.Level // LOG_LEVEL: debug|info|warn|error
 
-	// Template-specific knobs. Real services keep the ones they need.
-	NoteEventsTopic string        // NOTE_EVENTS_TOPIC (default kade.note.events): consumed idempotently
-	StreamTopic     string        // STREAM_TOPIC (default kade.note.views): registry-encoded direct produce demo
-	RPCTimeout      time.Duration // RPC_DEFAULT_TIMEOUT (default 5s): server-side cap when the caller sent no deadline
+	StreamTopic     string        // STREAM_TOPIC (default kade.rider.locations)
+	LastKnownTTL    time.Duration // LAST_KNOWN_TTL (default 30m): older positions count as "not reported recently"
+	RetainPositions time.Duration // RETAIN_POSITIONS (default 6h): positions older than this are removed from Redis
+	MaxSpeedMPS     float64       // MAX_SPEED_MPS (default 50 ≈ 180 km/h): faster jumps are dropped as implausible
+	RPCTimeout      time.Duration // RPC_DEFAULT_TIMEOUT (default 5s)
 	ShutdownTimeout time.Duration // SHUTDOWN_TIMEOUT (default 20s)
-	MigrateOnStart  bool          // MIGRATE_ON_START (default true)
 }
 
 // Load reads configuration through getenv (os.Getenv in main, a map in tests) and validates it.
@@ -74,16 +73,24 @@ func Load(getenv func(string) string) (Config, error) {
 		Version:           str("SERVICE_VERSION", "dev"),
 		GRPCPort:          port("GRPC_PORT"),
 		HTTPPort:          port("HTTP_PORT"),
-		DatabaseURL:       str("DATABASE_URL", ""),
 		KafkaBrokers:      splitList(getenv("KAFKA_BROKERS")),
 		SchemaRegistryURL: str("SCHEMA_REGISTRY_URL", ""),
 		RedisURL:          str("REDIS_URL", ""),
 		OTLPEndpoint:      str("OTEL_EXPORTER_OTLP_ENDPOINT", ""),
-		NoteEventsTopic:   str("NOTE_EVENTS_TOPIC", "kade.note.events"),
-		StreamTopic:       str("STREAM_TOPIC", "kade.note.views"),
+		StreamTopic:       str("STREAM_TOPIC", "kade.rider.locations"),
+		LastKnownTTL:      dur("LAST_KNOWN_TTL", 30*time.Minute),
+		RetainPositions:   dur("RETAIN_POSITIONS", 6*time.Hour),
+		MaxSpeedMPS:       50,
 		RPCTimeout:        dur("RPC_DEFAULT_TIMEOUT", 5*time.Second),
 		ShutdownTimeout:   dur("SHUTDOWN_TIMEOUT", 20*time.Second),
-		MigrateOnStart:    true,
+	}
+	if raw := str("MAX_SPEED_MPS", ""); raw != "" {
+		v, err := strconv.ParseFloat(raw, 64)
+		if err != nil || v <= 0 {
+			errs = append(errs, fmt.Errorf("MAX_SPEED_MPS=%q is not a positive number", raw))
+		} else {
+			c.MaxSpeedMPS = v
+		}
 	}
 
 	if c.ServiceName == "" {
@@ -92,23 +99,18 @@ func Load(getenv func(string) string) (Config, error) {
 	if c.GRPCPort != 0 && c.GRPCPort == c.HTTPPort {
 		errs = append(errs, errors.New("GRPC_PORT and HTTP_PORT must differ"))
 	}
-	if c.DatabaseURL == "" {
-		errs = append(errs, errors.New("DATABASE_URL is required"))
-	} else if err := checkURL(c.DatabaseURL, "postgres", "postgresql"); err != nil {
-		errs = append(errs, fmt.Errorf("DATABASE_URL: %w", err))
+	if len(c.KafkaBrokers) == 0 {
+		errs = append(errs, errors.New("KAFKA_BROKERS is required (positions are produced to kade.rider.locations)"))
 	}
-	if c.RedisURL != "" {
-		if err := checkURL(c.RedisURL, "redis", "rediss"); err != nil {
-			errs = append(errs, fmt.Errorf("REDIS_URL: %w", err))
-		}
+	if c.SchemaRegistryURL == "" {
+		errs = append(errs, errors.New("SCHEMA_REGISTRY_URL is required"))
+	} else if err := checkURL(c.SchemaRegistryURL, "http", "https"); err != nil {
+		errs = append(errs, fmt.Errorf("SCHEMA_REGISTRY_URL: %w", err))
 	}
-	if c.SchemaRegistryURL != "" {
-		if err := checkURL(c.SchemaRegistryURL, "http", "https"); err != nil {
-			errs = append(errs, fmt.Errorf("SCHEMA_REGISTRY_URL: %w", err))
-		}
-		if len(c.KafkaBrokers) == 0 {
-			errs = append(errs, errors.New("SCHEMA_REGISTRY_URL is set but KAFKA_BROKERS is empty"))
-		}
+	if c.RedisURL == "" {
+		errs = append(errs, errors.New("REDIS_URL is required (last known positions)"))
+	} else if err := checkURL(c.RedisURL, "redis", "rediss"); err != nil {
+		errs = append(errs, fmt.Errorf("REDIS_URL: %w", err))
 	}
 	if c.OTLPEndpoint != "" {
 		if err := checkURL(c.OTLPEndpoint, "http", "https"); err != nil {
@@ -119,13 +121,6 @@ func Load(getenv func(string) string) (Config, error) {
 		if err := c.LogLevel.UnmarshalText([]byte(raw)); err != nil {
 			errs = append(errs, fmt.Errorf("LOG_LEVEL=%q: want debug|info|warn|error", raw))
 		}
-	}
-	if raw := str("MIGRATE_ON_START", ""); raw != "" {
-		b, err := strconv.ParseBool(raw)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("MIGRATE_ON_START=%q is not a boolean", raw))
-		}
-		c.MigrateOnStart = b
 	}
 	return c, errors.Join(errs...)
 }

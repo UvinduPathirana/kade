@@ -5,80 +5,77 @@ package integration
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"os"
-	"regexp"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	commonv1 "github.com/UvinduPathirana/kade/gen/go/kade/common/v1"
-	templatev1 "github.com/UvinduPathirana/kade/gen/go/kade/template/v1"
-	"github.com/coder/websocket"
+	dispatchv1 "github.com/UvinduPathirana/kade/gen/go/kade/dispatch/v1"
+	ledgerv1 "github.com/UvinduPathirana/kade/gen/go/kade/ledger/v1"
+	locationv1 "github.com/UvinduPathirana/kade/gen/go/kade/location/v1"
+	orderv1 "github.com/UvinduPathirana/kade/gen/go/kade/order/v1"
 	"github.com/google/uuid"
 	"github.com/twmb/franz-go/pkg/kgo"
-	"github.com/twmb/franz-go/pkg/kmsg"
 	"github.com/twmb/franz-go/pkg/sr"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/UvinduPathirana/kade/services/dispatch/internal/app"
 	"github.com/UvinduPathirana/kade/services/dispatch/internal/config"
-	"github.com/UvinduPathirana/kade/services/dispatch/internal/note"
+	"github.com/UvinduPathirana/kade/services/dispatch/internal/dispatch"
 	"github.com/UvinduPathirana/kade/services/dispatch/internal/platform/apperr"
 	"github.com/UvinduPathirana/kade/services/dispatch/internal/platform/grpcx"
 	"github.com/UvinduPathirana/kade/services/dispatch/internal/platform/kafka"
-	"github.com/UvinduPathirana/kade/services/dispatch/internal/platform/redisx"
 )
 
 var (
 	st     stack
 	a      *app.App
-	client templatev1.TemplateServiceClient
-	raw    *kgo.Client // test producer/consumer
+	jobs   dispatchv1.DispatchServiceClient
+	ops    dispatchv1.DispatchOpsServiceClient
+	riders dispatchv1.RiderServiceClient
+	raw    *kgo.Client
 )
-
-const eventsTopic = "kade.note.events"
 
 func TestMain(m *testing.M) {
 	st = resolveStack()
 	fmt.Printf("integration: using shared stack via %s\n", st.Where)
 	cfg := config.Config{
-		// Own consumer group so a running template container does not steal our records.
-		ServiceName: "dispatch-it", Version: "test",
-		GRPCPort: 0, HTTPPort: 0, // random free ports
-		DatabaseURL: st.DatabaseURL, KafkaBrokers: st.Brokers, SchemaRegistryURL: st.SchemaRegistryURL, RedisURL: st.RedisURL,
-		LogLevel: slog.LevelWarn, NoteEventsTopic: eventsTopic, StreamTopic: "kade.note.views",
-		RPCTimeout: 5 * time.Second, ShutdownTimeout: 10 * time.Second, MigrateOnStart: true,
+		// Own consumer groups so a running dispatch container does not steal our records.
+		ServiceName: "dispatch-it", Version: "test", GRPCPort: 0, HTTPPort: 0,
+		DatabaseURL: st.DatabaseURL, KafkaBrokers: st.Brokers, RedisURL: st.RedisURL, LogLevel: slog.LevelWarn,
+		EventTopics: []string{"kade.order.events", "kade.ledger.events", "kade.review.events"}, LocationsTopic: "kade.rider.locations",
+		OfferTimeout: 3 * time.Second, MatchRadiiKm: []float64{3, 6, 12}, MatchFailAfter: 3, ReofferAfter: time.Second,
+		RiderStaleAfter: time.Hour, PreferRealRiders: true,
+		MaxEventAge: time.Minute, // ignore other agents' history on the shared topics
+		SeedOnStart: true, RPCTimeout: 5 * time.Second, ShutdownTimeout: 10 * time.Second, MigrateOnStart: true,
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	var err error
-	a, err = app.New(ctx, cfg)
-	if err != nil {
+	if a, err = app.New(ctx, cfg); err != nil {
 		fmt.Fprintln(os.Stderr, "app.New:", err)
 		os.Exit(1)
 	}
 	runErr := make(chan error, 1)
 	go func() { runErr <- a.Run(ctx) }()
-
 	conn, err := grpcx.Dial(a.GRPCAddr.String())
 	if err != nil {
 		panic(err)
 	}
-	client = templatev1.NewTemplateServiceClient(conn)
+	jobs, ops, riders = dispatchv1.NewDispatchServiceClient(conn), dispatchv1.NewDispatchOpsServiceClient(conn), dispatchv1.NewRiderServiceClient(conn)
 	if raw, err = kgo.NewClient(kgo.SeedBrokers(st.Brokers...)); err != nil {
 		panic(err)
 	}
 
 	code := m.Run()
-
-	// Graceful shutdown must finish well inside the timeout.
+	cleanup()
 	conn.Close()
 	raw.Close()
 	cancel()
@@ -95,10 +92,38 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func asUser(id string) context.Context {
-	// No explicit deadline: grpcx.Dial applies the 2 s default to every call.
-	return metadata.AppendToOutgoingContext(context.Background(), "x-user-id", id, "x-roles", "customer")
+// cleanup removes what the tests created so the shared demo database stays clean.
+func cleanup() {
+	ctx := context.Background()
+	ids, _ := a.Pool.Query(ctx, `SELECT id::text FROM riders WHERE user_id LIKE 'it-user-%'`)
+	var riderIDs []string
+	for ids.Next() {
+		var id string
+		_ = ids.Scan(&id)
+		riderIDs = append(riderIDs, id)
+	}
+	ids.Close()
+	if len(riderIDs) > 0 {
+		_ = a.Core.Fleet.MakeUnavailable(ctx, riderIDs...)
+	}
+	for _, q := range []string{
+		`DELETE FROM customer_messages WHERE delivery_id IN (SELECT id FROM deliveries WHERE order_number LIKE 'KD-IT%')`,
+		`DELETE FROM offers WHERE delivery_id IN (SELECT id FROM deliveries WHERE order_number LIKE 'KD-IT%')`,
+		`DELETE FROM deliveries WHERE order_number LIKE 'KD-IT%'`,
+		`DELETE FROM riders WHERE user_id LIKE 'it-user-%'`,
+		`DELETE FROM rider_applications WHERE user_id LIKE 'it-user-%'`,
+	} {
+		if _, err := a.Pool.Exec(ctx, q); err != nil {
+			fmt.Fprintln(os.Stderr, "cleanup:", err)
+		}
+	}
 }
+
+func as(userID string, roles ...string) context.Context {
+	return metadata.AppendToOutgoingContext(context.Background(), "x-user-id", userID, "x-roles", strings.Join(roles, ","))
+}
+
+var opsCtx = as("00000000-0000-7000-8005-000000000005", "ops")
 
 func eventually(t *testing.T, timeout time.Duration, what string, cond func() bool) {
 	t.Helper()
@@ -107,11 +132,129 @@ func eventually(t *testing.T, timeout time.Duration, what string, cond func() bo
 		if time.Now().After(deadline) {
 			t.Fatalf("timed out waiting for %s", what)
 		}
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(200 * time.Millisecond)
 	}
 }
 
-func TestHealthAndMetrics(t *testing.T) {
+// must unwraps (value, error); a failing call panics, which fails the test with the error.
+func must[T any](v T, err error) T {
+	if err != nil {
+		panic(fmt.Sprintf("unexpected error: %v", err))
+	}
+	return v
+}
+
+// publish sends an event the way Debezium's outbox router does.
+func publish(t *testing.T, topic, key string, msg proto.Message) {
+	t.Helper()
+	b, err := proto.Marshal(msg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, _ := uuid.NewV7()
+	rec := &kgo.Record{Topic: topic, Key: []byte(key), Value: b, Headers: []kgo.RecordHeader{
+		{Key: kafka.HeaderEventID, Value: []byte(id.String())},
+		{Key: kafka.HeaderEventType, Value: []byte(proto.MessageName(msg))},
+	}}
+	if err := raw.ProduceSync(context.Background(), rec).FirstErr(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Far from Colombo so the seeded fleet never competes with the test riders.
+var (
+	galle  = &commonv1.GeoPoint{Lat: 6.0535, Lng: 80.2210}
+	kandy  = &commonv1.GeoPoint{Lat: 7.2906, Lng: 80.6337}
+	jaffna = &commonv1.GeoPoint{Lat: 9.6615, Lng: 80.0255}
+)
+
+// onboard takes a new rider through the application flow and puts them online at p.
+func onboard(t *testing.T, p *commonv1.GeoPoint) (riderID string, ctx context.Context) {
+	t.Helper()
+	user := "it-user-" + uuid.NewString()
+	phone := fmt.Sprintf("+94 77 %07d", time.Now().UnixNano()%10_000_000)
+	app := must(riders.SubmitRiderApplication(as(user, "customer"), &dispatchv1.SubmitRiderApplicationRequest{
+		Name: "Test Rider", Phone: phone, City: "Galle", Vehicle: dispatchv1.VehicleType_VEHICLE_TYPE_MOTORBIKE,
+		Documents: []*commonv1.PartnerDocument{{Kind: "licence", FileName: "l.jpg"}, {Kind: "nicFront", FileName: "n.jpg"}},
+		Bank:      &commonv1.BankAccount{Bank: "HNB", AccountNumber: "0012345678"}, IdempotencyKey: "apply-" + user,
+	})).Application
+	if app.Bank.AccountNumber != "" || app.Bank.AccountLast4 != "5678" {
+		t.Fatalf("bank leaked or not masked: %v", app.Bank)
+	}
+	if _, err := riders.DecideRiderApplication(opsCtx, &dispatchv1.DecideRiderApplicationRequest{
+		ApplicationId: app.Id, Decision: commonv1.ApplicationStatus_APPLICATION_STATUS_APPROVED,
+	}); apperr.Reason(err) != "DOCUMENTS_NOT_APPROVED" {
+		t.Fatalf("approve with pending documents: %v", err)
+	}
+	for _, d := range app.Documents {
+		must(riders.ReviewRiderDocument(opsCtx, &dispatchv1.ReviewRiderDocumentRequest{ApplicationId: app.Id, DocumentId: d.Id, Status: commonv1.DocumentStatus_DOCUMENT_STATUS_APPROVED}))
+	}
+	decided := must(riders.DecideRiderApplication(opsCtx, &dispatchv1.DecideRiderApplicationRequest{
+		ApplicationId: app.Id, Decision: commonv1.ApplicationStatus_APPLICATION_STATUS_APPROVED, IdempotencyKey: "approve",
+	})).Application
+	if decided.RiderId == "" {
+		t.Fatal("approval created no rider")
+	}
+	ctx = as(user, "rider")
+	me := must(riders.GetMyRider(ctx, &dispatchv1.GetMyRiderRequest{})).Rider
+	if me.Id != decided.RiderId || me.UserId != user || me.Status != dispatchv1.RiderStatus_RIDER_STATUS_OFFLINE {
+		t.Fatalf("GetMyRider = %v", me)
+	}
+	on := must(jobs.SetAvailability(ctx, &dispatchv1.SetAvailabilityRequest{Online: true, Position: p}))
+	if on.Rider.Status != dispatchv1.RiderStatus_RIDER_STATUS_ONLINE || !on.CashAllowed {
+		t.Fatalf("online = %v", on)
+	}
+	t.Cleanup(func() {
+		_, _ = jobs.SetAvailability(ctx, &dispatchv1.SetAvailabilityRequest{Online: false})
+	})
+	return me.Id, ctx
+}
+
+func orderAt(p *commonv1.GeoPoint, pay commonv1.PaymentMethodKind) *orderv1.OrderAccepted {
+	id := uuid.NewString()
+	now := time.Now()
+	return &orderv1.OrderAccepted{
+		OrderId: id, ReadyBy: timestamppb.New(now.Add(10 * time.Minute)), OccurredAt: timestamppb.New(now),
+		Order: &orderv1.Order{
+			Id: id, OrderNumber: fmt.Sprintf("KD-IT%d", now.UnixNano()%100000), Mode: commonv1.FulfilmentMode_FULFILMENT_MODE_DELIVERY,
+			DeliveryCode: "4821", Customer: &commonv1.Contact{Id: "c-it", Name: "Dilini Fernando"},
+			Restaurant: &orderv1.OrderRestaurant{Id: "r-it", Name: "Test Kottu", Area: "Fort", Location: &commonv1.GeoPoint{Lat: p.Lat + 0.005, Lng: p.Lng}},
+			Address:    &commonv1.Address{Line: "1 Lighthouse St", Area: "Fort", Location: &commonv1.GeoPoint{Lat: p.Lat - 0.01, Lng: p.Lng + 0.01}},
+			Lines:      []*orderv1.OrderLine{{Key: "a", Name: "Chicken kottu", Quantity: 2}, {Key: "b", Name: "Ginger beer", Quantity: 1}},
+			Payment:    &commonv1.PaymentMethod{Kind: pay},
+			Totals:     &orderv1.OrderTotals{Total: &commonv1.Money{AmountMinor: 234000, Currency: "LKR"}, Tip: &commonv1.Money{AmountMinor: 5000}},
+		},
+	}
+}
+
+func waitOffer(t *testing.T, ctx context.Context) *dispatchv1.DeliveryOffer {
+	t.Helper()
+	var offer *dispatchv1.DeliveryOffer
+	eventually(t, 20*time.Second, "an offer", func() bool {
+		r, err := jobs.GetCurrentOffer(ctx, &dispatchv1.GetCurrentOfferRequest{})
+		offer = r.GetOffer()
+		return err == nil && offer != nil
+	})
+	return offer
+}
+
+func outboxTypes(t *testing.T, aggregateID string) []string {
+	t.Helper()
+	rows, err := a.Pool.Query(context.Background(), `SELECT type FROM outbox WHERE aggregateid = $1 ORDER BY created_at, id`, aggregateID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var s string
+		_ = rows.Scan(&s)
+		out = append(out, strings.TrimPrefix(s, "kade.dispatch.v1."))
+	}
+	return out
+}
+
+func TestHealth(t *testing.T) {
 	resp, err := http.Get("http://" + a.HTTPAddr.String() + "/health/ready")
 	if err != nil {
 		t.Fatal(err)
@@ -123,304 +266,256 @@ func TestHealthAndMetrics(t *testing.T) {
 	if resp.StatusCode != 200 || r.Checks["postgres"] != "ok" || r.Checks["kafka"] != "ok" || r.Checks["redis"] != "ok" {
 		t.Fatalf("ready = %d %s", resp.StatusCode, body)
 	}
+}
 
-	_, _ = client.GetNote(asUser("u"), &templatev1.GetNoteRequest{Id: uuid.NewString()}) // produce some rpc metrics
-	resp, err = http.Get("http://" + a.HTTPAddr.String() + "/metrics")
-	if err != nil {
-		t.Fatal(err)
+func TestSeededFleet(t *testing.T) {
+	nimal := as(dispatch.NimalUserID, "rider")
+	me := must(riders.GetMyRider(nimal, &dispatchv1.GetMyRiderRequest{})).Rider
+	if me.Id != dispatch.NimalRiderID || me.Name != "Nimal Perera" || me.Vehicle.Plate != "WP BCD-4521" || me.Rating != 4.9 || me.Bank.AccountLast4 != "4417" {
+		t.Fatalf("nimal = %v", me)
 	}
-	body, _ = io.ReadAll(resp.Body)
-	resp.Body.Close()
-	for _, want := range []string{"go_goroutines", "rpc_server_call_duration", "db_client"} {
-		if !strings.Contains(string(body), want) {
-			t.Errorf("/metrics missing %s", want)
-		}
+	if _, err := riders.GetMyRider(as("nobody-"+uuid.NewString(), "rider"), &dispatchv1.GetMyRiderRequest{}); apperr.Reason(err) != "RIDER_NOT_FOUND" {
+		t.Fatalf("unknown user: %v", err)
+	}
+	trips := must(jobs.ListTrips(nimal, &dispatchv1.ListTripsRequest{}))
+	if len(trips.Trips) == 0 || trips.Trips[0].Pay.Total.AmountMinor <= 0 {
+		t.Fatalf("nimal's history = %v", trips)
+	}
+	quests := must(jobs.ListQuests(nimal, &dispatchv1.ListQuestsRequest{}))
+	if len(quests.Quests) != 3 {
+		t.Fatalf("quests = %v", quests)
+	}
+	// Riders act only for themselves.
+	if _, err := jobs.GetActiveJob(nimal, &dispatchv1.GetActiveJobRequest{RiderId: dispatch.SeedID("8001", 102)}); apperr.Reason(err) != "RIDER_MISMATCH" {
+		t.Fatalf("acting for another rider: %v", err)
+	}
+	list := must(riders.ListRiders(opsCtx, &dispatchv1.ListRidersRequest{Query: "Kasun"}))
+	if len(list.Riders) == 0 || list.Riders[0].Id != dispatch.SeedID("8001", 102) {
+		t.Fatalf("search Kasun = %v", list.Riders)
+	}
+	online := must(riders.ListRiders(opsCtx, &dispatchv1.ListRidersRequest{Status: dispatchv1.RiderStatus_RIDER_STATUS_ONLINE, Page: &commonv1.PageRequest{PageSize: 100}}))
+	if len(online.Riders) < 25 || online.Riders[0].Position == nil {
+		t.Fatalf("online riders = %d (first %v)", len(online.Riders), online.Riders[0])
+	}
+	over := must(riders.ListRiders(opsCtx, &dispatchv1.ListRidersRequest{OverCashLimit: true}))
+	if len(over.Riders) < 2 {
+		t.Fatalf("over cash limit = %d", len(over.Riders))
+	}
+	if _, err := riders.ListRiders(nimal, &dispatchv1.ListRidersRequest{}); apperr.Reason(err) != "STAFF_ONLY" {
+		t.Fatalf("rider listing the fleet: %v", err)
+	}
+	apps := must(riders.ListRiderApplications(opsCtx, &dispatchv1.ListRiderApplicationsRequest{Status: commonv1.ApplicationStatus_APPLICATION_STATUS_PENDING}))
+	if len(apps.Applications) < 4 {
+		t.Fatalf("pending applications = %d", len(apps.Applications))
+	}
+	snap := must(ops.GetLiveSnapshot(opsCtx, &dispatchv1.GetLiveSnapshotRequest{})).Snapshot
+	if snap.RidersOnline < 25 || len(snap.Zones) != len(dispatch.Zones) || len(snap.Dots) == 0 {
+		t.Fatalf("snapshot: online %d zones %d dots %d", snap.RidersOnline, len(snap.Zones), len(snap.Dots))
 	}
 }
 
-func TestCreateNoteOutboxAndIdempotency(t *testing.T) {
-	key := uuid.NewString()
-	req := &templatev1.CreateNoteRequest{Text: "kottu for two", Amount: &commonv1.Money{AmountMinor: 115000, Currency: "LKR"}, IdempotencyKey: key}
-	first, err := client.CreateNote(asUser("u-it"), req)
-	if err != nil {
-		t.Fatal(err)
+// OrderAccepted → offer → decline → re-offer → accept → every step → delivered.
+func TestDeliveryLifecycle(t *testing.T) {
+	riderID, rctx := onboard(t, galle)
+	evt := orderAt(galle, commonv1.PaymentMethodKind_PAYMENT_METHOD_KIND_CASH)
+	publish(t, "kade.order.events", evt.OrderId, evt)
+
+	offer := waitOffer(t, rctx)
+	if offer.RiderId != riderID || offer.Delivery.OrderId != evt.OrderId || offer.Delivery.CashToCollect.AmountMinor != 234000 || offer.Delivery.Pay.Tip.AmountMinor != 5000 {
+		t.Fatalf("offer = %v", offer)
 	}
-	again, err := client.CreateNote(asUser("u-it"), req)
-	if err != nil || again.Note.Id != first.Note.Id || !proto.Equal(again.Note, first.Note) {
-		t.Fatalf("retry returned %v (err %v), want the original %v", again.GetNote(), err, first.Note)
+	must(jobs.DeclineOffer(rctx, &dispatchv1.DeclineOfferRequest{OfferId: offer.Id, Reason: "Too far"}))
+	again := waitOffer(t, rctx) // REOFFER_AFTER is 1 s in this test
+	if again.Id == offer.Id {
+		t.Fatal("expected a new offer")
 	}
-	_, err = client.CreateNote(asUser("u-it"), &templatev1.CreateNoteRequest{Text: "something else", IdempotencyKey: key})
-	if status.Code(err) != codes.FailedPrecondition || apperr.Reason(err) != "IDEMPOTENCY_KEY_REUSED" {
-		t.Fatalf("reused key: %v", err)
+	acc := must(jobs.AcceptOffer(rctx, &dispatchv1.AcceptOfferRequest{OfferId: again.Id, IdempotencyKey: "acc-1"})).Delivery
+	if acc.Status != dispatchv1.DeliveryStatus_DELIVERY_STATUS_ASSIGNED || acc.RiderId != riderID {
+		t.Fatalf("accepted = %v", acc)
 	}
-	if _, err := client.CreateNote(context.Background(), &templatev1.CreateNoteRequest{Text: "x"}); apperr.Reason(err) != "AUTH_REQUIRED" {
-		t.Fatalf("anonymous create: %v", err)
+	if replay := must(jobs.AcceptOffer(rctx, &dispatchv1.AcceptOfferRequest{OfferId: again.Id, IdempotencyKey: "acc-1"})).Delivery; replay.Id != acc.Id {
+		t.Fatal("idempotent accept returned another delivery")
+	}
+	if _, err := jobs.AcceptOffer(rctx, &dispatchv1.AcceptOfferRequest{OfferId: offer.Id}); apperr.Reason(err) != "OFFER_EXPIRED" {
+		t.Fatalf("accepting the declined offer: %v", err)
+	}
+	if _, err := jobs.SetAvailability(rctx, &dispatchv1.SetAvailabilityRequest{Online: false}); apperr.Reason(err) != "RIDER_ON_JOB" {
+		t.Fatalf("offline mid-job: %v", err)
+	}
+	active := must(jobs.GetActiveJob(rctx, &dispatchv1.GetActiveJobRequest{})).Delivery
+	if active.GetId() != acc.Id {
+		t.Fatalf("active job = %v", active)
 	}
 
-	ctx := context.Background()
-	var notes int
-	if err := a.Pool.QueryRow(ctx, `SELECT count(*) FROM notes WHERE id = $1`, first.Note.Id).Scan(&notes); err != nil || notes != 1 {
-		t.Fatalf("notes rows = %d (%v)", notes, err)
+	id := acc.Id
+	must(jobs.ArriveAtRestaurant(rctx, &dispatchv1.ArriveAtRestaurantRequest{DeliveryId: id}))
+	ready := must(jobs.ReportFoodNotReady(rctx, &dispatchv1.ReportFoodNotReadyRequest{DeliveryId: id}))
+	if !ready.ReadyAt.AsTime().After(time.Now()) {
+		t.Errorf("ready at = %v", ready.ReadyAt.AsTime())
 	}
-	rows, err := a.Pool.Query(ctx, `SELECT aggregatetype, type, payload, traceparent FROM outbox WHERE aggregateid = $1`, first.Note.Id)
-	if err != nil {
-		t.Fatal(err)
+	if _, err := jobs.ConfirmPickup(rctx, &dispatchv1.ConfirmPickupRequest{DeliveryId: id, CheckedItemIds: []string{"a"}}); apperr.Reason(err) != "ITEMS_NOT_CHECKED" {
+		t.Fatalf("pickup with an item unticked: %v", err)
 	}
-	defer rows.Close()
-	n := 0
-	for rows.Next() {
-		n++
-		var aggType, typ string
-		var payload []byte
-		var tp *string
-		if err := rows.Scan(&aggType, &typ, &payload, &tp); err != nil {
-			t.Fatal(err)
-		}
-		var evt templatev1.NoteCreated
-		if err := proto.Unmarshal(payload, &evt); err != nil {
-			t.Fatal(err)
-		}
-		if aggType != "note" || typ != "kade.template.v1.NoteCreated" || evt.NoteId != first.Note.Id || evt.Amount.AmountMinor != 115000 {
-			t.Fatalf("outbox row: %s %s %v", aggType, typ, &evt)
-		}
-		if tp == nil || !regexp.MustCompile(`^00-[0-9a-f]{32}-[0-9a-f]{16}-0[01]$`).MatchString(*tp) {
-			t.Fatalf("traceparent = %v", tp)
-		}
+	picked := must(jobs.ConfirmPickup(rctx, &dispatchv1.ConfirmPickupRequest{DeliveryId: id, CheckedItemIds: []string{"a", "b"}})).Delivery
+	if picked.Status != dispatchv1.DeliveryStatus_DELIVERY_STATUS_PICKED_UP {
+		t.Fatalf("picked = %v", picked.Status)
 	}
-	if n != 1 {
-		t.Fatalf("outbox rows = %d, want exactly 1 despite the retry", n)
+	must(jobs.SendCustomerMessage(rctx, &dispatchv1.SendCustomerMessageRequest{DeliveryId: id, Text: "I'm outside"}))
+	must(jobs.ArriveAtCustomer(rctx, &dispatchv1.ArriveAtCustomerRequest{DeliveryId: id}))
+	if _, err := jobs.CompleteDelivery(rctx, &dispatchv1.CompleteDeliveryRequest{DeliveryId: id, Proof: dispatchv1.ProofKind_PROOF_KIND_CODE, Code: "1111",
+		CashCollected: &commonv1.Money{AmountMinor: 234000}}); apperr.Reason(err) != "DELIVERY_CODE_MISMATCH" {
+		t.Fatalf("wrong code: %v", err)
 	}
-
-	got, err := client.GetNote(asUser("u-it"), &templatev1.GetNoteRequest{Id: first.Note.Id})
-	if err != nil || got.Note.Text != "kottu for two" {
-		t.Fatalf("GetNote = %v, %v", got, err)
+	if _, err := jobs.CompleteDelivery(rctx, &dispatchv1.CompleteDeliveryRequest{DeliveryId: id, Proof: dispatchv1.ProofKind_PROOF_KIND_CODE, Code: "4821",
+		CashCollected: &commonv1.Money{AmountMinor: 100000}}); apperr.Reason(err) != "CASH_SHORT" {
+		t.Fatalf("cash short: %v", err)
 	}
-	if _, err := client.GetNote(asUser("u-it"), &templatev1.GetNoteRequest{Id: uuid.NewString()}); apperr.Reason(err) != "NOTE_NOT_FOUND" {
-		t.Fatalf("missing note: %v", err)
+	trip := must(jobs.CompleteDelivery(rctx, &dispatchv1.CompleteDeliveryRequest{DeliveryId: id, Proof: dispatchv1.ProofKind_PROOF_KIND_CODE, Code: "4821",
+		CashCollected: &commonv1.Money{AmountMinor: 500000}, IdempotencyKey: "done"})).Trip
+	if trip.Id != id || trip.CashCollected.AmountMinor != 500000 || trip.Proof != dispatchv1.ProofKind_PROOF_KIND_CODE || trip.Pay.Total.AmountMinor <= 0 {
+		t.Fatalf("trip = %v", trip)
+	}
+	if got := must(jobs.GetTrip(rctx, &dispatchv1.GetTripRequest{TripId: id})).Trip; got.Id != id {
+		t.Fatalf("GetTrip = %v", got)
+	}
+	me := must(riders.GetMyRider(rctx, &dispatchv1.GetMyRiderRequest{})).Rider
+	if me.Status != dispatchv1.RiderStatus_RIDER_STATUS_ONLINE || me.TripsWeek != 1 {
+		t.Fatalf("rider after delivery = %v", me)
+	}
+	full := must(ops.GetDelivery(opsCtx, &dispatchv1.GetDeliveryRequest{OrderId: evt.OrderId}))
+	if full.Delivery.Status != dispatchv1.DeliveryStatus_DELIVERY_STATUS_DELIVERED || len(full.Offers) != 2 ||
+		full.Offers[0].Status != dispatchv1.OfferStatus_OFFER_STATUS_DECLINED || full.Offers[1].Status != dispatchv1.OfferStatus_OFFER_STATUS_ACCEPTED {
+		t.Fatalf("delivery with offers = %v", full)
+	}
+	want := []string{"DeliveryRequested", "DeliveryOfferSent", "DeliveryOfferDeclined", "DeliveryOfferSent", "RiderAssigned",
+		"RiderArrivedAtRestaurant", "DeliveryPickedUp", "RiderArrivedAtCustomer", "DeliveryCompleted"}
+	if got := outboxTypes(t, id); !slices.Equal(got, want) {
+		t.Fatalf("delivery events = %v\nwant %v", got, want)
+	}
+	if got := outboxTypes(t, riderID); !slices.Contains(got, "RiderStatusChanged") {
+		t.Fatalf("rider events = %v", got)
 	}
 }
 
-// debeziumRecord builds what Debezium's outbox router publishes for a NoteCreated row.
-func debeziumRecord(t *testing.T, key string, evt *templatev1.NoteCreated) (*kgo.Record, uuid.UUID) {
-	id, _ := uuid.NewV7()
-	b, err := proto.Marshal(evt)
-	if err != nil {
-		t.Fatal(err)
+// An unanswered offer expires after OFFER_TIMEOUT and goes out again; cancelling the order
+// withdraws it.
+func TestOfferExpiryAndCancellation(t *testing.T) {
+	_, rctx := onboard(t, kandy)
+	evt := orderAt(kandy, commonv1.PaymentMethodKind_PAYMENT_METHOD_KIND_CARD)
+	publish(t, "kade.order.events", evt.OrderId, evt)
+	first := waitOffer(t, rctx)
+	eventually(t, 15*time.Second, "offer expiry", func() bool {
+		r, _ := ops.GetDelivery(opsCtx, &dispatchv1.GetDeliveryRequest{OrderId: evt.OrderId})
+		return len(r.GetOffers()) > 0 && r.GetOffers()[0].Status == dispatchv1.OfferStatus_OFFER_STATUS_EXPIRED
+	})
+	if _, err := jobs.AcceptOffer(rctx, &dispatchv1.AcceptOfferRequest{OfferId: first.Id}); apperr.Reason(err) != "OFFER_EXPIRED" {
+		t.Fatalf("late accept: %v", err)
 	}
-	return &kgo.Record{Topic: eventsTopic, Key: []byte(key), Value: b, Headers: []kgo.RecordHeader{
-		{Key: kafka.HeaderEventID, Value: []byte(id.String())},
-		{Key: kafka.HeaderEventType, Value: []byte("kade.template.v1.NoteCreated")},
-		{Key: kafka.HeaderTraceparent, Value: []byte("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")},
-	}}, id
-}
-
-func processed(id uuid.UUID) bool {
-	var ok bool
-	_ = a.Pool.QueryRow(context.Background(), `SELECT EXISTS (SELECT 1 FROM processed_events WHERE event_id = $1)`, id).Scan(&ok)
-	return ok
-}
-
-func createNote(t *testing.T) *templatev1.Note {
-	t.Helper()
-	resp, err := client.CreateNote(asUser("u-it"), &templatev1.CreateNoteRequest{Text: "for the consumer"})
-	if err != nil {
-		t.Fatal(err)
+	publish(t, "kade.order.events", evt.OrderId, &orderv1.OrderCancelled{OrderId: evt.OrderId, Order: evt.Order,
+		Cancellation: &orderv1.Cancellation{Reason: "Customer changed their mind"}, OccurredAt: timestamppb.Now()})
+	eventually(t, 15*time.Second, "delivery cancelled", func() bool {
+		r, _ := ops.GetDelivery(opsCtx, &dispatchv1.GetDeliveryRequest{OrderId: evt.OrderId})
+		return r.GetDelivery().GetStatus() == dispatchv1.DeliveryStatus_DELIVERY_STATUS_CANCELLED
+	})
+	d := must(ops.GetDelivery(opsCtx, &dispatchv1.GetDeliveryRequest{OrderId: evt.OrderId}))
+	types := outboxTypes(t, d.Delivery.Id)
+	if !slices.Contains(types, "DeliveryOfferExpired") || types[len(types)-1] != "DeliveryCancelled" {
+		t.Fatalf("events = %v", types)
 	}
-	return resp.Note
-}
-
-func TestConsumerIdempotentWithWebSocketFanOut(t *testing.T) {
-	n := createNote(t)
-
-	// A browser-style client watching this note on our instance's hub.
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-	ws, _, err := websocket.Dial(ctx, "ws://"+a.HTTPAddr.String()+"/ws?channel="+note.Channel(n.Id), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ws.CloseNow()
-	eventually(t, 2*time.Second, "ws subscription", func() bool { return a.Hub.Subscribers(note.Channel(n.Id)) == 1 })
-
-	rec, eventID := debeziumRecord(t, n.Id, &templatev1.NoteCreated{NoteId: n.Id, Text: n.Text})
-	if err := raw.ProduceSync(ctx, rec).FirstErr(); err != nil {
-		t.Fatal(err)
-	}
-	eventually(t, 20*time.Second, "event processed", func() bool { return processed(eventID) })
-
-	_, msg, err := ws.Read(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(msg), eventID.String()) || !strings.Contains(string(msg), "kade.template.v1.NoteCreated") {
-		t.Fatalf("ws message = %s", msg)
-	}
-
-	var first time.Time
-	if err := a.Pool.QueryRow(ctx, `SELECT last_event_at FROM notes WHERE id = $1`, n.Id).Scan(&first); err != nil {
-		t.Fatal(err)
-	}
-
-	// Redeliver the same event, then a sentinel on the same key (same partition, so it is handled
-	// after the duplicate). The duplicate must not re-run the side effect.
-	dup := *rec
-	dup.Headers = append([]kgo.RecordHeader(nil), rec.Headers...)
-	other := createNote(t)
-	sentinel, sentinelID := debeziumRecord(t, n.Id, &templatev1.NoteCreated{NoteId: other.Id})
-	if err := raw.ProduceSync(ctx, &dup, sentinel).FirstErr(); err != nil {
-		t.Fatal(err)
-	}
-	eventually(t, 20*time.Second, "sentinel processed", func() bool { return processed(sentinelID) })
-	var after time.Time
-	if err := a.Pool.QueryRow(ctx, `SELECT last_event_at FROM notes WHERE id = $1`, n.Id).Scan(&after); err != nil {
-		t.Fatal(err)
-	}
-	if !after.Equal(first) {
-		t.Fatalf("duplicate delivery re-applied the side effect: %v -> %v", first, after)
+	if r, _ := jobs.GetCurrentOffer(rctx, &dispatchv1.GetCurrentOfferRequest{}); r.GetOffer() != nil {
+		t.Fatalf("offer still open after cancel: %v", r.GetOffer())
 	}
 }
 
-// The real path: CreateNote → outbox row → Debezium → kade.note.events → our consumer.
-// Needs the connector: deploy/compose/connect/register-outbox.sh dispatch dispatch
-func TestOutboxRelayEndToEnd(t *testing.T) {
+// Over the cash limit (ledger) → no cash orders; nobody else nearby → UNMATCHED and ops are told.
+// Ops then assign the rider by hand.
+func TestCashLimitUnmatchedAndReassign(t *testing.T) {
+	riderID, rctx := onboard(t, jaffna)
+	publish(t, "kade.ledger.events", riderID, &ledgerv1.RiderCashBalanceChanged{RiderId: riderID, OccurredAt: timestamppb.Now(),
+		Balance: &ledgerv1.RiderCashBalance{RiderId: riderID, Holding: &commonv1.Money{AmountMinor: 2_145_000}, Limit: &commonv1.Money{AmountMinor: 1_500_000}, OverLimit: true}})
+	eventually(t, 15*time.Second, "cash limit applied", func() bool {
+		r, _ := riders.GetMyRider(rctx, &dispatchv1.GetMyRiderRequest{})
+		return r.GetRider() != nil && !r.GetRider().CashAllowed
+	})
+	evt := orderAt(jaffna, commonv1.PaymentMethodKind_PAYMENT_METHOD_KIND_CASH)
+	publish(t, "kade.order.events", evt.OrderId, evt)
+	eventually(t, 40*time.Second, "unmatched", func() bool {
+		r, _ := ops.GetDelivery(opsCtx, &dispatchv1.GetDeliveryRequest{OrderId: evt.OrderId})
+		return r.GetDelivery().GetStatus() == dispatchv1.DeliveryStatus_DELIVERY_STATUS_UNMATCHED
+	})
+	if r, _ := jobs.GetCurrentOffer(rctx, &dispatchv1.GetCurrentOfferRequest{}); r.GetOffer() != nil {
+		t.Fatal("a rider over the cash limit got a cash order")
+	}
+	d := must(ops.GetDelivery(opsCtx, &dispatchv1.GetDeliveryRequest{OrderId: evt.OrderId})).Delivery
+	if types := outboxTypes(t, d.Id); !slices.Contains(types, "DeliveryMatchingFailed") || slices.Contains(types, "DeliveryOfferSent") {
+		t.Fatalf("events = %v", types)
+	}
+	snap := must(ops.GetLiveSnapshot(opsCtx, &dispatchv1.GetLiveSnapshotRequest{})).Snapshot
+	if !slices.ContainsFunc(snap.Attention, func(a *dispatchv1.AttentionItem) bool { return a.RecordId == evt.OrderId }) {
+		t.Fatal("unmatched delivery missing from the ops attention list")
+	}
+	re := must(ops.ReassignRider(opsCtx, &dispatchv1.ReassignRiderRequest{OrderId: evt.OrderId, RiderId: riderID, Reason: "Manual", By: "Ops", IdempotencyKey: "r1"})).Delivery
+	if re.Status != dispatchv1.DeliveryStatus_DELIVERY_STATUS_ASSIGNED || re.RiderId != riderID {
+		t.Fatalf("reassigned = %v", re)
+	}
+	if types := outboxTypes(t, d.Id); types[len(types)-1] != "RiderAssigned" {
+		t.Fatalf("events = %v", types)
+	}
+}
+
+// A ping on kade.rider.locations (Confluent framing, as location produces it) moves an available
+// rider in the GEO index.
+func TestLocationStreamMovesAvailableRider(t *testing.T) {
+	riderID, _ := onboard(t, &commonv1.GeoPoint{Lat: 8.3114, Lng: 80.4037}) // Anuradhapura
+	var h sr.ConfluentHeader
+	prefix, _ := h.AppendEncode(nil, 1, []int{0})
+	target := &commonv1.GeoPoint{Lat: 8.3200, Lng: 80.4100}
+	seq := int64(0)
+	eventually(t, 30*time.Second, "position moved by the stream", func() bool {
+		seq++
+		b, _ := proto.Marshal(&locationv1.RiderLocation{RiderId: riderID, Position: target, Sequence: seq, ReceivedAt: timestamppb.Now()})
+		_ = raw.ProduceSync(context.Background(), &kgo.Record{Topic: "kade.rider.locations", Key: []byte(riderID), Value: append(append([]byte(nil), prefix...), b...)}).FirstErr()
+		time.Sleep(500 * time.Millisecond)
+		pos, err := a.Redis.GeoPos(context.Background(), dispatch.KeyAvailable, riderID).Result()
+		return err == nil && len(pos) == 1 && pos[0] != nil && dispatch.HaversineKm(pos[0].Latitude, pos[0].Longitude, target.Lat, target.Lng) < 0.05
+	})
+}
+
+// The real relay: outbox row → Debezium → kade.delivery.events. Needs the connector:
+// deploy/compose/connect/register-outbox.sh dispatch dispatch
+func TestOutboxRelay(t *testing.T) {
 	resp, err := http.Get(st.ConnectURL + "/connectors/outbox-dispatch/status")
 	if err != nil {
-		t.Skipf("Kafka Connect unreachable (%v): outbox relay not tested", err)
+		t.Skipf("Kafka Connect unreachable: %v", err)
 	}
 	body, _ := io.ReadAll(resp.Body)
 	resp.Body.Close()
 	if resp.StatusCode != 200 || !strings.Contains(string(body), `"state":"RUNNING"`) {
-		t.Skipf("outbox-dispatch connector not running (%d %s): run register-outbox.sh dispatch dispatch", resp.StatusCode, body)
+		t.Skipf("outbox-dispatch connector not running (%d): run register-outbox.sh dispatch dispatch", resp.StatusCode)
 	}
-	n := createNote(t)
-	var eventID uuid.UUID
-	if err := a.Pool.QueryRow(context.Background(), `SELECT id FROM outbox WHERE aggregateid = $1`, n.Id).Scan(&eventID); err != nil {
-		t.Fatal(err)
-	}
-	eventually(t, 30*time.Second, "outbox event relayed by Debezium and consumed", func() bool { return processed(eventID) })
-	var seen *time.Time
-	if err := a.Pool.QueryRow(context.Background(), `SELECT last_event_at FROM notes WHERE id = $1`, n.Id).Scan(&seen); err != nil || seen == nil {
-		t.Fatalf("side effect not applied: %v %v", seen, err)
-	}
-}
-
-func TestPoisonEventGoesToDLQ(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	rec, eventID := debeziumRecord(t, "poison", &templatev1.NoteCreated{})
-	rec.Value = []byte{0xff, 0xff, 0xff, 0xff} // not a NoteCreated
-	if err := raw.ProduceSync(ctx, rec).FirstErr(); err != nil {
-		t.Fatal(err)
-	}
-
-	dlq, err := kgo.NewClient(kgo.SeedBrokers(st.Brokers...), kgo.ConsumeTopics(eventsTopic+".dlq"),
-		kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()))
+	cl, err := kgo.NewClient(kgo.SeedBrokers(st.Brokers...), kgo.ConsumeTopics("kade.delivery.events"), kgo.ConsumeResetOffset(kgo.NewOffset().AtEnd()))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dlq.Close()
+	defer cl.Close()
+	pctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	cl.PollFetches(pctx)
+	cancel()
+
+	evt := orderAt(&commonv1.GeoPoint{Lat: 5.9485, Lng: 80.5353}, commonv1.PaymentMethodKind_PAYMENT_METHOD_KIND_CARD) // Matara: no riders
+	publish(t, "kade.order.events", evt.OrderId, evt)
+	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Second)
+	defer cancel()
 	for ctx.Err() == nil {
-		fs := dlq.PollFetches(ctx)
-		for _, r := range fs.Records() {
-			// Every consumer group of the topic dead-letters it (the TS/Java templates too): find ours.
-			if kafka.Header(r, kafka.HeaderEventID) != eventID.String() || kafka.Header(r, kafka.HeaderFailedBy) != a.Cfg.ServiceName {
+		for _, r := range cl.PollFetches(ctx).Records() {
+			if kafka.Header(r, kafka.HeaderEventType) != "kade.dispatch.v1.DeliveryRequested" {
 				continue
 			}
-			if kafka.Header(r, kafka.HeaderOriginalTopic) != eventsTopic || !strings.Contains(kafka.Header(r, kafka.HeaderError), "decode") ||
-				kafka.Header(r, kafka.HeaderAttempts) != "1" || string(r.Value) != string(rec.Value) {
-				t.Fatalf("DLQ record headers: %v", r.Headers)
+			var e dispatchv1.DeliveryRequested
+			if proto.Unmarshal(r.Value, &e) == nil && e.OrderId == evt.OrderId && string(r.Key) == e.DeliveryId {
+				return
 			}
-			return
 		}
 	}
-	t.Fatal("poison event never reached the DLQ")
-}
-
-func TestGeoIndex(t *testing.T) {
-	ctx := context.Background()
-	key := "dispatch-it:geo:" + uuid.NewString()
-	defer a.Redis.Del(ctx, key)
-	geo := redisx.NewGeoIndex(a.Redis, key)
-	colombo := redisx.Point{Lat: 6.9271, Lng: 79.8612}
-	riders := map[string]redisx.Point{
-		"rider-near": {Lat: 6.9290, Lng: 79.8620}, // ~230 m
-		"rider-mid":  {Lat: 6.9400, Lng: 79.8700}, // ~1.7 km
-		"rider-far":  {Lat: 7.2906, Lng: 80.6337}, // Kandy
-	}
-	for m, p := range riders {
-		if err := geo.Upsert(ctx, m, p); err != nil {
-			t.Fatal(err)
-		}
-	}
-	hits, err := geo.Nearby(ctx, colombo, 3000, 10)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(hits) != 2 || hits[0].Member != "rider-near" || hits[1].Member != "rider-mid" || hits[0].DistanceMeters > 400 {
-		t.Fatalf("hits = %+v", hits)
-	}
-	_ = geo.Remove(ctx, "rider-near")
-	hits, _ = geo.Nearby(ctx, colombo, 3000, 1)
-	if len(hits) != 1 || hits[0].Member != "rider-mid" {
-		t.Fatalf("after remove: %+v", hits)
-	}
-	if err := geo.Upsert(ctx, "x", redisx.Point{Lat: 89, Lng: 0}); !errors.Is(err, redisx.ErrInvalidPoint) {
-		t.Fatalf("polar point: %v", err)
-	}
-}
-
-func topicExists(ctx context.Context, topic string) bool {
-	req := kmsg.NewPtrMetadataRequest()
-	rt := kmsg.NewMetadataRequestTopic()
-	rt.Topic = kmsg.StringPtr(topic)
-	req.Topics = append(req.Topics, rt)
-	resp, err := req.RequestWith(ctx, raw)
-	return err == nil && len(resp.Topics) == 1 && resp.Topics[0].ErrorCode == 0
-}
-
-func TestSchemaRegistryStream(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	if a.Stream == nil {
-		t.Fatal("stream producer not configured")
-	}
-	reg, _ := sr.NewClient(sr.URLs(st.SchemaRegistryURL))
-	text, err := reg.SchemaTextByID(ctx, a.Stream.SchemaID())
-	if err != nil || !strings.Contains(text, "message Note") {
-		t.Fatalf("registered schema %d: %v\n%s", a.Stream.SchemaID(), err, text)
-	}
-	if _, err := reg.SchemaByVersion(ctx, "kade/common/v1/money.proto", -1); err != nil {
-		t.Fatalf("referenced money.proto not registered: %v", err)
-	}
-
-	topic := a.Stream.Topic()
-	if !topicExists(ctx, topic) {
-		t.Skipf("topic %s does not exist (auto-create is off): schema registration verified, produce/consume skipped", topic)
-	}
-	n := createNote(t)
-	if _, err := client.GetNote(asUser("u-it"), &templatev1.GetNoteRequest{Id: n.Id}); err != nil {
-		t.Fatal(err)
-	}
-	cons, err := kgo.NewClient(kgo.SeedBrokers(st.Brokers...), kgo.ConsumeTopics(topic), kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer cons.Close()
-	for ctx.Err() == nil {
-		for _, r := range cons.PollFetches(ctx).Records() {
-			if string(r.Key) != n.Id {
-				continue
-			}
-			var got templatev1.Note
-			id, err := kafka.DecodeConfluent(r.Value, &got)
-			if err != nil || id != a.Stream.SchemaID() || got.Text != n.Text {
-				t.Fatalf("decoded id=%d note=%v err=%v", id, &got, err)
-			}
-			if kafka.Header(r, kafka.HeaderTraceparent) == "" {
-				t.Fatal("stream record has no traceparent")
-			}
-			return
-		}
-	}
-	t.Fatal("view record not found on " + topic)
+	t.Fatal("DeliveryRequested never reached kade.delivery.events")
 }

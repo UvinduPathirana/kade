@@ -1,24 +1,34 @@
-# Compose fragment, included from deploy/compose/services.yaml. Paths are relative to this file.
-#   docker compose -f deploy/compose/compose.yaml --profile templates up -d --build dispatch
+# Compose fragment for dispatch. Included from deploy/compose/services.yaml; paths are relative to
+# this file. Start it with the shared stack:
+#   docker compose -f deploy/compose/compose.yaml --profile fulfilment up -d --build dispatch
+# After the first start (migrations create public.outbox), register the outbox connector once:
+#   deploy/compose/connect/register-outbox.sh dispatch dispatch
 services:
   dispatch:
     build:
       context: ../..
       dockerfile: services/dispatch/Dockerfile
     image: kade/dispatch:dev
-    profiles: [CHANGE_ME] # ordering, fulfilment, money or engagement
+    profiles: [fulfilment]
     environment:
       SERVICE_NAME: dispatch
       GRPC_PORT: "50110"
       HTTP_PORT: "8110"
       DATABASE_URL: postgres://dispatch:dispatch@postgres:5432/dispatch
       KAFKA_BROKERS: kafka:9092
-      SCHEMA_REGISTRY_URL: http://schema-registry:8081
       REDIS_URL: redis://redis:6379
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel:4318
-      STREAM_TOPIC: kade.note.views
       LOG_LEVEL: info
-      GOMEMLIMIT: 48MiB # soft limit below the 64 MB cap: the GC works harder instead of OOM-killing
+      # Optional dependencies (lazy connections: dispatch runs fine while they are down).
+      LOCATION_GRPC: location:50111         # simulated riders' positions → kade.rider.locations
+      NOTIFICATION_GRPC: notification:50114 # rider → customer quick replies
+      # Demo: the seeded fleet without logins accepts and runs its jobs; Nimal (real login) is
+      # always offered first when he is online and nearby.
+      SIMULATE_RIDERS: "true"
+      PREFER_REAL_RIDERS: "true"
+      SEED_ON_START: "true"
+      OFFER_TIMEOUT: 30s
+      GOMEMLIMIT: 72MiB # soft limit below the 96 MB cap: the GC works harder instead of OOM-killing
       GOMAXPROCS: "2"
     ports:
       - "50110:50110"
@@ -34,10 +44,9 @@ services:
       postgres: { condition: service_healthy }
       kafka: { condition: service_healthy }
       kafka-init: { condition: service_completed_successfully }
-      schema-registry: { condition: service_healthy }
       redis: { condition: service_healthy }
     restart: unless-stopped
-    deploy: { resources: { limits: { memory: 64m } } }
+    deploy: { resources: { limits: { memory: 96m } } }
     logging:
       driver: json-file
       options: { max-size: 10m, max-file: "2" }
