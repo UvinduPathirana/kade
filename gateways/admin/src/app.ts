@@ -7,25 +7,40 @@ import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest }
 import type { Logger } from "pino";
 import { AuthError, type Authenticator, type Identity } from "./auth.js";
 import type { Config } from "./config.js";
-import type { CallContext } from "./grpc/call.js";
+import { createContextFactory, type Ctx } from "./context.js";
 import { isServiceError } from "./grpc/call.js";
-import type { TemplateServiceClient } from "@kade/proto/kade/template/v1/template";
+import type { Upstreams } from "./grpc/clients.js";
 import { Hub } from "./hub.js";
+import { UnknownIdError } from "./ids.js";
+import { STAFF_ROLES } from "./permissions.js";
 import { problem, problemFromGrpc, type Problem } from "./problem.js";
+import { contentRoutes } from "./routes/content.js";
+import { customerRoutes } from "./routes/customers.js";
+import { financeRoutes } from "./routes/finance.js";
 import { healthRoutes } from "./routes/health.js";
-import { noteRoutes } from "./routes/notes.js";
+import { liveRoutes } from "./routes/live.js";
+import { orderRoutes } from "./routes/orders.js";
+import { partnerRoutes } from "./routes/partners.js";
+import { pricingRoutes } from "./routes/pricing.js";
+import { promotionRoutes } from "./routes/promotions.js";
+import { supportRoutes } from "./routes/support.js";
+import { teamRoutes } from "./routes/team.js";
 import { wsRoutes } from "./routes/ws.js";
 import { sharedSchemas } from "./schemas.js";
 
 declare module "fastify" {
   interface FastifyRequest {
     identity: Identity | undefined;
+    /** Upstream calls, permissions, audit and lookups for this request (authenticated routes). */
+    ctx: Ctx;
   }
   interface FastifyContextConfig {
     /** required (default): 401 without a valid token. optional: identity if present. public: no auth. */
     auth?: "required" | "optional" | "public";
-    /** Caller needs at least one of these realm roles (403 otherwise). */
+    /** Caller needs at least one of these realm roles (403 otherwise). Default: any staff role. */
     roles?: string[];
+    /** Caller's roles must grant one of these console permissions (identity's matrix). */
+    permission?: string | string[];
   }
 }
 
@@ -33,7 +48,7 @@ export interface AppDeps {
   config: Config;
   logger: Logger;
   authenticator: Authenticator;
-  template: TemplateServiceClient;
+  upstreams: Upstreams;
 }
 
 export type App = FastifyInstance<
@@ -71,9 +86,11 @@ export async function buildApp(deps: AppDeps): Promise<Gateway> {
         title: `Kadé ${config.SERVICE_NAME}`,
         version: "0.1.0",
         description:
-          "Backend-for-frontend REST API. Money is whole rupees (LKR). Errors are application/problem+json " +
-          "with a stable `code`. Mutations accept an `Idempotency-Key` header. Realtime: WebSocket /ws " +
-          "(see the gateway README).",
+          "Backend-for-frontend REST API for the Kadé Ops console (apps/admin). Staff only (ops, finance, " +
+          "support, admin); each write is checked against the role → permission matrix and audited. " +
+          "Money is whole rupees (LKR); instants are epoch milliseconds; restaurant ids are numbers. " +
+          "Errors are application/problem+json with a stable `code`. Mutations accept an `Idempotency-Key` " +
+          "header. Realtime: WebSocket /ws (see the gateway README).",
       },
       components: {
         securitySchemes: { bearer: { type: "http", scheme: "bearer", bearerFormat: "JWT" } },
@@ -90,7 +107,10 @@ export async function buildApp(deps: AppDeps): Promise<Gateway> {
   });
   await app.register(websocket, { options: { maxPayload: 64 * 1024 } });
 
+  const contextFor = createContextFactory({ config, up: deps.upstreams });
+
   app.decorateRequest("identity", undefined);
+  app.decorateRequest("ctx", undefined as unknown as Ctx);
   app.addHook("onRequest", async (req, reply) => {
     // No matching route: let the 404 handler answer instead of asking for credentials.
     if (req.routeOptions.url === undefined) return;
@@ -114,13 +134,19 @@ export async function buildApp(deps: AppDeps): Promise<Gateway> {
     if (!req.identity && mode === "required") {
       return sendProblem(reply, problem(401, "UNAUTHENTICATED", "Sign in to continue.", meta(req)));
     }
-    const roles = req.routeOptions.config.roles;
+    // The console is staff-only: every authenticated route needs a staff role unless it says otherwise.
+    const roles = req.routeOptions.config.roles ?? (mode === "required" ? [...STAFF_ROLES] : undefined);
     if (roles && !roles.some((r) => req.identity?.roles.includes(r))) {
       return sendProblem(
         reply,
         problem(403, "PERMISSION_DENIED", "You do not have access to this.", meta(req)),
       );
     }
+    if (req.identity) req.ctx = contextFor(req, reply);
+  });
+  app.addHook("preHandler", async (req) => {
+    const permission = req.routeOptions.config.permission;
+    if (permission && req.ctx) await req.ctx.need(permission);
   });
 
   app.setErrorHandler((err, req, reply) => {
@@ -128,6 +154,12 @@ export async function buildApp(deps: AppDeps): Promise<Gateway> {
       const p = problemFromGrpc(err, meta(req));
       if (p.status >= 500) req.log.warn({ err, code: p.code }, "upstream failure");
       return sendProblem(reply, p);
+    }
+    if (err instanceof UnknownIdError) {
+      return sendProblem(
+        reply,
+        problem(404, "NOT_FOUND", `${err.message} not found. Refresh the page and try again.`, meta(req)),
+      );
     }
     const e = err as { validation?: unknown; statusCode?: number; code?: string; message: string };
     if (e.validation) return sendProblem(reply, problem(400, "VALIDATION_FAILED", e.message, meta(req)));
@@ -144,18 +176,23 @@ export async function buildApp(deps: AppDeps): Promise<Gateway> {
     sendProblem(reply, problem(404, "ROUTE_NOT_FOUND", `No route ${req.method} ${req.url}`, meta(req))),
   );
 
-  const callContext = (req: FastifyRequest, reply: FastifyReply): CallContext => {
-    // Client went away before we answered: cancel the upstream call instead of finishing it.
-    const controller = new AbortController();
-    reply.raw.once("close", () => {
-      if (!reply.raw.writableFinished) controller.abort();
-    });
-    return { identity: req.identity, deadlineMs: config.GRPC_DEADLINE_MS, signal: controller.signal };
-  };
-
   await app.register(healthRoutes(lifecycle));
-  await app.register(noteRoutes({ template: deps.template, hub, callContext }));
-  await app.register(wsRoutes({ authenticator, hub }));
+  await app.register(liveRoutes);
+  await app.register(orderRoutes);
+  await app.register(financeRoutes);
+  await app.register(partnerRoutes({ invalidateOutlets: () => contextFor.invalidate("outlets") }));
+  await app.register(customerRoutes);
+  await app.register(pricingRoutes({ invalidateZones: () => contextFor.invalidate("zones") }));
+  await app.register(promotionRoutes);
+  await app.register(supportRoutes);
+  await app.register(contentRoutes);
+  await app.register(
+    teamRoutes({
+      invalidateStaff: () => contextFor.invalidate("staff"),
+      invalidateMatrix: () => contextFor.invalidate("matrix"),
+    }),
+  );
+  await app.register(wsRoutes({ authenticator, hub, realtimeUrl: config.REALTIME_WS_URL }));
   app.get("/openapi.json", { schema: { hide: true }, config: { auth: "public" } }, () => app.swagger());
 
   return { app, hub, lifecycle };

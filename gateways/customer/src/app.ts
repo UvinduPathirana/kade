@@ -9,12 +9,16 @@ import { AuthError, type Authenticator, type Identity } from "./auth.js";
 import type { Config } from "./config.js";
 import type { CallContext } from "./grpc/call.js";
 import { isServiceError } from "./grpc/call.js";
-import type { TemplateServiceClient } from "@kade/proto/kade/template/v1/template";
+import { CustomerEnsurer } from "./customers.js";
+import type { Upstreams } from "./grpc/clients.js";
 import { Hub } from "./hub.js";
 import { problem, problemFromGrpc, type Problem } from "./problem.js";
 import { healthRoutes } from "./routes/health.js";
-import { noteRoutes } from "./routes/notes.js";
-import { wsRoutes } from "./routes/ws.js";
+import { accountRoutes } from "./routes/account.js";
+import { catalogRoutes } from "./routes/catalog.js";
+import { commerceRoutes } from "./routes/commerce.js";
+import { orderRoutes } from "./routes/orders.js";
+import { wsRoutes, type WsDeps } from "./routes/ws.js";
 import { sharedSchemas } from "./schemas.js";
 
 declare module "fastify" {
@@ -33,7 +37,9 @@ export interface AppDeps {
   config: Config;
   logger: Logger;
   authenticator: Authenticator;
-  template: TemplateServiceClient;
+  upstreams: Upstreams;
+  /** Tests inject a fake realtime connection. */
+  connectUpstream?: WsDeps["connectUpstream"];
 }
 
 export type App = FastifyInstance<
@@ -60,6 +66,7 @@ export async function buildApp(deps: AppDeps): Promise<Gateway> {
     bodyLimit: 256 * 1024,
   }).withTypeProvider<TypeBoxTypeProvider>();
   const hub = new Hub();
+  const customers = new CustomerEnsurer(deps.upstreams);
   const lifecycle = { draining: false };
 
   for (const schema of sharedSchemas) app.addSchema(schema);
@@ -71,9 +78,10 @@ export async function buildApp(deps: AppDeps): Promise<Gateway> {
         title: `Kadé ${config.SERVICE_NAME}`,
         version: "0.1.0",
         description:
-          "Backend-for-frontend REST API. Money is whole rupees (LKR). Errors are application/problem+json " +
-          "with a stable `code`. Mutations accept an `Idempotency-Key` header. Realtime: WebSocket /ws " +
-          "(see the gateway README).",
+          "Backend-for-frontend REST API for the Kadé customer app. Shapes match apps/customer/src/api/types.ts. " +
+          "Money is whole rupees (LKR); instants are epoch milliseconds; restaurant ids are the app's numbers. " +
+          "Errors are application/problem+json with a stable `code`. Mutations accept an `Idempotency-Key` " +
+          "header. Realtime: WebSocket /ws, proxied to the realtime service (see the gateway README).",
       },
       components: {
         securitySchemes: { bearer: { type: "http", scheme: "bearer", bearerFormat: "JWT" } },
@@ -111,6 +119,18 @@ export async function buildApp(deps: AppDeps): Promise<Gateway> {
       }
       if (req.identity.dev) req.log.debug({ userId: req.identity.userId }, "AUTH_DEV_BYPASS identity");
     }
+    if (req.identity && req.routeOptions.url !== "/v1/me") {
+      // Any Keycloak user is a customer: make sure the profile exists (cached; best effort here,
+      // GET /v1/me always upserts and reports failures).
+      try {
+        await customers.ensureCached(req.identity, {
+          identity: req.identity,
+          deadlineMs: config.GRPC_DEADLINE_MS,
+        });
+      } catch (err) {
+        req.log.warn({ err }, "EnsureCustomer failed; continuing");
+      }
+    }
     if (!req.identity && mode === "required") {
       return sendProblem(reply, problem(401, "UNAUTHENTICATED", "Sign in to continue.", meta(req)));
     }
@@ -144,18 +164,33 @@ export async function buildApp(deps: AppDeps): Promise<Gateway> {
     sendProblem(reply, problem(404, "ROUTE_NOT_FOUND", `No route ${req.method} ${req.url}`, meta(req))),
   );
 
-  const callContext = (req: FastifyRequest, reply: FastifyReply): CallContext => {
+  const callContext = (req: FastifyRequest, reply: FastifyReply, deadlineMs?: number): CallContext => {
     // Client went away before we answered: cancel the upstream call instead of finishing it.
     const controller = new AbortController();
     reply.raw.once("close", () => {
       if (!reply.raw.writableFinished) controller.abort();
     });
-    return { identity: req.identity, deadlineMs: config.GRPC_DEADLINE_MS, signal: controller.signal };
+    return {
+      identity: req.identity,
+      deadlineMs: deadlineMs ?? config.GRPC_DEADLINE_MS,
+      signal: controller.signal,
+    };
   };
 
   await app.register(healthRoutes(lifecycle));
-  await app.register(noteRoutes({ template: deps.template, hub, callContext }));
-  await app.register(wsRoutes({ authenticator, hub }));
+  const routeDeps = { up: deps.upstreams, config, callContext };
+  await app.register(catalogRoutes(routeDeps));
+  await app.register(accountRoutes({ ...routeDeps, customers }));
+  await app.register(orderRoutes(routeDeps));
+  await app.register(commerceRoutes(routeDeps));
+  await app.register(
+    wsRoutes({
+      authenticator,
+      hub,
+      realtimeUrl: config.REALTIME_WS_URL,
+      connectUpstream: deps.connectUpstream,
+    }),
+  );
   app.get("/openapi.json", { schema: { hide: true }, config: { auth: "public" } }, () => app.swagger());
 
   return { app, hub, lifecycle };

@@ -20,3 +20,5 @@ include:
   - ../../services/cart/compose.yaml
   - ../../services/pricing/compose.yaml
   - ../../services/merchant/compose.yaml
+  - ../../gateways/customer/compose.yaml
+  - ../../gateways/admin/compose.yaml

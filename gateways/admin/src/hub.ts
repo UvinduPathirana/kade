@@ -37,4 +37,4 @@ export type ServerMessage =
   | { type: "ready"; userId: string }
   | { type: "pong" }
   | { type: "error"; code: string; message: string }
-  | { type: "note.created"; note: unknown };
+  | { type: "changed"; what: string };

@@ -1,7 +1,9 @@
-// Gift cards and referrals. Later: the payments service (POST /gift-cards) and the growth service
-// (GET /me/referral). Today a mock persisted in localStorage.
+// Gift cards and referrals. Live mode: the promotion service through the customer gateway.
+// Mock mode: a demo persisted in localStorage.
 import { cardLabel } from "@/lib/cards";
 import { AccountError, listCards } from "./account";
+import { IS_LIVE } from "./config";
+import * as live from "./live/gifts";
 import type { GiftCard, GiftCardInput, Referral } from "./types";
 
 const KEY = "kade.giftcards.v1";
@@ -21,14 +23,14 @@ function readAll(): GiftCard[] {
   }
 }
 
-export async function listGiftCards(): Promise<GiftCard[]> {
+async function mockListGiftCards(): Promise<GiftCard[]> {
   return readAll();
 }
 
 /** "2026-10-10" in Colombo time, for date inputs and comparisons. */
 export const isoDay = (ms: number) => new Date(ms).toLocaleDateString("en-CA", { timeZone: "Asia/Colombo" });
 
-export async function buyGiftCard(input: GiftCardInput): Promise<GiftCard> {
+async function mockBuyGiftCard(input: GiftCardInput): Promise<GiftCard> {
   await latency();
   if (!Number.isInteger(input.amount) || input.amount < GIFT_MIN || input.amount > GIFT_MAX)
     throw new AccountError("Gift cards can be from Rs 500 to Rs 25,000.");
@@ -51,7 +53,7 @@ export async function buyGiftCard(input: GiftCardInput): Promise<GiftCard> {
 }
 
 /** The customer's invite code and who has used it. */
-export async function getReferral(firstName: string): Promise<Referral> {
+async function mockGetReferral(firstName: string): Promise<Referral> {
   const now = Date.now();
   const stem =
     firstName
@@ -69,3 +71,9 @@ export async function getReferral(firstName: string): Promise<Referral> {
     ],
   };
 }
+
+export const listGiftCards = IS_LIVE ? live.listGiftCards : mockListGiftCards;
+export const buyGiftCard = IS_LIVE
+  ? (input: GiftCardInput) => live.buyGiftCard(input, { min: GIFT_MIN, max: GIFT_MAX })
+  : mockBuyGiftCard;
+export const getReferral = IS_LIVE ? live.getReferral : mockGetReferral;

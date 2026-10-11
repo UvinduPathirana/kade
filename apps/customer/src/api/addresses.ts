@@ -1,5 +1,7 @@
-// Address API. Saved addresses will live with the customer service (GET/POST /me/addresses); place search
-// and the delivery-zone check will call the location service. Today: mock places, saved addresses in localStorage.
+// Address API. Live mode: saved addresses in profile and place search in search, through the customer
+// gateway. Mock mode: demo places, saved addresses in localStorage.
+import { IS_LIVE } from "./config";
+import * as live from "./live/addresses";
 import type { Place, SavedAddress } from "./types";
 
 const KEY = "kade.addresses.v1";
@@ -83,12 +85,12 @@ function readAll(): SavedAddress[] {
   }
 }
 
-export async function listAddresses(): Promise<SavedAddress[]> {
+async function mockListAddresses(): Promise<SavedAddress[]> {
   return readAll();
 }
 
 /** Adds a new address, or replaces the one with the same id. */
-export async function saveAddress(address: SavedAddress): Promise<SavedAddress> {
+async function mockSaveAddress(address: SavedAddress): Promise<SavedAddress> {
   await latency();
   const all = readAll().filter((a) => a.id !== address.id);
   localStorage.setItem(KEY, JSON.stringify([address, ...all]));
@@ -98,7 +100,7 @@ export async function saveAddress(address: SavedAddress): Promise<SavedAddress> 
 /** Id for an address that isn't Home or Work. */
 export const newAddressId = () => `addr-${Date.now().toString(36)}`;
 
-export async function removeAddress(id: string): Promise<void> {
+async function mockRemoveAddress(id: string): Promise<void> {
   await latency();
   localStorage.setItem(KEY, JSON.stringify(readAll().filter((a) => a.id !== id)));
 }
@@ -106,7 +108,7 @@ export async function removeAddress(id: string): Promise<void> {
 const normalise = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
 
 /** Places matching what someone typed. Names that start with the query come first. */
-export async function searchPlaces(query: string): Promise<Place[]> {
+async function mockSearchPlaces(query: string): Promise<Place[]> {
   await latency(150);
   const q = normalise(query);
   if (q.length < 2) return [];
@@ -130,7 +132,7 @@ export function landmarks(): Place[] {
 }
 
 /** "Tell me when you deliver here." Later: the growth team's launch list. */
-export async function joinWaitlist(place: Place): Promise<void> {
+async function mockJoinWaitlist(place: Place): Promise<void> {
   await latency();
   const list = JSON.parse(localStorage.getItem(WAITLIST_KEY) ?? "[]") as string[];
   localStorage.setItem(WAITLIST_KEY, JSON.stringify([...new Set([...list, place.id])]));
@@ -156,3 +158,9 @@ export const deliveryAreas: { code: string; name: string }[] = [
 ];
 
 export const comingNext = ["Mount Lavinia", "Nugegoda", "Rajagiriya", "Battaramulla"];
+
+export const listAddresses = IS_LIVE ? live.listAddresses : mockListAddresses;
+export const saveAddress = IS_LIVE ? live.saveAddress : mockSaveAddress;
+export const removeAddress = IS_LIVE ? live.removeAddress : mockRemoveAddress;
+export const searchPlaces = IS_LIVE ? live.searchPlaces : mockSearchPlaces;
+export const joinWaitlist = IS_LIVE ? live.joinWaitlist : mockJoinWaitlist;

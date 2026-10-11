@@ -1,6 +1,8 @@
-// Support chat. Later: the support service's chat socket, with a person on the other end.
-// Today a scripted agent answers by keyword so the conversation can be tried end to end.
+// Support chat. Live mode: the support service through the customer gateway, with a person (or the
+// service's auto-reply) on the other end. Mock mode: a scripted agent answers by keyword.
 import { formatRs } from "@kade/ui";
+import { IS_LIVE } from "./config";
+import * as live from "./live/support";
 import type { ChatMessage } from "./types";
 
 export const AGENT = { name: "Tharushi", team: "Kadé support" };
@@ -50,8 +52,10 @@ export const outgoing = (message: Pick<ChatMessage, "text" | "order">): ChatMess
 });
 
 /** Sends a message and resolves with the agent's reply. */
-export async function sendMessage(message: Omit<ChatMessage, "id" | "at" | "from">): Promise<ChatMessage> {
+async function mockSendMessage(message: Omit<ChatMessage, "id" | "at" | "from">): Promise<ChatMessage> {
   const sent: ChatMessage = { ...message, id: id(), at: Date.now(), from: "you" };
   await latency(1400);
   return { id: id(), from: "agent", text: answer(sent), at: Date.now() };
 }
+
+export const sendMessage = IS_LIVE ? live.sendMessage : mockSendMessage;

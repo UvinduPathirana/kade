@@ -3,6 +3,7 @@ import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router";
 import { useCreateGroup } from "@/api/queries";
 import type { Restaurant } from "@/api/types";
+import { IS_LIVE } from "@/api/config";
 import { useSession } from "@/features/account/session";
 import styles from "./StartGroupSheet.module.css";
 
@@ -38,6 +39,12 @@ function GroupForm({ restaurant, onOpenChange }: Omit<StartGroupSheetProps, "ope
     e.preventDefault();
     if (!name.trim()) {
       setError("Add your name so everyone knows whose group it is.");
+      return;
+    }
+    if (IS_LIVE && !user) {
+      // Live: the host needs an account to place the group's order.
+      onOpenChange(false);
+      navigate(`/signin?next=${encodeURIComponent(`/restaurant/${restaurant.id}`)}`);
       return;
     }
     try {

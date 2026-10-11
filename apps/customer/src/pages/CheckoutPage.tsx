@@ -16,8 +16,8 @@ import { useMemo, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router";
 import { DECLINING_LAST4, plusActive } from "@/api/account";
 import { OrderError, PaymentDeclinedError } from "@/api/orders";
-import { validatePromo } from "@/api/promos";
-import { useCards, useCredit, usePlaceOrder, usePlus, useRestaurant } from "@/api/queries";
+import { checkPromo, type PromoResult } from "@/api/promos";
+import { useCards, useCredit, usePlaceOrder, usePlus, usePromoCheck, useRestaurant } from "@/api/queries";
 import type { PaymentMethod } from "@/api/types";
 import { useAddress } from "@/features/address/store";
 import { cashNotes, timeSlots } from "@/features/checkout/timeSlots";
@@ -85,8 +85,9 @@ export function CheckoutPage() {
 
   // Re-check an applied code whenever the order changes, e.g. a dish removed below the minimum
   const base = computeTotals(lines, cartRestaurant, mode);
-  const promo =
-    promoCode && cartRestaurant ? validatePromo(promoCode, base.subtotal, cartRestaurant.id) : undefined;
+  const promoCheck = usePromoCheck(promoCode, base.subtotal, cartRestaurant?.id, mode);
+  const promo = promoCode ? promoCheck.data : undefined;
+  const [checkingPromo, setCheckingPromo] = useState(false);
   const creditBalance = credit?.balance ?? 0;
   const totals = computeTotals(lines, cartRestaurant, mode, {
     promoDiscount: promo?.ok ? promo.discount : 0,
@@ -121,8 +122,11 @@ export function CheckoutPage() {
     );
   }
 
-  const applyPromo = () => {
-    const result = validatePromo(promoInput, base.subtotal, cartRestaurant.id);
+  const applyPromo = async () => {
+    setCheckingPromo(true);
+    const result: PromoResult = await checkPromo(promoInput, base.subtotal, cartRestaurant.id, mode)
+      .catch(() => ({ ok: false as const, error: "We couldn't check that code just now. Try again." }))
+      .finally(() => setCheckingPromo(false));
     if (result.ok) {
       setPromoCode(result.code);
       setPromoError(undefined);
@@ -443,13 +447,18 @@ export function CheckoutPage() {
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
-                        applyPromo();
+                        void applyPromo();
                       }
                     }}
                     error={promoError}
                     action={
-                      <Button variant="secondary" size="sm" onClick={applyPromo}>
-                        Apply
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        disabled={checkingPromo}
+                        onClick={() => void applyPromo()}
+                      >
+                        {checkingPromo ? "Checking…" : "Apply"}
                       </Button>
                     }
                   />

@@ -6,6 +6,9 @@ export interface Identity {
   userId: string;
   roles: string[];
   outletId?: string;
+  /** Display name from the token ("Dilini Perera"); used for audit entries and "by" fields. */
+  name?: string;
+  email?: string;
   /** True for AUTH_DEV_BYPASS identities; logged so they are never mistaken for real ones. */
   dev: boolean;
 }
@@ -37,6 +40,11 @@ interface KeycloakClaims {
   realm_access?: { roles?: string[] };
   /** Custom claim (user attribute mapper) for merchant staff. */
   outlet_id?: string;
+  name?: string;
+  given_name?: string;
+  family_name?: string;
+  preferred_username?: string;
+  email?: string;
 }
 
 export function createAuthenticator(
@@ -72,10 +80,17 @@ export function createAuthenticator(
         userId: claims.sub,
         roles: (claims.realm_access?.roles ?? []).filter((r) => KADE_ROLES.has(r)),
         outletId: claims.outlet_id,
+        name: displayName(claims),
+        email: claims.email,
         dev: false,
       };
     },
   };
+}
+
+function displayName(c: KeycloakClaims): string | undefined {
+  const full = c.name ?? [c.given_name, c.family_name].filter(Boolean).join(" ");
+  return full || c.preferred_username || undefined;
 }
 
 /** "dev:<userId>[:<role,role>[:<outletId>]]", e.g. "dev:dilini:customer". */

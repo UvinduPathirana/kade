@@ -1,154 +1,108 @@
-# Gateway template (`@kade/gateway-admin`)
+# gateway-admin (`@kade/gateway-admin`)
 
-The starting point for the four backend-for-frontend gateways (`gateway-customer` 8201,
-`gateway-merchant` 8202, `gateway-rider` 8203, `gateway-admin` 8204). Each serves exactly one app.
-The gateway:
+Backend-for-frontend for the **Kadé Ops console** (`apps/admin`, port 5177). HTTP **8204**, Compose
+profile `engagement`. Built from `gateways/_template` (Fastify 5 + TypeBox, Keycloak JWT, gRPC
+upstreams, problem+json, OpenAPI); see that README for the shared mechanics.
 
-- serves REST/JSON and a WebSocket `/ws`;
-- validates Keycloak JWTs and calls services over gRPC, with a deadline and identity metadata on
-  every call;
-- turns gRPC errors into `application/problem+json` and Money into whole rupees;
-- generates an OpenAPI document from its routes, so the apps get typed clients.
+It serves exactly the shapes `apps/admin/src/api/` returns (whole rupees, epoch-millisecond times,
+numeric restaurant ids, `KD-4821` order ids), so the console's components don't change. The
+gateway does the joins and aggregation, checks every route against the staff permission matrix, and
+writes an audit entry (identity `AuditService.RecordAudit`) for every staff change.
 
-Template defaults: HTTP **8204**, upstream `TEMPLATE_GRPC=template-ts:50100`, profile `templates`.
+## Upstreams
 
-## Why Fastify (not NestJS)
+| Variable                     | Service                                                                             | Used for                                                                   |
+| ---------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `ORDER_GRPC` (50107)         | order `OrderService`                                                                | orders, refunds, cancel, notes; customer order history; dashboard fallback |
+| `DISPATCH_GRPC` (50110)      | dispatch `DispatchOpsService`, `RiderService`                                       | live snapshot, nearby riders, reassign; riders and rider onboarding        |
+| `MERCHANT_GRPC` (50109)      | merchant `OutletAdminService`, `PartnerApplicationService`                          | restaurants, commission, status; restaurant onboarding                     |
+| `CATALOG_GRPC` (50101)       | catalog `MerchandisingService`                                                      | home feed categories and collections                                       |
+| `PROFILE_GRPC` (50103)       | profile `CustomerService`, `CreditService`; identity `StaffService`, `AuditService` | customers, credit, blocks, fraud flags; staff, permissions, audit          |
+| `PRICING_GRPC` (50105)       | pricing `PricingService`                                                            | zones, fees, surcharges (and zone shapes for map positions)                |
+| `PROMOTION_GRPC` (50106)     | promotion `VoucherService`                                                          | vouchers                                                                   |
+| `LEDGER_GRPC` (50113)        | ledger `PayoutService`, `RiderFinanceService`, `LedgerService`                      | payouts, rider settlements, cash deposits, refunds ledger                  |
+| `SUPPORT_GRPC` (50116)       | support `TicketAdminService`                                                        | support queue                                                              |
+| `REALTIME_WS_URL` (optional) | realtime `:8112/ws`                                                                 | `/ws` is relayed there after auth when set                                 |
 
-A gateway is mostly routes, schemas and upstream calls; it holds no domain state or consumers.
+A route whose service is down answers `503` problem+json; optional joins (customer emails, outlet
+names on payouts, zone shapes, refund counts) degrade instead of failing the response. Nothing is a
+hard Compose dependency except Keycloak.
 
-- **Fastify 5 + TypeBox:** one schema per route does request validation, response serialisation,
-  TypeScript types (via the type provider) and the OpenAPI document (`@fastify/swagger`). No
-  decorators-to-OpenAPI layer to keep in sync.
-- **Lean:** about 74 MB anonymous memory idle in its 160 MB container (template-ts, with Nest, Drizzle and
-  librdkafka, is about 80 MB). Fastify's per-request overhead is also lower than Nest + Express.
-- **First-party plugins:** `@fastify/websocket`, `@fastify/cors`, and `@fastify/otel` for OTel route spans.
+## Endpoints → console functions
 
-## Layout
+All under `/v1`, `Authorization: Bearer <admin-app token>`. Full schemas: `openapi.json`
+(`pnpm --filter @kade/gateway-admin openapi`).
 
-| File                  | What                                                                                        |
-| --------------------- | ------------------------------------------------------------------------------------------- |
-| `src/config.ts`       | Env validation (zod). Add one `<NAME>_GRPC` per upstream                                    |
-| `src/auth.ts`         | Keycloak JWT verification (JWKS, issuer, `azp`), realm roles → `Identity`, dev bypass       |
-| `src/grpc/clients.ts` | One channel per upstream; retry policy only for idempotent reads                            |
-| `src/grpc/call.ts`    | `unary()` adds deadline + `x-user-id`/`x-roles`/`x-outlet-id`, cancels on client disconnect |
-| `src/problem.ts`      | gRPC status + ErrorInfo reason → HTTP problem; user-facing copy per reason                  |
-| `src/money.ts`        | `toRupees` / `fromRupees`: the only place minor units meet rupees                           |
-| `src/schemas.ts`      | Shared TypeBox schemas (named OpenAPI components), `ref()`, `problems()`                    |
-| `src/routes/*.ts`     | REST routes, `/ws`, health + metrics                                                        |
-| `src/app.ts`          | Fastify assembly: swagger, CORS, websocket, auth hook, error handlers                       |
-| `src/openapi.ts`      | Writes `openapi.json` from the routes without starting a server                             |
-| `openapi.json`        | Generated; committed so Wave 2 can generate clients without running anything                |
+| Console function (`apps/admin/src/api`)                                                          | Endpoint                                                                                                                                  | Permission                                                             |
+| ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `getLiveSnapshot`                                                                                | `GET /live` (cached 2.5 s; poll every 5 s)                                                                                                | any staff                                                              |
+| `listOrders` / `getOrder`                                                                        | `GET /orders`, `GET /orders/:id` (`KD-4821` or UUID)                                                                                      | `orders.view`                                                          |
+| `listNearbyRiders` / `reassignRider`                                                             | `GET /orders/:id/nearby-riders`, `POST /orders/:id/reassign`                                                                              | `orders.reassign`                                                      |
+| `refundOrder`                                                                                    | `POST /orders/:id/refunds`                                                                                                                | `orders.refundSmall` (≤ Rs 5,000) or `orders.refundAny`                |
+| `cancelOrder`                                                                                    | `POST /orders/:id/cancel`                                                                                                                 | `orders.cancel`                                                        |
+| `addOrderNote`                                                                                   | `POST /orders/:id/notes`                                                                                                                  | `orders.view`                                                          |
+| `listPayoutBatches` / `approvePayoutBatch`                                                       | `GET /finance/payouts`, `POST /finance/payouts/:id/approve`                                                                               | read: any finance permission; approve: `finance.payouts`               |
+| `listRiderSettlements` / `settleRider`                                                           | `GET /finance/settlements`, `POST /finance/settlements/:riderId/settle`                                                                   | settle: `finance.cash`                                                 |
+| `listCashRecords` / `recordDeposit`                                                              | `GET /finance/cash`, `POST /finance/cash/:id/deposit`                                                                                     | deposit: `finance.cash`                                                |
+| `listRefunds`                                                                                    | `GET /finance/refunds`                                                                                                                    | any finance permission                                                 |
+| `listRestaurants` / `listRestaurantApplications`                                                 | `GET /restaurants`, `GET /restaurant-applications`                                                                                        | any staff                                                              |
+| `decideRestaurantApplication` / `setRestaurantDocStatus`                                         | `POST /restaurant-applications/:id/decision`, `POST …/:id/documents/:docId`                                                               | `partners.approve`                                                     |
+| `updateCommission`                                                                               | `PUT /restaurants/:id/commission`                                                                                                         | `partners.commission`                                                  |
+| `setRestaurantStatus`                                                                            | `PUT /restaurants/:id/status`                                                                                                             | `partners.suspend`                                                     |
+| `listRiders` / `listRiderApplications` / `listZones`                                             | `GET /riders`, `GET /rider-applications`, `GET /zones`                                                                                    | any staff                                                              |
+| `reviewRiderDoc` / `decideRiderApplication`                                                      | `POST /rider-applications/:id/documents/:docId`, `POST …/:id/decision`                                                                    | `partners.approve`                                                     |
+| `setRiderZones` / `setRiderSuspended`                                                            | `PUT /riders/:id/zones`, `PUT /riders/:id/suspension`                                                                                     | `partners.approve`/`partners.suspend`; `partners.suspend`              |
+| `listCustomers` / `getCustomer`                                                                  | `GET /customers`, `GET /customers/:id`                                                                                                    | `orders.view`                                                          |
+| `issueCredit`                                                                                    | `POST /customers/:id/credit`                                                                                                              | `customers.credit` (Rs 5,000 cap; admins Rs 50,000)                    |
+| `resolveFlag` / `setBlocked`                                                                     | `POST /customers/:id/flags/:flagId`, `PUT /customers/:id/block`                                                                           | `customers.block`                                                      |
+| `getPricing`                                                                                     | `GET /pricing`                                                                                                                            | any staff                                                              |
+| `setZoneOpen` / `updateZoneFees` / `saveSurcharge` / `setSurchargeEnabled` / `setWeather`        | `PUT /zones/:id/open`, `PUT /zones/:id/fees`, `POST /surcharges`, `PUT /surcharges/:id/enabled`, `PUT /weather`                           | `pricing.edit`                                                         |
+| `listVouchers` / `createVoucher` / `setVoucherStatus`                                            | `GET /vouchers`, `POST /vouchers`, `PUT /vouchers/:code/status`                                                                           | writes: `promos.edit`                                                  |
+| `listTickets` / `listMacros`                                                                     | `GET /tickets`, `GET /macros`                                                                                                             | role support, ops or admin                                             |
+| `replyToTicket` / `assignTicket` / `setTicketPriority` / `reopenTicket`                          | `POST /tickets/:id/replies`, `PUT …/assignee`, `PUT …/priority`, `POST …/reopen`                                                          | role support, ops or admin                                             |
+| `resolveTicket`                                                                                  | `POST /tickets/:id/resolve`                                                                                                               | support/ops/admin, plus the refund or credit permission for the amount |
+| `listStaffNames`                                                                                 | `GET /staff/names`                                                                                                                        | any staff                                                              |
+| `getHomeContent`                                                                                 | `GET /content`                                                                                                                            | any staff                                                              |
+| `moveCategory` / `updateCategory` / `saveCollection` / `setCollectionVisible` / `moveCollection` | `POST /content/categories/:id/move`, `PATCH /content/categories/:id`, `POST /content/collections`, `PUT …/:id/visible`, `POST …/:id/move` | `content.edit`                                                         |
+| `listStaff` / `getPermissions` / `listAudit`                                                     | `GET /team/staff`, `GET /team/permissions`, `GET /audit`                                                                                  | any staff                                                              |
+| `inviteStaff` / `changeRole` / `savePermissions`                                                 | `POST /team/staff`, `PUT /team/staff/:id/role`, `PUT /team/permissions`                                                                   | `team.manage`                                                          |
+| shell (signed-in staff)                                                                          | `GET /me`                                                                                                                                 | any staff                                                              |
 
-## Auth
+**Roles and permissions.** Every route needs a staff realm role (`ops`, `finance`, `support`,
+`admin`; customers, riders and merchants get 403). Writes are checked against the role → permission
+matrix the Team page edits (identity `StaffService.GetPermissionMatrix`, cached 30 s); while identity
+is unreachable the console's original grid (`src/permissions.ts`) applies. Admins can do everything.
 
-Every route requires a valid token unless its config says otherwise:
-`config: { auth: "optional" }` (identity if present), `config: { auth: "public" }`, or
-`config: { roles: ["merchant_owner", "ops"] }` (403 without one of them).
+**Ids.** Seeded UUIDs (CONVENTIONS "Seeded ids") read as the console's ids: restaurants `…-8000-N`
+→ `N`; riders `R-101`, customers `C-2040`, Keycloak staff `U-5`, other staff `S-1`. Other UUIDs
+pass through (other outlets get a stable number above 10¹²). Orders use `order_number`. Audit
+entries are stored with service ids and shown with console ids.
 
-- **Keycloak:** `Authorization: Bearer <access token>`. The checks are signature (JWKS),
-  `iss` = `KEYCLOAK_ISSUER`, and `azp` ∈ `KEYCLOAK_CLIENTS` (each gateway accepts only its own
-  app's client). Identity comes from `sub`, realm roles (Kadé roles only), and an optional
-  `outlet_id` claim.
-- **Issuer vs JWKS URL:** Keycloak signs `iss=http://localhost:8080/realms/kade` (its
-  `KC_HOSTNAME`, the browser's view), but inside Docker the keys come from
-  `KEYCLOAK_JWKS_URL=http://keycloak:8080/...`. That is why there are two variables.
-- **Dev bypass** (`AUTH_DEV_BYPASS=true`, refused unless `DEPLOY_ENV=dev`, logged loudly at start):
-  `Authorization: Bearer dev:<userId>:<role,role>[:<outletId>]`, e.g. `dev:dilini:customer`. Real
-  JWTs keep working alongside it.
+**Live dashboard.** `GET /live` uses dispatch's `GetLiveSnapshot` when dispatch is up; otherwise it
+aggregates in the gateway: active and today's orders (order), not-accepting kitchens (merchant),
+riders and cash over limit (dispatch rider list, if reachable), zone load and riders needed
+(pricing), and last week's same day for the hourly chart.
 
-## WebSocket protocol (`/ws`)
-
-Browsers cannot set headers on a WebSocket, and tokens in URLs leak into logs, so the token goes in
-the first message:
-
-```jsonc
-→ {"type":"auth","token":"<access token or dev:...>"}   // within 5 s, else close 4401
-← {"type":"ready","userId":"..."}
-→ {"type":"ping"}            ← {"type":"pong"}
-← {"type":"note.created","note":{...}}                  // server pushes, per user
-```
-
-The in-process `Hub` only reaches sockets on this replica. Cross-replica fan-out (kitchen board,
-live tracking) is the Go `realtime` service's job (Redis pub/sub).
-
-## Errors
-
-Every error is `application/problem+json`:
-
-```json
-{
-  "type": "https://kade.lk/problems/note-not-found",
-  "title": "Not found",
-  "status": 404,
-  "detail": "We couldn't find that note.",
-  "code": "NOTE_NOT_FOUND",
-  "instance": "/v1/notes/…",
-  "traceId": "…"
-}
-```
-
-`code` is the service's ErrorInfo reason (stable; apps switch on it). `detail` is safe to show.
-For 5xx it is always generic, so upstream internals never reach the app. Overrides live in
-`USER_MESSAGES` in `src/problem.ts`. Status mapping follows Google's gRPC→HTTP table
-(`DEADLINE_EXCEEDED` → 504, `UNAVAILABLE` → 503, …).
-
-## Adding a route
-
-```ts
-app.get(
-  "/v1/restaurants/:id",
-  {
-    config: { auth: "optional" },
-    schema: {
-      operationId: "getRestaurant", // becomes the client method name
-      params: Type.Object({ id: Type.String({ format: "uuid" }) }),
-      response: { 200: ref(Restaurant), ...problems(404, 503, 504) },
-    },
-  },
-  async (req, reply) => {
-    const res = await unary(
-      catalog.getRestaurant.bind(catalog),
-      { id: req.params.id },
-      callContext(req, reply),
-    );
-    return toRestaurant(res.restaurant); // proto → app shape (rupees, ISO dates)
-  },
-);
-```
-
-Then `pnpm --filter @kade/gateway-admin openapi` and commit `openapi.json`. Mutations take an
-`Idempotency-Key` header and forward it as the RPC's `idempotency_key`.
-
-## Copy checklist (new gateway)
-
-- [ ] `cp -r gateways/_template gateways/<app>` (e.g. `gateways/customer`). In `package.json`, rename
-      to `@kade/gateway-<app>`. In the `Dockerfile`, `compose.yaml` and `.env.example`, replace
-      `gateways/_template`, `gateway-admin` and `8204` with the registry values. Then `pnpm install`.
-- [ ] `KEYCLOAK_CLIENTS` = the app's client (`customer-app`, `merchant-app`, `rider-app`, `admin-app`).
-      `CORS_ORIGINS` = the app's dev origin (5174, 5175, 5176, 5177).
-- [ ] Replace `TEMPLATE_GRPC` / `createTemplateClient` / `routes/notes.ts` with the real upstreams.
-      Add each `<NAME>_GRPC` to config, compose and `depends_on`.
-- [ ] Compose profile: customer → `ordering`; merchant, rider → `fulfilment`; admin → `engagement`.
-      Ask the lead to include the fragment in `deploy/compose/services.yaml`.
-- [ ] Regenerate `openapi.json`.
-
-## Run
+## Run on the host
 
 ```sh
-pnpm infra:up                                         # shared stack
-cp gateways/_template/.env.example gateways/_template/.env
+pnpm infra:up                                       # shared stack (Keycloak on :8080)
+cp gateways/admin/.env.example gateways/admin/.env  # upstreams on localhost ports
 pnpm --filter @kade/proto build
-pnpm --filter @kade/gateway-admin dev              # needs template-ts on :50100
+pnpm --filter @kade/gateway-admin dev               # :8204
 
-curl -s -X POST localhost:8204/v1/notes -H 'Authorization: Bearer dev:dilini:customer' \
-  -H 'Content-Type: application/json' -H 'Idempotency-Key: k1' -d '{"text":"hi","amount":1150}'
+# a real staff token (password grant is enabled for dev):
+TOKEN=$(curl -s -d grant_type=password -d client_id=admin-app -d username=ops -d password=kade123 \
+  http://localhost:8080/realms/kade/protocol/openid-connect/token | jq -r .access_token)
+curl -s localhost:8204/v1/me -H "Authorization: Bearer $TOKEN"
+curl -s localhost:8204/v1/orders -H 'Authorization: Bearer dev:ops-1:ops'   # AUTH_DEV_BYPASS
 ```
 
-Docker: `docker compose -f deploy/compose/compose.yaml --profile templates up -d --build gateway-admin`
-(once the fragment is included). Image: `docker build -f gateways/_template/Dockerfile .` from the repo root.
+Docker: `docker compose -f deploy/compose/compose.yaml --profile engagement up -d --build gateway-admin`
+(once the lead includes `gateways/admin/compose.yaml` in `deploy/compose/services.yaml`).
 
 ## Test
 
 ```sh
-pnpm --filter @kade/gateway-admin test   # routes via inject/injectWS with a fake gRPC client, JWT with a local JWKS
+pnpm --filter @kade/gateway-admin test   # routes via inject/injectWS with fake upstreams; JWT with a local JWKS
 ```

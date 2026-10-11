@@ -53,3 +53,36 @@ export function identityMetadata(identity: Identity | undefined): Metadata {
 export function isServiceError(err: unknown): err is ServiceError {
   return err instanceof Error && typeof (err as ServiceError).code === "number" && "metadata" in err;
 }
+
+// The full (request, metadata, options, callback) overload is the last one ts-proto declares, which
+// is the one conditional types infer from.
+type ReqOf<M> = M extends (
+  req: infer Req,
+  md: Metadata,
+  o: Partial<CallOptions>,
+  cb: infer _Cb,
+) => ClientUnaryCall
+  ? Req
+  : never;
+type ResOf<M> = M extends (
+  req: never,
+  md: Metadata,
+  o: Partial<CallOptions>,
+  cb: (err: ServiceError | null, res: infer Res) => void,
+) => ClientUnaryCall
+  ? Res
+  : never;
+
+/** `rpc(client, "getOrder", GetOrderRequest.fromPartial({...}))` with the request's deadline and identity. */
+export type Rpc = <C extends object, K extends keyof C & string>(
+  client: C,
+  method: K,
+  request: ReqOf<C[K]>,
+) => Promise<ResOf<C[K]>>;
+
+export function rpcFor(ctx: CallContext): Rpc {
+  return (client, method, request) => {
+    const fn = (client[method] as unknown as UnaryMethod<unknown, unknown>).bind(client);
+    return unary(fn, request, ctx) as never;
+  };
+}

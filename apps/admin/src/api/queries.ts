@@ -1,16 +1,11 @@
-// TanStack Query hooks: every page reads and writes through these. Mutations change the mock store,
-// then invalidate what they touched (plus the audit log and live dashboard) so every screen agrees.
+// TanStack Query hooks: every page reads and writes through these. Mutations go to the backend
+// (the mock store, or gateway-admin in live mode, see ./backend), then invalidate what they touched
+// (plus the audit log and live dashboard) so every screen agrees.
 import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
-import * as content from "./content";
-import * as customers from "./customers";
-import * as finance from "./finance";
-import { getLiveSnapshot } from "./live";
-import * as orders from "./orders";
-import * as partners from "./partners";
-import * as pricing from "./pricing";
-import * as promotions from "./promotions";
-import * as support from "./support";
-import * as team from "./team";
+import { api } from "./backend";
+
+const { content, customers, finance, orders, partners, pricing, promotions, support, team } = api;
+const { getLiveSnapshot } = api.live;
 
 export const keys = {
   live: ["live"] as const,

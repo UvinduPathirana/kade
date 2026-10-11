@@ -54,7 +54,9 @@ export function statusCopy(
     case "cancelled":
       return {
         headline: "Order cancelled.",
-        detail: order.payment.type === "card" ? "You haven't been charged." : "There's nothing to pay.",
+        detail: `${order.cancelReason ? `${order.cancelReason} ` : ""}${
+          order.payment.type === "card" ? "You haven't been charged." : "There's nothing to pay."
+        }`,
       };
   }
 }

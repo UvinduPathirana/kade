@@ -8,6 +8,10 @@ export interface Identity {
   outletId?: string;
   /** True for AUTH_DEV_BYPASS identities; logged so they are never mistaken for real ones. */
   dev: boolean;
+  /** Profile hints from the token (Keycloak `profile`/`email`/`phone` scopes), for first sign-in. */
+  name?: string;
+  email?: string;
+  phone?: string;
 }
 
 export class AuthError extends Error {
@@ -37,6 +41,9 @@ interface KeycloakClaims {
   realm_access?: { roles?: string[] };
   /** Custom claim (user attribute mapper) for merchant staff. */
   outlet_id?: string;
+  name?: string;
+  email?: string;
+  phone_number?: string;
 }
 
 export function createAuthenticator(
@@ -73,6 +80,9 @@ export function createAuthenticator(
         roles: (claims.realm_access?.roles ?? []).filter((r) => KADE_ROLES.has(r)),
         outletId: claims.outlet_id,
         dev: false,
+        ...(claims.name ? { name: claims.name } : {}),
+        ...(claims.email ? { email: claims.email } : {}),
+        ...(claims.phone_number ? { phone: claims.phone_number } : {}),
       };
     },
   };

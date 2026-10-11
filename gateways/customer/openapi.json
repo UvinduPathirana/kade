@@ -3,7 +3,7 @@
   "info": {
     "title": "Kadé gateway-customer",
     "version": "0.1.0",
-    "description": "Backend-for-frontend REST API. Money is whole rupees (LKR). Errors are application/problem+json with a stable `code`. Mutations accept an `Idempotency-Key` header. Realtime: WebSocket /ws (see the gateway README)."
+    "description": "Backend-for-frontend REST API for the Kadé customer app. Shapes match apps/customer/src/api/types.ts. Money is whole rupees (LKR); instants are epoch milliseconds; restaurant ids are the app's numbers. Errors are application/problem+json with a stable `code`. Mutations accept an `Idempotency-Key` header. Realtime: WebSocket /ws, proxied to the realtime service (see the gateway README)."
   },
   "components": {
     "securitySchemes": {
@@ -14,48 +14,1706 @@
       }
     },
     "schemas": {
-      "Note": {
+      "OrderMode": {
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": ["delivery"]
+          },
+          {
+            "type": "string",
+            "enum": ["pickup"]
+          }
+        ]
+      },
+      "Category": {
         "type": "object",
-        "required": ["id", "text", "amount", "currency", "createdAt"],
+        "required": ["id", "label", "imageId"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "imageId": {
+            "type": "string"
+          }
+        }
+      },
+      "Restaurant": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "categoryId",
+          "imageId",
+          "eta",
+          "deliveryFee",
+          "rating",
+          "ratingCount",
+          "priceLevel",
+          "hasVegetarian",
+          "area",
+          "distanceKm",
+          "hours"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "The app's restaurant number (seeded UUID suffix)."
+          },
+          "name": {
+            "type": "string"
+          },
+          "categoryId": {
+            "type": "string"
+          },
+          "imageId": {
+            "type": "string"
+          },
+          "eta": {
+            "type": "array",
+            "additionalItems": false,
+            "items": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "minItems": 2,
+            "description": "Delivery window, minutes."
+          },
+          "deliveryFee": {
+            "type": "integer",
+            "description": "0 = no delivery fee."
+          },
+          "rating": {
+            "type": "number"
+          },
+          "ratingCount": {
+            "type": "string",
+            "description": "Display count, e.g. \"3k+\"."
+          },
+          "priceLevel": {
+            "anyOf": [
+              {
+                "type": "number",
+                "enum": [1]
+              },
+              {
+                "type": "number",
+                "enum": [2]
+              },
+              {
+                "type": "number",
+                "enum": [3]
+              }
+            ]
+          },
+          "offer": {
+            "type": "string"
+          },
+          "discountPercent": {
+            "type": "integer"
+          },
+          "hasVegetarian": {
+            "type": "boolean"
+          },
+          "orderedBefore": {
+            "type": "boolean"
+          },
+          "area": {
+            "type": "string"
+          },
+          "distanceKm": {
+            "type": "number"
+          },
+          "hours": {
+            "type": "string"
+          },
+          "closedLabel": {
+            "type": "string",
+            "description": "Present while closed, e.g. \"Opens at 8 am\"."
+          }
+        }
+      },
+      "MenuItem": {
+        "type": "object",
+        "required": ["id", "name", "price", "description", "tags", "optionGroupIds"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "price": {
+            "type": "integer",
+            "description": "Whole rupees (LKR). Rs 1,150 -> 1150."
+          },
+          "description": {
+            "type": "string"
+          },
+          "imageId": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": ["Vegetarian"]
+                },
+                {
+                  "type": "string",
+                  "enum": ["Spicy"]
+                }
+              ]
+            }
+          },
+          "optionGroupIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "popularRank": {
+            "type": "integer"
+          },
+          "soldOut": {
+            "type": "boolean"
+          },
+          "unit": {
+            "type": "string"
+          }
+        }
+      },
+      "Menu": {
+        "type": "object",
+        "required": ["restaurantId", "sections", "popular", "optionGroups"],
+        "properties": {
+          "restaurantId": {
+            "type": "integer"
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "name", "items"],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MenuItem"
+                  }
+                }
+              }
+            }
+          },
+          "popular": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MenuItem"
+            }
+          },
+          "optionGroups": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "required": ["id", "name", "required", "max", "choices"],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "max": {
+                  "type": "integer"
+                },
+                "choices": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["name", "price"],
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "price": {
+                        "type": "integer",
+                        "description": "Whole rupees (LKR). Rs 1,150 -> 1150."
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "Review": {
+        "type": "object",
+        "required": ["id", "name", "when", "dish", "stars", "text"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "when": {
+            "type": "string",
+            "description": "\"2 days ago\""
+          },
+          "dish": {
+            "type": "string"
+          },
+          "stars": {
+            "type": "integer"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "SearchResults": {
+        "type": "object",
+        "required": ["query", "dishes", "restaurants"],
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "dishes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["item", "restaurant"],
+              "properties": {
+                "item": {
+                  "$ref": "#/components/schemas/MenuItem"
+                },
+                "restaurant": {
+                  "$ref": "#/components/schemas/Restaurant"
+                }
+              }
+            }
+          },
+          "restaurants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Restaurant"
+            }
+          }
+        }
+      },
+      "Place": {
+        "type": "object",
+        "required": ["id", "name", "detail", "area", "inZone"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "area": {
+            "type": "string"
+          },
+          "inZone": {
+            "type": "boolean"
+          },
+          "pin": {
+            "type": "object",
+            "required": ["x", "y"],
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              }
+            },
+            "description": "Illustrated map units."
+          }
+        }
+      },
+      "SavedAddress": {
+        "type": "object",
+        "required": ["id", "label", "line"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "line": {
+            "type": "string"
+          },
+          "area": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "pin": {
+            "type": "object",
+            "required": ["x", "y"],
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              }
+            },
+            "description": "Illustrated map units."
+          }
+        }
+      },
+      "PublicPromo": {
+        "type": "object",
+        "required": ["code", "label", "detail"],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          }
+        }
+      },
+      "PromoCheckInput": {
+        "type": "object",
+        "required": ["code", "restaurantId", "subtotal"],
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "restaurantId": {
+            "type": "integer"
+          },
+          "subtotal": {
+            "type": "integer",
+            "description": "Items subtotal the customer sees."
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["delivery"]
+              },
+              {
+                "type": "string",
+                "enum": ["pickup"]
+              }
+            ]
+          }
+        }
+      },
+      "PromoResult": {
+        "type": "object",
+        "required": ["ok"],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "code": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "discount": {
+            "type": "integer",
+            "description": "Whole rupees (LKR). Rs 1,150 -> 1150."
+          },
+          "error": {
+            "type": "string",
+            "description": "User-facing reason when not ok."
+          }
+        }
+      },
+      "PaymentMethod": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": ["type", "brand", "last4"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["card"]
+              },
+              "brand": {
+                "type": "string"
+              },
+              "last4": {
+                "type": "string"
+              },
+              "cardId": {
+                "type": "string",
+                "description": "Saved card id (requests); the app sends brand/last4."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["cash"]
+              },
+              "payingWith": {
+                "type": "integer",
+                "description": "Whole rupees (LKR). Rs 1,150 -> 1150."
+              }
+            }
+          }
+        ]
+      },
+      "OrderLine": {
+        "type": "object",
+        "required": ["key", "itemId", "name", "unitPrice", "qty", "choices", "note"],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "itemId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "unitPrice": {
+            "type": "integer",
+            "description": "Whole rupees (LKR). Rs 1,150 -> 1150."
+          },
+          "qty": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "choices": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Chosen option names, in menu order."
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      },
+      "OrderRestaurant": {
+        "type": "object",
+        "required": ["id", "name", "imageId", "eta", "deliveryFee", "area"],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "imageId": {
+            "type": "string"
+          },
+          "eta": {
+            "type": "array",
+            "additionalItems": false,
+            "items": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "minItems": 2
+          },
+          "deliveryFee": {
+            "type": "integer",
+            "description": "Whole rupees (LKR). Rs 1,150 -> 1150."
+          },
+          "discountPercent": {
+            "type": "integer"
+          },
+          "area": {
+            "type": "string"
+          }
+        }
+      },
+      "RateOrderInput": {
+        "type": "object",
+        "required": ["riderTags", "dishes", "comment"],
+        "properties": {
+          "riderStars": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "riderTags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "maxItems": 12
+          },
+          "dishes": {
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": ["up"]
+                },
+                {
+                  "type": "string",
+                  "enum": ["down"]
+                }
+              ]
+            }
+          },
+          "comment": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        }
+      },
+      "IssueInput": {
+        "type": "object",
+        "required": ["kind", "lines", "note", "resolution"],
+        "properties": {
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["missing"]
+              },
+              {
+                "type": "string",
+                "enum": ["wrong"]
+              },
+              {
+                "type": "string",
+                "enum": ["spilled"]
+              },
+              {
+                "type": "string",
+                "enum": ["late"]
+              },
+              {
+                "type": "string",
+                "enum": ["neverArrived"]
+              },
+              {
+                "type": "string",
+                "enum": ["charged"]
+              }
+            ]
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["key", "qty"],
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "qty": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "photoName": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["credit"]
+              },
+              {
+                "type": "string",
+                "enum": ["card"]
+              },
+              {
+                "type": "string",
+                "enum": ["review"]
+              }
+            ]
+          }
+        }
+      },
+      "IssuePreviewInput": {
+        "type": "object",
+        "required": ["kind", "lines"],
+        "properties": {
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["missing"]
+              },
+              {
+                "type": "string",
+                "enum": ["wrong"]
+              },
+              {
+                "type": "string",
+                "enum": ["spilled"]
+              },
+              {
+                "type": "string",
+                "enum": ["late"]
+              },
+              {
+                "type": "string",
+                "enum": ["neverArrived"]
+              },
+              {
+                "type": "string",
+                "enum": ["charged"]
+              }
+            ]
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["key", "qty"],
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "qty": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        }
+      },
+      "OrderStatus": {
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": ["scheduled"]
+          },
+          {
+            "type": "string",
+            "enum": ["placed"]
+          },
+          {
+            "type": "string",
+            "enum": ["accepted"]
+          },
+          {
+            "type": "string",
+            "enum": ["preparing"]
+          },
+          {
+            "type": "string",
+            "enum": ["pickedUp"]
+          },
+          {
+            "type": "string",
+            "enum": ["delivered"]
+          },
+          {
+            "type": "string",
+            "enum": ["ready"]
+          },
+          {
+            "type": "string",
+            "enum": ["collected"]
+          },
+          {
+            "type": "string",
+            "enum": ["cancelled"]
+          }
+        ]
+      },
+      "Order": {
+        "type": "object",
+        "required": [
+          "id",
+          "ref",
+          "status",
+          "placedAt",
+          "mode",
+          "restaurant",
+          "lines",
+          "riderNote",
+          "payment",
+          "totals"
+        ],
         "properties": {
           "id": {
             "type": "string",
-            "format": "uuid"
+            "description": "Order number, e.g. \"KD-4821\" (falls back to the UUID)."
           },
-          "text": {
+          "ref": {
+            "type": "string",
+            "description": "Order UUID: realtime channel order:<ref>."
+          },
+          "status": {
+            "$ref": "#/components/schemas/OrderStatus"
+          },
+          "placedAt": {
+            "type": "number",
+            "description": "Epoch milliseconds."
+          },
+          "mode": {
+            "$ref": "#/components/schemas/OrderMode"
+          },
+          "restaurant": {
+            "$ref": "#/components/schemas/OrderRestaurant"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderLine"
+            }
+          },
+          "address": {
+            "$ref": "#/components/schemas/SavedAddress"
+          },
+          "riderNote": {
+            "type": "string"
+          },
+          "scheduledFor": {
+            "type": "number",
+            "description": "Epoch milliseconds."
+          },
+          "payment": {
+            "$ref": "#/components/schemas/PaymentMethod"
+          },
+          "promoCode": {
+            "type": "string"
+          },
+          "totals": {
+            "type": "object",
+            "required": [
+              "subtotal",
+              "saving",
+              "deliveryFee",
+              "smallOrderFee",
+              "promoDiscount",
+              "tip",
+              "total"
+            ],
+            "properties": {
+              "subtotal": {
+                "type": "integer",
+                "description": "Whole rupees (LKR). Rs 1,150 -> 1150."
+              },
+              "saving": {
+                "type": "integer",
+                "description": "Whole rupees (LKR). Rs 1,150 -> 1150."
+              },
+              "deliveryFee": {
+                "type": "integer",
+                "description": "Whole rupees (LKR). Rs 1,150 -> 1150."
+              },
+              "smallOrderFee": {
+                "type": "integer",
+                "description": "Whole rupees (LKR). Rs 1,150 -> 1150."
+              },
+              "promoDiscount": {
+                "type": "integer",
+                "description": "Whole rupees (LKR). Rs 1,150 -> 1150."
+              },
+              "tip": {
+                "type": "integer",
+                "description": "Whole rupees (LKR). Rs 1,150 -> 1150."
+              },
+              "credit": {
+                "type": "integer",
+                "description": "Whole rupees (LKR). Rs 1,150 -> 1150."
+              },
+              "total": {
+                "type": "integer",
+                "description": "Whole rupees (LKR). Rs 1,150 -> 1150."
+              }
+            }
+          },
+          "rider": {
+            "type": "object",
+            "required": ["name", "rating", "vehicle", "plate", "maskedPhone"],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "rating": {
+                "type": "number"
+              },
+              "vehicle": {
+                "type": "string"
+              },
+              "plate": {
+                "type": "string"
+              },
+              "maskedPhone": {
+                "type": "string"
+              }
+            }
+          },
+          "cancelledAt": {
+            "type": "number",
+            "description": "Epoch milliseconds."
+          },
+          "cancelReason": {
+            "type": "string"
+          },
+          "collectedAt": {
+            "type": "number",
+            "description": "Epoch milliseconds."
+          },
+          "deliveredAt": {
+            "type": "number",
+            "description": "Epoch milliseconds."
+          },
+          "acceptedAt": {
+            "type": "number",
+            "description": "Epoch milliseconds."
+          },
+          "readyBy": {
+            "type": "number",
+            "description": "Epoch milliseconds."
+          },
+          "pickedUpAt": {
+            "type": "number",
+            "description": "Epoch milliseconds."
+          },
+          "dueAt": {
+            "type": "number",
+            "description": "Latest time promised to the customer."
+          },
+          "deliveryCode": {
+            "type": "string"
+          },
+          "rating": {
+            "type": "object",
+            "required": ["riderTags", "dishes", "comment", "ratedAt"],
+            "properties": {
+              "riderStars": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 5
+              },
+              "riderTags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "dishes": {
+                "type": "object",
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": ["up"]
+                    },
+                    {
+                      "type": "string",
+                      "enum": ["down"]
+                    }
+                  ]
+                }
+              },
+              "comment": {
+                "type": "string"
+              },
+              "ratedAt": {
+                "type": "number",
+                "description": "Epoch milliseconds."
+              }
+            }
+          },
+          "substitution": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["similar"]
+              },
+              {
+                "type": "string",
+                "enum": ["refund"]
+              }
+            ]
+          },
+          "groupId": {
+            "type": "string"
+          },
+          "issue": {
+            "type": "object",
+            "required": ["kind", "lines", "note", "resolution", "amount", "reportedAt"],
+            "properties": {
+              "kind": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": ["missing"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["wrong"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["spilled"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["late"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["neverArrived"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["charged"]
+                  }
+                ]
+              },
+              "lines": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["key", "qty"],
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "qty": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                }
+              },
+              "note": {
+                "type": "string"
+              },
+              "photoName": {
+                "type": "string"
+              },
+              "resolution": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": ["credit"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["card"]
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["review"]
+                  }
+                ]
+              },
+              "amount": {
+                "type": "integer",
+                "description": "Whole rupees (LKR). Rs 1,150 -> 1150."
+              },
+              "reportedAt": {
+                "type": "number",
+                "description": "Epoch milliseconds."
+              }
+            }
+          }
+        }
+      },
+      "ActiveOrder": {
+        "type": "object",
+        "required": ["order"],
+        "properties": {
+          "order": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Order"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "PlaceOrderInput": {
+        "type": "object",
+        "required": ["mode", "restaurant", "lines", "riderNote", "payment", "tip"],
+        "properties": {
+          "mode": {
+            "$ref": "#/components/schemas/OrderMode"
+          },
+          "restaurant": {
+            "type": "object",
+            "required": ["id"],
+            "properties": {
+              "id": {
+                "type": "integer"
+              }
+            },
+            "additionalProperties": true
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderLine"
+            },
+            "minItems": 0,
+            "maxItems": 100
+          },
+          "address": {
+            "$ref": "#/components/schemas/SavedAddress"
+          },
+          "riderNote": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "scheduledFor": {
+            "type": "number",
+            "description": "Epoch milliseconds."
+          },
+          "payment": {
+            "$ref": "#/components/schemas/PaymentMethod"
+          },
+          "promoCode": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "tip": {
+            "type": "integer",
+            "description": "Whole rupees (LKR). Rs 1,150 -> 1150."
+          },
+          "useCredit": {
+            "type": "boolean"
+          },
+          "substitution": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["similar"]
+              },
+              {
+                "type": "string",
+                "enum": ["refund"]
+              }
+            ]
+          },
+          "groupId": {
+            "type": "string"
+          },
+          "expectedTotal": {
+            "type": "integer",
+            "description": "The total the customer saw; PRICE_CHANGED if the server's differs."
+          }
+        }
+      },
+      "Cart": {
+        "type": "object",
+        "required": ["restaurant", "lines", "mode"],
+        "properties": {
+          "restaurant": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OrderRestaurant"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderLine"
+            }
+          },
+          "mode": {
+            "$ref": "#/components/schemas/OrderMode"
+          },
+          "groupId": {
+            "type": "string"
+          }
+        }
+      },
+      "CartInput": {
+        "type": "object",
+        "required": ["restaurantId", "lines", "mode"],
+        "properties": {
+          "restaurantId": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderLine"
+            },
+            "maxItems": 100
+          },
+          "mode": {
+            "$ref": "#/components/schemas/OrderMode"
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "required": ["name", "phone"],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string",
+            "description": "National format without the leading 0, e.g. \"771234567\"."
+          },
+          "email": {
+            "type": "string"
+          }
+        }
+      },
+      "Me": {
+        "type": "object",
+        "required": ["user", "isNew", "plusActive"],
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/User"
+          },
+          "isNew": {
+            "type": "boolean",
+            "description": "First sign-in (or no name yet): ask for a name."
+          },
+          "plusActive": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ProfileInput": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 200
+          }
+        }
+      },
+      "SavedCard": {
+        "type": "object",
+        "required": ["id", "brand", "last4", "expiry"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "brand": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["Visa"]
+              },
+              {
+                "type": "string",
+                "enum": ["Mastercard"]
+              },
+              {
+                "type": "string",
+                "enum": ["Amex"]
+              }
+            ]
+          },
+          "last4": {
+            "type": "string"
+          },
+          "expiry": {
+            "type": "string",
+            "description": "MM/YY"
+          }
+        }
+      },
+      "CardSetupSession": {
+        "type": "object",
+        "required": ["sessionId", "clientSecret", "pspUrl"],
+        "properties": {
+          "sessionId": {
+            "type": "string"
+          },
+          "clientSecret": {
+            "type": "string"
+          },
+          "pspUrl": {
+            "type": "string",
+            "description": "PSP hosted-fields endpoint; empty in dev (fake PSP)."
+          }
+        }
+      },
+      "AddCardInput": {
+        "type": "object",
+        "required": ["sessionId", "pspToken", "brand", "last4", "expiry", "holderName"],
+        "properties": {
+          "sessionId": {
+            "type": "string"
+          },
+          "pspToken": {
+            "type": "string"
+          },
+          "brand": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["Visa"]
+              },
+              {
+                "type": "string",
+                "enum": ["Mastercard"]
+              },
+              {
+                "type": "string",
+                "enum": ["Amex"]
+              }
+            ]
+          },
+          "last4": {
+            "type": "string",
+            "pattern": "^\\d{4}$"
+          },
+          "expiry": {
+            "type": "string",
+            "pattern": "^\\d{2}/\\d{2}$"
+          },
+          "holderName": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "fingerprint": {
+            "type": "string",
+            "maxLength": 128
+          }
+        }
+      },
+      "CreditAccount": {
+        "type": "object",
+        "required": ["balance", "history"],
+        "properties": {
+          "balance": {
+            "type": "integer",
+            "description": "Whole rupees (LKR). Rs 1,150 -> 1150."
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "at", "amount", "label"],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "at": {
+                  "type": "number",
+                  "description": "Epoch milliseconds."
+                },
+                "amount": {
+                  "type": "integer",
+                  "description": "Signed."
+                },
+                "label": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "PlusMembership": {
+        "type": "object",
+        "required": ["status"],
+        "properties": {
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["none"]
+              },
+              {
+                "type": "string",
+                "enum": ["member"]
+              },
+              {
+                "type": "string",
+                "enum": ["cancelled"]
+              }
+            ]
+          },
+          "plan": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["monthly"]
+              },
+              {
+                "type": "string",
+                "enum": ["yearly"]
+              }
+            ]
+          },
+          "joinedAt": {
+            "type": "number",
+            "description": "Epoch milliseconds."
+          },
+          "trialEndsAt": {
+            "type": "number",
+            "description": "Epoch milliseconds."
+          },
+          "endsAt": {
+            "type": "number",
+            "description": "Epoch milliseconds."
+          },
+          "cardLabel": {
+            "type": "string"
+          }
+        }
+      },
+      "JoinPlusInput": {
+        "type": "object",
+        "required": ["plan", "cardId"],
+        "properties": {
+          "plan": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["monthly"]
+              },
+              {
+                "type": "string",
+                "enum": ["yearly"]
+              }
+            ]
+          },
+          "cardId": {
+            "type": "string"
+          }
+        }
+      },
+      "GiftCardInput": {
+        "type": "object",
+        "required": ["amount", "to", "contact", "message", "sendOn", "cardId"],
+        "properties": {
+          "amount": {
+            "type": "integer",
+            "description": "Whole rupees (LKR). Rs 1,150 -> 1150."
+          },
+          "to": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "contact": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "sendOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "cardId": {
+            "type": "string"
+          }
+        }
+      },
+      "GiftCard": {
+        "type": "object",
+        "required": ["id", "amount", "to", "contact", "message", "sendOn", "cardId", "boughtAt", "cardLabel"],
+        "properties": {
+          "id": {
             "type": "string"
           },
           "amount": {
             "type": "integer",
             "description": "Whole rupees (LKR). Rs 1,150 -> 1150."
           },
-          "currency": {
-            "type": "string",
-            "enum": ["LKR"]
+          "to": {
+            "type": "string"
+          },
+          "contact": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "sendOn": {
+            "type": "string"
+          },
+          "cardId": {
+            "type": "string"
+          },
+          "boughtAt": {
+            "type": "number",
+            "description": "Epoch milliseconds."
+          },
+          "cardLabel": {
+            "type": "string"
+          }
+        }
+      },
+      "Referral": {
+        "type": "object",
+        "required": ["code", "reward", "friends"],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "reward": {
+            "type": "integer",
+            "description": "Whole rupees (LKR). Rs 1,150 -> 1150."
+          },
+          "friends": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "status", "at"],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "status": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": ["invited"]
+                    },
+                    {
+                      "type": "string",
+                      "enum": ["joined"]
+                    },
+                    {
+                      "type": "string",
+                      "enum": ["ordered"]
+                    }
+                  ]
+                },
+                "at": {
+                  "type": "number",
+                  "description": "Epoch milliseconds."
+                }
+              }
+            }
+          }
+        }
+      },
+      "GroupOrder": {
+        "type": "object",
+        "required": ["id", "restaurantId", "restaurantName", "hostName", "createdAt", "closesAt", "members"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "restaurantId": {
+            "type": "integer"
+          },
+          "restaurantName": {
+            "type": "string"
+          },
+          "hostName": {
+            "type": "string"
           },
           "createdAt": {
-            "type": "string",
-            "format": "date-time"
+            "type": "number",
+            "description": "Epoch milliseconds."
+          },
+          "closesAt": {
+            "type": "number",
+            "description": "Epoch milliseconds."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Whole rupees (LKR). Rs 1,150 -> 1150."
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "joinsAfter", "lines"],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "joinsAfter": {
+                  "type": "number",
+                  "description": "ms after createdAt that this person joined"
+                },
+                "lines": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrderLine"
+                  }
+                }
+              }
+            }
+          },
+          "orderId": {
+            "type": "string"
           }
-        },
-        "additionalProperties": false
+        }
       },
-      "CreateNote": {
+      "CreateGroupInput": {
         "type": "object",
-        "required": ["text", "amount"],
+        "required": ["restaurantId", "hostName", "minutes"],
+        "properties": {
+          "restaurantId": {
+            "type": "integer"
+          },
+          "hostName": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "minutes": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 240
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Whole rupees (LKR). Rs 1,150 -> 1150."
+          }
+        }
+      },
+      "ChatMessage": {
+        "type": "object",
+        "required": ["id", "from", "text", "at"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["you"]
+              },
+              {
+                "type": "string",
+                "enum": ["agent"]
+              }
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "at": {
+            "type": "number",
+            "description": "Epoch milliseconds."
+          },
+          "order": {
+            "type": "object",
+            "required": ["id", "restaurant", "total"],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "restaurant": {
+                "type": "string"
+              },
+              "total": {
+                "type": "integer",
+                "description": "Whole rupees (LKR). Rs 1,150 -> 1150."
+              }
+            }
+          }
+        }
+      },
+      "Conversation": {
+        "type": "object",
+        "required": ["ticketId", "messages"],
+        "properties": {
+          "ticketId": {
+            "type": "string"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatMessage"
+            }
+          }
+        }
+      },
+      "SendChatInput": {
+        "type": "object",
+        "required": ["text"],
         "properties": {
           "text": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 500
+            "maxLength": 4000
           },
-          "amount": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Whole rupees (LKR)."
+          "order": {
+            "type": "object",
+            "required": ["id", "restaurant", "total"],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "restaurant": {
+                "type": "string"
+              },
+              "total": {
+                "type": "integer",
+                "description": "Whole rupees (LKR). Rs 1,150 -> 1150."
+              }
+            }
           }
-        },
-        "additionalProperties": false
+        }
       },
       "Problem": {
         "type": "object",
@@ -77,7 +1735,7 @@
           },
           "code": {
             "type": "string",
-            "description": "Stable machine code, e.g. NOTE_NOT_FOUND."
+            "description": "Stable machine code, e.g. PROMO_MIN_SUBTOTAL."
           },
           "instance": {
             "type": "string"
@@ -91,45 +1749,635 @@
     }
   },
   "paths": {
-    "/v1/notes": {
-      "post": {
-        "operationId": "createNote",
-        "summary": "Create a note",
-        "tags": ["notes"],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateNote"
+    "/v1/categories": {
+      "get": {
+        "operationId": "listCategories",
+        "summary": "Food categories for the home rail (\"All\" first)",
+        "tags": ["catalog"],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Category"
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
               }
             }
           }
-        },
+        }
+      }
+    },
+    "/v1/categories/{id}": {
+      "get": {
+        "operationId": "getCategory",
+        "tags": ["catalog"],
         "parameters": [
           {
             "schema": {
               "type": "string",
-              "maxLength": 128
+              "maxLength": 64
             },
-            "in": "header",
-            "name": "idempotency-key",
-            "required": false,
-            "description": "Retry with the same key to get the original result."
+            "in": "path",
+            "name": "id",
+            "required": true
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Category"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/restaurants": {
+      "get": {
+        "operationId": "listRestaurants",
+        "summary": "Every restaurant, open ones first; fee/ETA for the delivery pin when given",
+        "tags": ["catalog"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "number"
+            },
+            "in": "query",
+            "name": "x",
+            "required": false,
+            "description": "Delivery pin, map units."
+          },
+          {
+            "schema": {
+              "type": "number"
+            },
+            "in": "query",
+            "name": "y",
+            "required": false,
+            "description": "Delivery pin, map units."
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": ["delivery"]
+                },
+                {
+                  "type": "string",
+                  "enum": ["pickup"]
+                }
+              ]
+            },
+            "in": "query",
+            "name": "mode",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Restaurant"
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/restaurants/{id}": {
+      "get": {
+        "operationId": "getRestaurant",
+        "tags": ["catalog"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "number"
+            },
+            "in": "query",
+            "name": "x",
+            "required": false,
+            "description": "Delivery pin, map units."
+          },
+          {
+            "schema": {
+              "type": "number"
+            },
+            "in": "query",
+            "name": "y",
+            "required": false,
+            "description": "Delivery pin, map units."
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Restaurant"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/restaurants/{id}/menu": {
+      "get": {
+        "operationId": "getMenu",
+        "tags": ["catalog"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Menu"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/restaurants/{id}/reviews": {
+      "get": {
+        "operationId": "listReviews",
+        "tags": ["catalog"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Review"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/search": {
+      "get": {
+        "operationId": "search",
+        "summary": "Dishes and restaurants matching every word of the query",
+        "tags": ["catalog"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "in": "query",
+            "name": "q",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "number"
+            },
+            "in": "query",
+            "name": "x",
+            "required": false,
+            "description": "Delivery pin, map units."
+          },
+          {
+            "schema": {
+              "type": "number"
+            },
+            "in": "query",
+            "name": "y",
+            "required": false,
+            "description": "Delivery pin, map units."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResults"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/search/popular": {
+      "get": {
+        "operationId": "listPopularSearches",
+        "tags": ["catalog"],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/places": {
+      "get": {
+        "operationId": "searchPlaces",
+        "summary": "Address picker: places matching the query, in or out of the delivery zone",
+        "tags": ["catalog"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 120
+            },
+            "in": "query",
+            "name": "q",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Place"
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me": {
+      "get": {
+        "operationId": "getMe",
+        "summary": "The signed-in customer (created on first sign-in)",
+        "tags": ["account"],
         "security": [
           {
             "bearer": []
           }
         ],
         "responses": {
-          "201": {
+          "200": {
             "description": "Default Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Note"
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "saveProfile",
+        "summary": "Name and email",
+        "tags": ["account"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileInput"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
                 }
               }
             }
@@ -154,7 +2402,561 @@
               }
             }
           },
-          "403": {
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/addresses": {
+      "get": {
+        "operationId": "listAddresses",
+        "tags": ["account"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SavedAddress"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/addresses/{id}": {
+      "put": {
+        "operationId": "saveAddress",
+        "summary": "Adds a new address, or replaces the one with the same id (home/work by label)",
+        "tags": ["account"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedAddress"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedAddress"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "removeAddress",
+        "tags": ["account"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/waitlist": {
+      "post": {
+        "operationId": "joinWaitlist",
+        "summary": "\"Tell me when you deliver here.\" Signed-out requests are accepted and not stored.",
+        "tags": ["account"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Place"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Default Response"
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/favourites": {
+      "get": {
+        "operationId": "listFavourites",
+        "tags": ["account"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/favourites/{restaurantId}": {
+      "put": {
+        "operationId": "addFavourite",
+        "tags": ["account"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "in": "path",
+            "name": "restaurantId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "removeFavourite",
+        "tags": ["account"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "in": "path",
+            "name": "restaurantId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/cards": {
+      "get": {
+        "operationId": "listCards",
+        "tags": ["account"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SavedCard"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "addCard",
+        "summary": "Saves the PSP token from a setup session",
+        "tags": ["account"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCardInput"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedCard"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
             "description": "Default Response",
             "content": {
               "application/problem+json": {
@@ -197,20 +2999,14 @@
         }
       }
     },
-    "/v1/notes/{id}": {
-      "get": {
-        "operationId": "getNote",
-        "summary": "Get a note",
-        "tags": ["notes"],
-        "parameters": [
+    "/v1/me/cards/session": {
+      "post": {
+        "operationId": "createCardSetupSession",
+        "summary": "Starts a PSP card-capture session; the app sends the card to the PSP, never to Kadé",
+        "tags": ["account"],
+        "security": [
           {
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "in": "path",
-            "name": "id",
-            "required": true
+            "bearer": []
           }
         ],
         "responses": {
@@ -219,12 +3015,2003 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Note"
+                  "$ref": "#/components/schemas/CardSetupSession"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/cards/{id}": {
+      "delete": {
+        "operationId": "removeCard",
+        "tags": ["account"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/credit": {
+      "get": {
+        "operationId": "getCredit",
+        "tags": ["account"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreditAccount"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/plus": {
+      "get": {
+        "operationId": "getPlus",
+        "tags": ["account"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlusMembership"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "joinPlus",
+        "summary": "Starts the free month",
+        "tags": ["account"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JoinPlusInput"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlusMembership"
                 }
               }
             }
           },
           "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "cancelPlus",
+        "summary": "Benefits last until the end of the period already paid for",
+        "tags": ["account"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlusMembership"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/gift-cards": {
+      "get": {
+        "operationId": "listGiftCards",
+        "tags": ["account"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GiftCard"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "buyGiftCard",
+        "tags": ["account"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GiftCardInput"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GiftCard"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/referral": {
+      "get": {
+        "operationId": "getReferral",
+        "tags": ["account"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 60
+            },
+            "in": "query",
+            "name": "firstName",
+            "required": false
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Referral"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/orders": {
+      "get": {
+        "operationId": "listOrders",
+        "summary": "Every order on this account, newest first",
+        "tags": ["orders"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Order"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "placeOrder",
+        "summary": "Checkout: runs the order saga and returns the placed (or scheduled) order",
+        "tags": ["orders"],
+        "description": "Problems: CART_EMPTY, ADDRESS_REQUIRED, OUT_OF_ZONE, RESTAURANT_CLOSED, ITEM_SOLD_OUT, PRICE_CHANGED, PROMO_*, PAYMENT_DECLINED (402), CUSTOMER_BLOCKED, OPTION_INVALID.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlaceOrderInput"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Order"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/orders/active": {
+      "get": {
+        "operationId": "getActiveOrder",
+        "summary": "Most recent order still on its way, if any",
+        "tags": ["orders"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActiveOrder"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/orders/{id}": {
+      "get": {
+        "operationId": "getOrder",
+        "summary": "One order (poll every few seconds while it is live, or use /ws)",
+        "tags": ["orders"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "description": "Order number (\"KD-4821\") or UUID."
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Order"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/orders/{id}/cancel": {
+      "post": {
+        "operationId": "cancelOrder",
+        "summary": "Only while scheduled or waiting for the kitchen (ORDER_ALREADY_STARTED otherwise)",
+        "tags": ["orders"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "description": "Order number (\"KD-4821\") or UUID."
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Order"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/orders/{id}/collected": {
+      "post": {
+        "operationId": "markCollected",
+        "summary": "Pickup orders: the customer has the food",
+        "tags": ["orders"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "description": "Order number (\"KD-4821\") or UUID."
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Order"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/orders/{id}/tip": {
+      "put": {
+        "operationId": "updateTip",
+        "summary": "Card orders only (CASH_TIP_AT_DOOR for cash)",
+        "tags": ["orders"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["tip"],
+                "properties": {
+                  "tip": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "description": "Order number (\"KD-4821\") or UUID."
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Order"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/orders/{id}/rating": {
+      "post": {
+        "operationId": "rateOrder",
+        "summary": "Rate a delivered or collected order (a second rating within 7 days replaces it)",
+        "tags": ["orders"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RateOrderInput"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "description": "Order number (\"KD-4821\") or UUID."
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Order"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/orders/{id}/issues/preview": {
+      "post": {
+        "operationId": "previewIssue",
+        "summary": "What would be paid back for a problem, shown before sending",
+        "tags": ["orders"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssuePreviewInput"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "description": "Order number (\"KD-4821\") or UUID."
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["amount"],
+                  "properties": {
+                    "amount": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/orders/{id}/issues": {
+      "post": {
+        "operationId": "reportIssue",
+        "summary": "Report a problem; credit refunds land straight away",
+        "tags": ["orders"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueInput"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "description": "Order number (\"KD-4821\") or UUID."
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Order"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/promos": {
+      "get": {
+        "operationId": "listPromos",
+        "summary": "Codes anyone can use right now, for the offers page",
+        "tags": ["promos"],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PublicPromo"
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/promos/validate": {
+      "post": {
+        "operationId": "validatePromo",
+        "summary": "Checks a code against a basket without reserving anything",
+        "tags": ["promos"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromoCheckInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromoResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/cart": {
+      "get": {
+        "operationId": "getCart",
+        "tags": ["cart"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Cart"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "replaceCart",
+        "summary": "Replaces the server cart with the app's (signed-in sync)",
+        "tags": ["cart"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CartInput"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Cart"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/groups": {
+      "post": {
+        "operationId": "createGroup",
+        "tags": ["groups"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGroupInput"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupOrder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/groups/{id}": {
+      "get": {
+        "operationId": "getGroup",
+        "tags": ["groups"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "description": "Group id or share token."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupOrder"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/support/conversation": {
+      "get": {
+        "operationId": "getConversation",
+        "summary": "The customer's open chat (started with a greeting if there is none)",
+        "tags": ["support"],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Conversation"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/support/conversation/{ticketId}/messages": {
+      "get": {
+        "operationId": "listMessages",
+        "summary": "Messages in the chat, oldest first (poll for agent replies, or use /ws ticket:<id>)",
+        "tags": ["support"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "number"
+            },
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "description": "Epoch ms"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "in": "path",
+            "name": "ticketId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ChatMessage"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "sendMessage",
+        "tags": ["support"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendChatInput"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "in": "path",
+            "name": "ticketId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatMessage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
             "description": "Default Response",
             "content": {
               "application/problem+json": {

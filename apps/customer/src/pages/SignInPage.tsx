@@ -1,6 +1,6 @@
 import { Button, Container, Link, TextField, useToast } from "@kade/ui";
 import { useState, type FormEvent } from "react";
-import { Navigate, useSearchParams } from "react-router";
+import { Navigate, useLocation, useSearchParams } from "react-router";
 import {
   AccountError,
   DEMO_CODE,
@@ -11,6 +11,8 @@ import {
   signInWithProvider,
   verifyCode,
 } from "@/api/account";
+import { signInWithKeycloak } from "@/api/auth";
+import { IS_LIVE } from "@/api/config";
 import { useSaveProfile } from "@/api/queries";
 import type { SignInResult, User } from "@/api/types";
 import { CodeInput } from "@/components/CodeInput";
@@ -23,10 +25,15 @@ import styles from "./SignInPage.module.css";
 type Step = "phone" | "code" | "name";
 
 const copy: Record<Step, { title: string; text: string }> = {
-  phone: {
-    title: "Sign in with your phone number",
-    text: "We'll text you a 6-digit code. New to Kadé? The same steps create your account.",
-  },
+  phone: IS_LIVE
+    ? {
+        title: "Sign in to Kadé",
+        text: "Use your Kadé account to order, track deliveries and keep your addresses and cards. New to Kadé? Creating an account takes a minute.",
+      }
+    : {
+        title: "Sign in with your phone number",
+        text: "We'll text you a 6-digit code. New to Kadé? The same steps create your account.",
+      },
   code: { title: "Enter the code we texted you", text: "" },
   name: {
     title: "What should riders call you?",
@@ -46,14 +53,19 @@ export function SignInPage() {
   const signIn = useSession((s) => s.signIn);
   const saveProfile = useSaveProfile();
 
-  const [step, setStep] = useState<Step>("phone");
+  const location = useLocation();
+  // Live: Keycloak sends new customers back here (from /auth/callback) to add their name.
+  const fromCallback = IS_LIVE && params.get("step") === "name";
+  const [step, setStep] = useState<Step>(fromCallback ? "name" : "phone");
   const [phoneInput, setPhoneInput] = useState("");
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [sentAt, setSentAt] = useState(0);
-  const [pending, setPending] = useState<"phone" | "code" | "google" | "apple" | null>(null);
+  const [pending, setPending] = useState<"phone" | "code" | "google" | "apple" | "kade" | null>(null);
   const [error, setError] = useState<string | undefined>();
-  const [draft, setDraft] = useState<User>({ name: "", phone: "" });
+  const [draft, setDraft] = useState<User>(
+    (fromCallback && (location.state as { draft?: User } | null)?.draft) || { name: "", phone: "" },
+  );
   const now = useNow(1000, step === "code");
   const waitSeconds = Math.max(0, RESEND_AFTER_SECONDS - Math.floor((now - sentAt) / 1000));
 
@@ -106,6 +118,17 @@ export function SignInPage() {
     }
   };
 
+  const withKade = async (register = false) => {
+    setPending("kade");
+    setError(undefined);
+    try {
+      await signInWithKeycloak(next, { register });
+    } catch {
+      setPending(null);
+      setError("We couldn't reach the Kadé sign-in page. Check your connection and try again.");
+    }
+  };
+
   const withProvider = async (provider: "google" | "apple") => {
     setPending(provider);
     setError(undefined);
@@ -147,7 +170,30 @@ export function SignInPage() {
           </section>
 
           <div className={styles.panel}>
-            {step === "phone" && (
+            {step === "phone" && IS_LIVE && (
+              <div className={styles.form}>
+                <Button size="lg" fullWidth disabled={pending !== null} onClick={() => void withKade()}>
+                  {pending === "kade" ? "Opening Kadé sign-in…" : "Sign in with Kadé"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  fullWidth
+                  disabled={pending !== null}
+                  onClick={() => void withKade(true)}
+                >
+                  Create a Kadé account
+                </Button>
+                {error && (
+                  <p className={styles.demo} role="alert">
+                    {error}
+                  </p>
+                )}
+                <p className={styles.demo}>Demo account: dilini, password kade123.</p>
+              </div>
+            )}
+
+            {step === "phone" && !IS_LIVE && (
               <>
                 <form onSubmit={sendCode} noValidate className={styles.form}>
                   <TextField

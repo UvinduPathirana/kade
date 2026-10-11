@@ -2,9 +2,9 @@ import { pickupMinutes } from "@/lib/eta";
 import type { Order, OrderStatus } from "./types";
 
 /*
- * Mock dispatch timeline. The real order service pushes status changes (restaurant accepts, rider
- * picks up…); here status is derived from time since the order was placed so the demo moves on its own.
- * Seconds after placing:
+ * Live mode: the order service owns status (`order.status`) and the times it moved on; the helpers
+ * below use those. Mock mode: status is derived from time since the order was placed so the demo moves
+ * on its own, along this timeline (seconds after placing):
  */
 export const TIMELINE = {
   accepted: 20,
@@ -26,6 +26,7 @@ export function startOf(order: Order): number {
 const secondsIn = (order: Order, now: number) => (now - startOf(order)) / 1000;
 
 export function orderStatus(order: Order, now = Date.now()): OrderStatus {
+  if (order.status) return order.status;
   if (order.cancelledAt) return "cancelled";
   if (order.collectedAt) return "collected";
   const s = secondsIn(order, now);
@@ -43,6 +44,13 @@ export function legProgress(order: Order, now = Date.now()): number {
   const s = secondsIn(order, now);
   const clamp = (v: number) => Math.max(0, Math.min(1, v));
   const status = orderStatus(order, now);
+  if (order.status) {
+    const leg = (from: number | undefined, to: number | undefined) =>
+      from && to && to > from ? clamp((now - from) / (to - from)) : 0.5;
+    if (status === "pickedUp") return leg(order.pickedUpAt, order.dueAt);
+    if (status === "accepted" || status === "preparing") return leg(order.acceptedAt, order.readyBy);
+    return status === "delivered" || status === "collected" || status === "ready" ? 1 : 0;
+  }
   if (status === "pickedUp") return clamp((s - TIMELINE.pickedUp) / (TIMELINE.delivered - TIMELINE.pickedUp));
   if (status === "accepted" || status === "preparing")
     return clamp((s - TIMELINE.accepted) / (TIMELINE.pickedUp - TIMELINE.accepted));
@@ -54,11 +62,22 @@ export function legProgress(order: Order, now = Date.now()): number {
  * The demo timeline is compressed, so map overall progress onto the restaurant's quoted window.
  */
 export function minutesLeft(order: Order, now = Date.now()): number {
+  if (order.status) {
+    const due = order.mode === "pickup" ? (order.readyBy ?? order.dueAt) : order.dueAt;
+    if (due) return Math.max(1, Math.ceil((due - now) / 60_000));
+    const quotedMax = order.mode === "delivery" ? order.restaurant.eta[1] : order.restaurant.eta[0];
+    return Math.max(1, Math.ceil((startOf(order) + quotedMax * 60_000 - now) / 60_000));
+  }
   const end = order.mode === "delivery" ? TIMELINE.delivered : TIMELINE.ready;
   const s = Math.max(0, secondsIn(order, now));
   const quoted =
     order.mode === "delivery" ? order.restaurant.eta[1] : Math.max(10, order.restaurant.eta[0] - 5);
   return Math.max(1, Math.ceil(quoted * (1 - Math.min(1, s / end))));
+}
+
+/** When it arrived or was collected (live: recorded; mock: the end of the demo timeline). */
+export function finishedAt(order: Order): number {
+  return order.collectedAt ?? order.deliveredAt ?? startOf(order) + TIMELINE.delivered * 1000;
 }
 
 /** Clock time like "7:42 pm". */

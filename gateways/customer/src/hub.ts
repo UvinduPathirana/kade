@@ -1,8 +1,9 @@
 import type { WebSocket } from "ws";
 
 /**
- * In-process registry of open sockets per user. Enough for one gateway replica; cross-replica
- * fan-out (kitchen board, tracking) belongs to the Go `realtime` service over Redis pub/sub.
+ * In-process registry of open sockets per user, so shutdown can close them and the gateway can push
+ * its own messages. Pushes for orders, groups and chat come from the Go `realtime` service, which
+ * /ws proxies to (cross-replica fan-out over Redis pub/sub).
  */
 export class Hub {
   private readonly sockets = new Map<string, Set<WebSocket>>();
@@ -34,7 +35,6 @@ export class Hub {
 
 /** Messages the server sends on /ws (documented in README.md, "WebSocket protocol"). */
 export type ServerMessage =
-  | { type: "ready"; userId: string }
+  | { type: "ready"; userId: string; realtime: boolean }
   | { type: "pong" }
-  | { type: "error"; code: string; message: string }
-  | { type: "note.created"; note: unknown };
+  | { type: "error"; code: string; message: string };

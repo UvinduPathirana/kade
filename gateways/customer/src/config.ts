@@ -13,8 +13,20 @@ const schema = z
   .object({
     SERVICE_NAME: z.string().regex(/^[a-z][a-z0-9-]*$/),
     HTTP_PORT: z.coerce.number().int().min(0).max(65_535),
-    // One variable per upstream. Add CATALOG_GRPC, ORDER_GRPC, ... as the gateway grows.
-    TEMPLATE_GRPC: grpcAddress,
+    // One variable per upstream (CONVENTIONS service registry).
+    CATALOG_GRPC: grpcAddress.default("localhost:50101"),
+    SEARCH_GRPC: grpcAddress.default("localhost:50102"),
+    PROFILE_GRPC: grpcAddress.default("localhost:50103"),
+    CART_GRPC: grpcAddress.default("localhost:50104"),
+    PROMOTION_GRPC: grpcAddress.default("localhost:50106"),
+    ORDER_GRPC: grpcAddress.default("localhost:50107"),
+    PAYMENT_GRPC: grpcAddress.default("localhost:50108"),
+    REVIEW_GRPC: grpcAddress.default("localhost:50115"),
+    SUPPORT_GRPC: grpcAddress.default("localhost:50116"),
+    // The realtime service's WebSocket; /ws is proxied there (connect lazily, degrade if down).
+    REALTIME_WS_URL: z.url().default("ws://localhost:8112/ws"),
+    // PlaceOrder runs the checkout saga synchronously: it needs longer than the default deadline.
+    PLACE_ORDER_DEADLINE_MS: z.coerce.number().int().positive().default(15_000),
     GRPC_DEADLINE_MS: z.coerce.number().int().positive().default(2_000),
 
     // Expected `iss` claim. Keycloak issues tokens for the browser's view of it

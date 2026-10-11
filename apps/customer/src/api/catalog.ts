@@ -1,49 +1,46 @@
-// Catalogue API. Today it serves mock data; later each function calls the catalogue/menu
-// microservices (e.g. GET /restaurants, GET /restaurants/:id/menu) and the search service
-// (GET /search?q=), and nothing else changes.
+// Catalogue API. Live mode calls the customer gateway (catalog, search and review services);
+// mock mode serves the demo data in ./mock. Same functions either way (VITE_API_MODE).
+import { IS_LIVE } from "./config";
+import { NotFoundError } from "./errors";
+import * as live from "./live/catalog";
 import * as mock from "./mock/catalogue";
 import type { Category, DishResult, Menu, Restaurant, Review, SearchResults } from "./types";
 
-export class NotFoundError extends Error {
-  constructor(what: string) {
-    super(`${what} not found`);
-    this.name = "NotFoundError";
-  }
-}
+export { NotFoundError };
 
 const respond = <T>(data: T): Promise<T> => Promise.resolve(structuredClone(data));
 
-export function listCategories(): Promise<Category[]> {
+function mockListCategories(): Promise<Category[]> {
   return respond(mock.categories);
 }
 
-export function listRestaurants(): Promise<Restaurant[]> {
+function mockListRestaurants(): Promise<Restaurant[]> {
   return respond(mock.restaurants);
 }
 
-export async function getRestaurant(id: number): Promise<Restaurant> {
+async function mockGetRestaurant(id: number): Promise<Restaurant> {
   const r = mock.restaurants.find((x) => x.id === id);
   if (!r) throw new NotFoundError("Restaurant");
   return respond(r);
 }
 
-export async function getMenu(restaurantId: number): Promise<Menu> {
-  const r = await getRestaurant(restaurantId);
+async function mockGetMenu(restaurantId: number): Promise<Menu> {
+  const r = await mockGetRestaurant(restaurantId);
   return respond(mock.buildMenu(r));
 }
 
-export function listReviews(restaurantId: number): Promise<Review[]> {
+function mockListReviews(restaurantId: number): Promise<Review[]> {
   void restaurantId; // mock: same reviews for every restaurant
   return respond(mock.reviews);
 }
 
-export async function getCategory(id: string): Promise<Category> {
+async function mockGetCategory(id: string): Promise<Category> {
   const c = mock.categories.find((x) => x.id === id && x.id !== "all");
   if (!c) throw new NotFoundError("Category");
   return respond(c);
 }
 
-export function listPopularSearches(): Promise<string[]> {
+function mockListPopularSearches(): Promise<string[]> {
   return respond(mock.popularSearches);
 }
 
@@ -56,7 +53,7 @@ const normalise = (s: string) =>
     .trim();
 
 /** Dishes and places matching every word of the query. Open places and name matches come first. */
-export async function search(query: string): Promise<SearchResults> {
+async function mockSearch(query: string): Promise<SearchResults> {
   const words = normalise(query).split(" ").filter(Boolean);
   if (!words.length) return { query, dishes: [], restaurants: [] };
   const matches = (text: string) => {
@@ -83,3 +80,12 @@ export async function search(query: string): Promise<SearchResults> {
 
   return respond({ query, dishes: dishes.slice(0, 40), restaurants });
 }
+
+export const listCategories = IS_LIVE ? live.listCategories : mockListCategories;
+export const listRestaurants = IS_LIVE ? live.listRestaurants : mockListRestaurants;
+export const getRestaurant = IS_LIVE ? live.getRestaurant : mockGetRestaurant;
+export const getMenu = IS_LIVE ? live.getMenu : mockGetMenu;
+export const listReviews = IS_LIVE ? live.listReviews : mockListReviews;
+export const getCategory = IS_LIVE ? live.getCategory : mockGetCategory;
+export const listPopularSearches = IS_LIVE ? live.listPopularSearches : mockListPopularSearches;
+export const search = IS_LIVE ? live.search : mockSearch;

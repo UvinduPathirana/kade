@@ -1,8 +1,9 @@
 import { Button, ConfirmDialog, Container, EmptyState, cx } from "@kade/ui";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router";
+import { watchOrder } from "@/api/live/realtime";
 import { OrderError } from "@/api/orders";
-import { FINAL_STATUSES, TIMELINE, clockTime, legProgress, orderStatus, startOf } from "@/api/orderStatus";
+import { FINAL_STATUSES, clockTime, finishedAt, legProgress, orderStatus } from "@/api/orderStatus";
 import { useCancelOrder, useMarkCollected, useOrder } from "@/api/queries";
 import type { Order, OrderStatus } from "@/api/types";
 import { DeliveryMap } from "@/features/orders/DeliveryMap";
@@ -118,7 +119,7 @@ function Tracking({ order, status, now }: { order: Order; status: OrderStatus; n
 
 function Delivered({ order, status }: { order: Order; status: OrderStatus }) {
   const firstDish = order.lines[0]?.name.toLowerCase() ?? "food";
-  const when = clockTime(order.collectedAt ?? startOf(order) + TIMELINE.delivered * 1000);
+  const when = clockTime(finishedAt(order));
   return (
     <>
       <section className={styles.band} aria-labelledby="done-title">
@@ -141,6 +142,9 @@ export function OrderPage() {
   const { id = "" } = useParams();
   const { data: order, error } = useOrder(id);
   const live = !!order && !FINAL_STATUSES.includes(orderStatus(order));
+  // Live mode: realtime pushes for this order trigger an immediate refetch.
+  const ref = live ? order.ref : undefined;
+  useEffect(() => watchOrder(ref), [ref]);
   const now = useNow(1000, live);
   const status = order ? orderStatus(order, now) : undefined;
   useDocumentTitle(order ? `Order ${order.id}` : "Order");

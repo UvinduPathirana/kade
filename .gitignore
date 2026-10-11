@@ -8,3 +8,5 @@ dist/
 
 # Generated screenshots (regenerate with pnpm screenshots)
 screenshots/*/
+!.env.example
+!.env.mock

@@ -1,6 +1,6 @@
-// Account API. Later: the auth service (SMS codes, Google and Apple sign-in), the customer service
-// (profile), the payments service (saved cards, Kadé credit) and the subscriptions service (Kadé Plus).
-// Today every call is a mock backed by localStorage.
+// Account API. Live mode: sign-in is Keycloak (./auth.ts) and everything else goes through the
+// customer gateway (profile for the customer, credit and Plus; payment for saved cards). Mock mode:
+// the original demo backed by localStorage, with SMS-code and Google/Apple sign-in mocks.
 import { cardBrand, cardLabel, digitsOnly, validateCard } from "@/lib/cards";
 import type {
   CreditAccount,
@@ -11,18 +11,16 @@ import type {
   SignInResult,
   User,
 } from "./types";
+import { IS_LIVE } from "./config";
+import { AccountError } from "./errors";
+import * as live from "./live/account";
+
+export { AccountError };
 
 const USERS_KEY = "kade.users.v1";
 const CARDS_KEY = "kade.cards.v1";
 const CREDIT_KEY = "kade.credit.v1";
 const PLUS_KEY = "kade.plus.v1";
-
-export class AccountError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "AccountError";
-  }
-}
 
 const latency = (ms = 400) => new Promise((r) => setTimeout(r, ms));
 const DAY = 86_400_000;
@@ -81,7 +79,7 @@ export async function signInWithProvider(provider: "google" | "apple"): Promise<
   return { user: known ?? { name: "Dilini Perera", phone: "", email }, isNew: !known };
 }
 
-export async function saveProfile(user: User): Promise<User> {
+async function mockSaveProfile(user: User): Promise<User> {
   await latency();
   if (!user.name.trim()) throw new AccountError("Enter your name so riders know who to ask for.");
   if (user.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(user.email))
@@ -114,11 +112,11 @@ const TEST_NUMBERS = new Set([
   "4000000000000002",
 ]);
 
-export async function listCards(): Promise<SavedCard[]> {
+async function mockListCards(): Promise<SavedCard[]> {
   return read(CARDS_KEY, defaultCards);
 }
 
-export async function addCard(input: NewCardInput): Promise<SavedCard> {
+async function mockAddCard(input: NewCardInput): Promise<SavedCard> {
   await latency();
   const errors = validateCard(input);
   const first = Object.values(errors)[0];
@@ -143,7 +141,7 @@ export async function addCard(input: NewCardInput): Promise<SavedCard> {
   return card;
 }
 
-export async function removeCard(id: string): Promise<void> {
+async function mockRemoveCard(id: string): Promise<void> {
   await latency();
   write(
     CARDS_KEY,
@@ -160,7 +158,7 @@ const defaultCredit: CreditAccount = {
   ],
 };
 
-export async function getCredit(): Promise<CreditAccount> {
+async function mockGetCredit(): Promise<CreditAccount> {
   return read(CREDIT_KEY, defaultCredit);
 }
 
@@ -182,7 +180,7 @@ export const creditBalance = () => read(CREDIT_KEY, defaultCredit).balance;
 
 export const PLUS_PRICES: Record<PlusPlan, number> = { monthly: 990, yearly: 9900 };
 
-export async function getPlus(): Promise<PlusMembership> {
+async function mockGetPlus(): Promise<PlusMembership> {
   return read<PlusMembership>(PLUS_KEY, { status: "none" });
 }
 
@@ -202,7 +200,7 @@ export function plusRenewsAt(m: PlusMembership, now = Date.now()): number {
 
 export const isPlusMember = () => plusActive(read<PlusMembership>(PLUS_KEY, { status: "none" }));
 
-export async function joinPlus(plan: PlusPlan, cardId: string): Promise<PlusMembership> {
+async function mockJoinPlus(plan: PlusPlan, cardId: string): Promise<PlusMembership> {
   await latency();
   const card = read(CARDS_KEY, defaultCards).find((c) => c.id === cardId);
   if (!card) throw new AccountError("Choose a card for when the free month ends.");
@@ -218,7 +216,7 @@ export async function joinPlus(plan: PlusPlan, cardId: string): Promise<PlusMemb
   return m;
 }
 
-export async function cancelPlus(): Promise<PlusMembership> {
+async function mockCancelPlus(): Promise<PlusMembership> {
   await latency();
   const m = read<PlusMembership>(PLUS_KEY, { status: "none" });
   if (m.status !== "member") throw new AccountError("You're not a Kadé Plus member.");
@@ -226,3 +224,12 @@ export async function cancelPlus(): Promise<PlusMembership> {
   write(PLUS_KEY, next);
   return next;
 }
+
+export const saveProfile = IS_LIVE ? live.saveProfile : mockSaveProfile;
+export const listCards = IS_LIVE ? live.listCards : mockListCards;
+export const addCard = IS_LIVE ? live.addCard : mockAddCard;
+export const removeCard = IS_LIVE ? live.removeCard : mockRemoveCard;
+export const getCredit = IS_LIVE ? live.getCredit : mockGetCredit;
+export const getPlus = IS_LIVE ? live.getPlus : mockGetPlus;
+export const joinPlus = IS_LIVE ? live.joinPlus : mockJoinPlus;
+export const cancelPlus = IS_LIVE ? live.cancelPlus : mockCancelPlus;

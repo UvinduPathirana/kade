@@ -1,19 +1,14 @@
-// Shared plumbing for the mock API: a short delay so loading states are real, deep copies so the UI
+// Shared plumbing for the mock API (live mode calls gateway-admin instead, see ./gateway): a short delay so loading states are real, deep copies so the UI
 // never edits the mock store by accident, and the audit trail every write leaves behind.
-import { simNow } from "./mock/clock";
+import { ApiError } from "./errors";
 import { auditLog } from "./mock/backOffice";
-import { ME } from "./mock/partners";
+import { simNow } from "./mock/clock";
+import { ME } from "./me";
 import type { AuditEntry } from "./types";
 
 export { DAY, HOUR, MIN, simNow, TODAY_START } from "./mock/clock";
-export { ME } from "./mock/partners";
-
-export class ApiError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "ApiError";
-  }
-}
+export { ME } from "./me";
+export { ApiError } from "./errors";
 
 const wait = (ms: number) => new Promise((r) => window.setTimeout(r, ms));
 

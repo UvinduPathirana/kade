@@ -1,21 +1,31 @@
-# Compose fragment for the gateway template. Included from deploy/compose/services.yaml; paths are
-# relative to this file. Real gateways: gateway-customer 8201, -merchant 8202, -rider 8203, -admin 8204.
-#   docker compose -f deploy/compose/compose.yaml --profile templates up -d --build gateway-admin
+# Compose fragment for gateway-admin (Kadé Ops console BFF). Included from deploy/compose/services.yaml;
+# paths are relative to this file.
+#   docker compose -f deploy/compose/compose.yaml --profile engagement up -d --build gateway-admin
 services:
   gateway-admin:
     image: kade/gateway-admin:dev
     build:
       context: ../..
-      dockerfile: gateways/_template/Dockerfile
+      dockerfile: gateways/admin/Dockerfile
     profiles: [engagement]
     environment:
       SERVICE_NAME: gateway-admin
       HTTP_PORT: "8204"
-      TEMPLATE_GRPC: template-ts:50100
+      ORDER_GRPC: order:50107
+      CATALOG_GRPC: catalog:50101
+      MERCHANT_GRPC: merchant:50109
+      PROFILE_GRPC: profile:50103
+      PRICING_GRPC: pricing:50105
+      PROMOTION_GRPC: promotion:50106
+      LEDGER_GRPC: ledger:50113
+      DISPATCH_GRPC: dispatch:50110
+      SUPPORT_GRPC: support:50116
+      # Uncomment once realtime (Go, :8112) is in the stack; /ws is then relayed there.
+      # REALTIME_WS_URL: ws://realtime:8112/ws
       # Tokens carry the browser-facing issuer (KC_HOSTNAME); keys are fetched over the network.
       KEYCLOAK_ISSUER: http://localhost:8080/realms/kade
       KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/kade/protocol/openid-connect/certs
-      KEYCLOAK_CLIENTS: customer-app
+      KEYCLOAK_CLIENTS: admin-app
       CORS_ORIGINS: http://localhost:5177
       # DEV ONLY: lets the apps call with "Bearer dev:<user>:<roles>" before Keycloak login exists.
       AUTH_DEV_BYPASS: "true"
@@ -25,8 +35,9 @@ services:
       NODE_OPTIONS: --max-old-space-size=96
     ports:
       - "8204:8204"
+    # Upstreams are deliberately not hard dependencies: routes whose service is down answer 503
+    # problems, and the dashboard degrades to what is up.
     depends_on:
-      template-ts: { condition: service_healthy }
       keycloak: { condition: service_healthy }
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8204/health/ready"]

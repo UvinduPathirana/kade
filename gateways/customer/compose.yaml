@@ -1,23 +1,32 @@
-# Compose fragment for the gateway template. Included from deploy/compose/services.yaml; paths are
-# relative to this file. Real gateways: gateway-customer 8201, -merchant 8202, -rider 8203, -admin 8204.
-#   docker compose -f deploy/compose/compose.yaml --profile templates up -d --build gateway-customer
+# Compose fragment for the customer gateway (BFF for apps/customer). Included from
+# deploy/compose/services.yaml; paths are relative to this file.
+#   docker compose -f deploy/compose/compose.yaml --profile ordering up -d --build gateway-customer
 services:
   gateway-customer:
     image: kade/gateway-customer:dev
     build:
       context: ../..
-      dockerfile: gateways/_template/Dockerfile
+      dockerfile: gateways/customer/Dockerfile
     profiles: [ordering]
     environment:
       SERVICE_NAME: gateway-customer
       HTTP_PORT: "8201"
-      TEMPLATE_GRPC: template-ts:50100
+      CATALOG_GRPC: catalog:50101
+      SEARCH_GRPC: search:50102
+      PROFILE_GRPC: profile:50103
+      CART_GRPC: cart:50104
+      PROMOTION_GRPC: promotion:50106
+      ORDER_GRPC: order:50107
+      PAYMENT_GRPC: payment:50108
+      REVIEW_GRPC: review:50115
+      SUPPORT_GRPC: support:50116
+      REALTIME_WS_URL: ws://realtime:8112/ws
       # Tokens carry the browser-facing issuer (KC_HOSTNAME); keys are fetched over the network.
       KEYCLOAK_ISSUER: http://localhost:8080/realms/kade
       KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/kade/protocol/openid-connect/certs
       KEYCLOAK_CLIENTS: customer-app
       CORS_ORIGINS: http://localhost:5174
-      # DEV ONLY: lets the apps call with "Bearer dev:<user>:<roles>" before Keycloak login exists.
+      # DEV ONLY: also accepts "Bearer dev:<user>:<roles>" (curl, tests). Real Keycloak tokens work too.
       AUTH_DEV_BYPASS: "true"
       DEPLOY_ENV: dev
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel:4318
@@ -25,8 +34,9 @@ services:
       NODE_OPTIONS: --max-old-space-size=96
     ports:
       - "8201:8201"
+    # Upstreams are not hard dependencies: a missing service makes its routes answer 503 problems,
+    # and /ws falls back to polling while realtime is down.
     depends_on:
-      template-ts: { condition: service_healthy }
       keycloak: { condition: service_healthy }
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8201/health/ready"]

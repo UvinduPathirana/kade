@@ -13,8 +13,18 @@ const schema = z
   .object({
     SERVICE_NAME: z.string().regex(/^[a-z][a-z0-9-]*$/),
     HTTP_PORT: z.coerce.number().int().min(0).max(65_535),
-    // One variable per upstream. Add CATALOG_GRPC, ORDER_GRPC, ... as the gateway grows.
-    TEMPLATE_GRPC: grpcAddress,
+    // One variable per upstream (CONVENTIONS service registry). identity.v1 is served by profile.
+    ORDER_GRPC: grpcAddress.default("localhost:50107"),
+    CATALOG_GRPC: grpcAddress.default("localhost:50101"),
+    MERCHANT_GRPC: grpcAddress.default("localhost:50109"),
+    PROFILE_GRPC: grpcAddress.default("localhost:50103"),
+    PRICING_GRPC: grpcAddress.default("localhost:50105"),
+    PROMOTION_GRPC: grpcAddress.default("localhost:50106"),
+    LEDGER_GRPC: grpcAddress.default("localhost:50113"),
+    DISPATCH_GRPC: grpcAddress.default("localhost:50110"),
+    SUPPORT_GRPC: grpcAddress.default("localhost:50116"),
+    // realtime's WebSocket (Go, :8112). When set, /ws is proxied there after auth; unset = local hub only.
+    REALTIME_WS_URL: z.url().optional(),
     GRPC_DEADLINE_MS: z.coerce.number().int().positive().default(2_000),
 
     // Expected `iss` claim. Keycloak issues tokens for the browser's view of it

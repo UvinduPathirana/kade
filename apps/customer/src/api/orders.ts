@@ -1,6 +1,5 @@
-// Order API. Today a mock service persisted in localStorage; later the order service
-// (POST /orders, GET /orders, GET /orders/:id, plus a live status stream) behind the same functions.
-// Problems with an order go to the support service (POST /orders/:id/issues).
+// Order API. Live mode calls the customer gateway (order service, with ratings from review and
+// reported problems from support joined on); mock mode is a demo service persisted in localStorage.
 import { computeTotals } from "@/features/cart/totals";
 import { cardLabel } from "@/lib/cards";
 import { photos } from "@/lib/images";
@@ -8,6 +7,9 @@ import { DECLINING_LAST4, changeCredit, creditBalance, isPlusMember } from "./ac
 import { defaultAddresses } from "./addresses";
 import { markGroupPlaced } from "./group";
 import { FINAL_STATUSES, orderStatus } from "./orderStatus";
+import { IS_LIVE } from "./config";
+import { OrderError, PaymentDeclinedError } from "./errors";
+import * as live from "./live/orders";
 import { validatePromo } from "./promos";
 import type {
   IssueInput,
@@ -21,20 +23,7 @@ import type {
 
 const KEY = "kade.orders.v1";
 
-export class OrderError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "OrderError";
-  }
-}
-
-/** The bank said no. Checkout offers another way to pay. */
-export class PaymentDeclinedError extends OrderError {
-  constructor(message: string) {
-    super(message);
-    this.name = "PaymentDeclinedError";
-  }
-}
+export { OrderError, PaymentDeclinedError };
 
 const riders: Rider[] = [
   {
@@ -194,7 +183,7 @@ function update(id: string, change: (o: Order) => Order): Order {
 
 const latency = () => new Promise((r) => setTimeout(r, 350));
 
-export async function placeOrder(input: PlaceOrderInput): Promise<Order> {
+async function mockPlaceOrder(input: PlaceOrderInput): Promise<Order> {
   await latency();
   if (!input.lines.length) throw new OrderError("Your cart is empty. Add a dish before placing an order.");
   if (input.mode === "delivery" && !input.address) throw new OrderError("Choose where to deliver.");
@@ -242,25 +231,25 @@ export async function placeOrder(input: PlaceOrderInput): Promise<Order> {
   return order;
 }
 
-export async function getOrder(id: string): Promise<Order> {
+async function mockGetOrder(id: string): Promise<Order> {
   const order = readAll().find((o) => o.id === id);
   if (!order) throw new OrderError("This order doesn't exist.");
   return order;
 }
 
 /** Every order on this account, newest first. */
-export async function listOrders(): Promise<Order[]> {
+async function mockListOrders(): Promise<Order[]> {
   return readAll().sort((a, b) => b.placedAt - a.placedAt);
 }
 
 /** Most recent order that is still on its way, if any. */
-export async function getActiveOrder(): Promise<Order | null> {
+async function mockGetActiveOrder(): Promise<Order | null> {
   return readAll().find((o) => !FINAL_STATUSES.includes(orderStatus(o))) ?? null;
 }
 
-export async function cancelOrder(id: string): Promise<Order> {
+async function mockCancelOrder(id: string): Promise<Order> {
   await latency();
-  const order = await getOrder(id);
+  const order = await mockGetOrder(id);
   const status = orderStatus(order);
   if (status !== "placed" && status !== "scheduled")
     throw new OrderError(
@@ -269,12 +258,12 @@ export async function cancelOrder(id: string): Promise<Order> {
   return update(id, (o) => ({ ...o, cancelledAt: Date.now() }));
 }
 
-export async function markCollected(id: string): Promise<Order> {
+async function mockMarkCollected(id: string): Promise<Order> {
   await latency();
   return update(id, (o) => ({ ...o, collectedAt: Date.now() }));
 }
 
-export async function updateTip(id: string, tip: number): Promise<Order> {
+async function mockUpdateTip(id: string, tip: number): Promise<Order> {
   await latency();
   return update(id, (o) => {
     if (o.payment.type !== "card") throw new OrderError("Cash tips are given to the rider at the door.");
@@ -283,7 +272,7 @@ export async function updateTip(id: string, tip: number): Promise<Order> {
   });
 }
 
-export async function rateOrder(id: string, rating: Omit<OrderRating, "ratedAt">): Promise<Order> {
+async function mockRateOrder(id: string, rating: Omit<OrderRating, "ratedAt">): Promise<Order> {
   await latency();
   return update(id, (o) => ({ ...o, rating: { ...rating, ratedAt: Date.now() } }));
 }
@@ -310,9 +299,9 @@ export function issueAmount(order: Order, input: Pick<IssueInput, "kind" | "line
   }
 }
 
-export async function reportIssue(id: string, input: IssueInput): Promise<Order> {
+async function mockReportIssue(id: string, input: IssueInput): Promise<Order> {
   await latency();
-  const order = await getOrder(id);
+  const order = await mockGetOrder(id);
   const status = orderStatus(order);
   if (order.issue)
     throw new OrderError(
@@ -331,3 +320,13 @@ export async function reportIssue(id: string, input: IssueInput): Promise<Order>
   if (input.resolution === "credit" && amount > 0) changeCredit(amount, `Refund for order ${order.id}`);
   return update(id, (o) => ({ ...o, issue: { ...input, amount, reportedAt: Date.now() } }));
 }
+
+export const placeOrder = IS_LIVE ? live.placeOrder : mockPlaceOrder;
+export const getOrder = IS_LIVE ? live.getOrder : mockGetOrder;
+export const listOrders = IS_LIVE ? live.listOrders : mockListOrders;
+export const getActiveOrder = IS_LIVE ? live.getActiveOrder : mockGetActiveOrder;
+export const cancelOrder = IS_LIVE ? live.cancelOrder : mockCancelOrder;
+export const markCollected = IS_LIVE ? live.markCollected : mockMarkCollected;
+export const updateTip = IS_LIVE ? live.updateTip : mockUpdateTip;
+export const rateOrder = IS_LIVE ? live.rateOrder : mockRateOrder;
+export const reportIssue = IS_LIVE ? live.reportIssue : mockReportIssue;

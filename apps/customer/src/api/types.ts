@@ -187,6 +187,22 @@ export interface Order {
   /** Set when the order came from a group order. */
   groupId?: string;
   issue?: OrderIssue;
+
+  // ----- Live mode only: the order service owns status and timings; mock mode derives them. -----
+  /** Order UUID (realtime channel `order:<ref>`); `id` is the human order number. */
+  ref?: string;
+  status?: OrderStatus;
+  /** Why it was cancelled or couldn't go ahead, when the restaurant or Kadé did it. */
+  cancelReason?: string;
+  acceptedAt?: number;
+  /** When the kitchen said the food would be ready. */
+  readyBy?: number;
+  pickedUpAt?: number;
+  deliveredAt?: number;
+  /** Latest time promised (arrival for delivery, ready for pickup). */
+  dueAt?: number;
+  /** Code the customer reads to the rider at the door. */
+  deliveryCode?: string;
 }
 
 export interface PlaceOrderInput {

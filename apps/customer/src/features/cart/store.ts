@@ -1,8 +1,10 @@
-// One cart for the whole app, saved in localStorage. Later this syncs with the cart/order service.
+// One cart for the whole app, saved in localStorage. Live mode: also copied to the cart service while
+// signed in (api/live/cartSync.ts), so it follows the customer to other devices.
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { useShallow } from "zustand/react/shallow";
 import { plusActive } from "@/api/account";
+import { IS_LIVE } from "@/api/config";
 import { usePlus } from "@/api/queries";
 import type { OrderMode, Restaurant } from "@/api/types";
 import { photos } from "@/lib/images";
@@ -60,8 +62,8 @@ interface CartState {
 
 const lineKey = (l: NewLine) => [l.itemId, ...l.choices, l.note].join("|");
 
-/** First visit starts with a small order so the cart isn't empty in the demo. */
-const seed: Pick<CartState, "restaurant" | "lines"> = {
+/** Mock mode: the first visit starts with a small order so the cart isn't empty in the demo. */
+const demoSeed: Pick<CartState, "restaurant" | "lines"> = {
   restaurant: { id: 3, name: "Kompanna Short Eats", imageId: photos.buns, eta: [10, 20], deliveryFee: 120 },
   lines: [
     {
@@ -77,6 +79,10 @@ const seed: Pick<CartState, "restaurant" | "lines"> = {
     { key: "3-0-2|", itemId: "3-0-2", name: "Chicken patty", unitPrice: 160, qty: 2, choices: [], note: "" },
   ],
 };
+
+const seed: Pick<CartState, "restaurant" | "lines"> = IS_LIVE ? { restaurant: null, lines: [] } : demoSeed;
+/** Live carts hold real menu ids, so they never mix with a demo cart saved by mock mode. */
+export const CART_STORAGE_KEY = IS_LIVE ? "kade.cart.live.v1" : "kade.cart.v2";
 
 export const useCart = create<CartState>()(
   persist(
@@ -120,7 +126,7 @@ export const useCart = create<CartState>()(
       clear: () => set({ restaurant: null, lines: [], groupId: undefined }),
     }),
     {
-      name: "kade.cart.v2",
+      name: CART_STORAGE_KEY,
       partialize: ({ restaurant, lines, mode, groupId }) => ({ restaurant, lines, mode, groupId }),
     },
   ),
@@ -138,6 +144,6 @@ export function useCartTotals() {
 /** Sync carts between open tabs. */
 if (typeof window !== "undefined") {
   window.addEventListener("storage", (e) => {
-    if (e.key === "kade.cart.v2") void useCart.persist.rehydrate();
+    if (e.key === CART_STORAGE_KEY) void useCart.persist.rehydrate();
   });
 }

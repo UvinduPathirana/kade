@@ -1,16 +1,14 @@
-// Group orders. Later: the order service's group endpoints (POST /groups, GET /groups/:id) with
-// friends joining from the shared link. Today a mock: three friends join on a timer and add dishes.
+// Group orders. Live mode: the order service's group orders through the customer gateway (friends
+// join from the shared link). Mock mode: three friends join on a timer and add dishes.
+import { IS_LIVE } from "./config";
+import { GroupError } from "./errors";
+import * as live from "./live/group";
 import { getMenu, getRestaurant } from "./catalog";
 import type { GroupMember, GroupOrder, MenuItem, OrderLine } from "./types";
 
-const KEY = "kade.groups.v1";
+export { GroupError };
 
-export class GroupError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "GroupError";
-  }
-}
+const KEY = "kade.groups.v1";
 
 const latency = () => new Promise((r) => setTimeout(r, 350));
 
@@ -43,7 +41,7 @@ export interface CreateGroupInput {
   limit?: number;
 }
 
-export async function createGroup(input: CreateGroupInput): Promise<GroupOrder> {
+async function mockCreateGroup(input: CreateGroupInput): Promise<GroupOrder> {
   await latency();
   const restaurant = await getRestaurant(input.restaurantId);
   const menu = await getMenu(input.restaurantId);
@@ -72,7 +70,7 @@ export async function createGroup(input: CreateGroupInput): Promise<GroupOrder> 
   return group;
 }
 
-export async function getGroup(id: string): Promise<GroupOrder> {
+async function mockGetGroup(id: string): Promise<GroupOrder> {
   const group = readAll().find((g) => g.id === id);
   if (!group) throw new GroupError("This group order doesn't exist, or the host has closed it.");
   return group;
@@ -86,3 +84,6 @@ export function markGroupPlaced(id: string, orderId: string) {
 /** People who have joined by `now`. */
 export const joinedMembers = (g: GroupOrder, now: number) =>
   g.members.filter((m) => now - g.createdAt >= m.joinsAfter);
+
+export const createGroup = IS_LIVE ? live.createGroup : mockCreateGroup;
+export const getGroup = IS_LIVE ? live.getGroup : mockGetGroup;

@@ -17,9 +17,23 @@ export interface Problem {
 
 // Copy for reasons whose service message isn't what the app should say. Everything else uses the
 // service's message for 4xx and a generic line for 5xx.
+// The customer app shows `detail` as-is, so these match the copy it used with mock data.
 const USER_MESSAGES: Record<string, string> = {
   UNAUTHENTICATED: "Please sign in again.",
   IDEMPOTENCY_KEY_REUSED: "This request was already sent with different details. Please try again.",
+  CART_EMPTY: "Your cart is empty. Add a dish before placing an order.",
+  ADDRESS_REQUIRED: "Choose where to deliver.",
+  OUT_OF_ZONE: "We don't deliver there yet. Kadé delivers in Colombo 01 to 15 and Dehiwala.",
+  PRICE_CHANGED:
+    "Prices changed while you were checking out. Check the new total and place your order again.",
+  ORDER_ALREADY_STARTED: "The restaurant has already started on your order, so it can't be cancelled here.",
+  CASH_TIP_AT_DOOR: "Cash tips are given to the rider at the door.",
+  ISSUE_ALREADY_REPORTED:
+    "You've already reported a problem with this order. Chat with us if something else is wrong.",
+  ORDER_NOT_ARRIVED: "You can report a problem once the order has arrived.",
+  CASH_ORDER_REFUND_TO_CREDIT: "This order was paid in cash, so the refund can only go to your Kadé credit.",
+  GROUP_CLOSED: "This group order doesn't exist, or the host has closed it.",
+  CUSTOMER_BLOCKED: "Your account can't place orders right now. Chat with us to sort it out.",
 };
 
 const GENERIC = "Something went wrong on our side. Please try again.";

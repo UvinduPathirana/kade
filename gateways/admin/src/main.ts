@@ -1,7 +1,7 @@
 import { buildApp } from "./app.js";
 import { createAuthenticator } from "./auth.js";
 import { ConfigError, loadConfig, type Config } from "./config.js";
-import { createTemplateClient } from "./grpc/clients.js";
+import { closeUpstreams, createUpstreams } from "./grpc/clients.js";
 import { createLogger } from "./logger.js";
 import { telemetry } from "./telemetry.js";
 
@@ -21,12 +21,12 @@ if (config.AUTH_DEV_BYPASS) {
   logger.warn("AUTH_DEV_BYPASS is ON: 'Bearer dev:<user>:<roles>' tokens are accepted without Keycloak");
 }
 
-const template = createTemplateClient(config.TEMPLATE_GRPC);
+const upstreams = createUpstreams(config);
 const { app, hub, lifecycle } = await buildApp({
   config,
   logger,
   authenticator: createAuthenticator(config),
-  template,
+  upstreams,
 });
 await app.listen({ port: config.HTTP_PORT, host: "0.0.0.0" });
 
@@ -45,7 +45,7 @@ async function shutdown(signal: string): Promise<void> {
   try {
     hub.closeAll(1001, "server restarting");
     await app.close();
-    template.close();
+    closeUpstreams(upstreams);
     await telemetry.shutdown?.();
     process.exit(0);
   } catch (err) {

@@ -1,5 +1,7 @@
-// Pages other than the first screen load on first visit, keeping the initial download small
+// Pages other than the first screen load on first visit, keeping the initial download small.
+// Live mode: checkout, orders and support sit behind RequireSignIn.
 import { createBrowserRouter } from "react-router";
+import { RequireSignIn } from "./RequireSignIn";
 import { RootLayout } from "./RootLayout";
 import { HomePage } from "@/pages/HomePage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
@@ -12,6 +14,10 @@ export const router = createBrowserRouter([
       {
         path: "/welcome",
         lazy: async () => ({ Component: (await import("@/pages/WelcomePage")).WelcomePage }),
+      },
+      {
+        path: "/auth/callback",
+        lazy: async () => ({ Component: (await import("@/pages/AuthCallbackPage")).AuthCallbackPage }),
       },
       { path: "/signin", lazy: async () => ({ Component: (await import("@/pages/SignInPage")).SignInPage }) },
       { path: "/search", lazy: async () => ({ Component: (await import("@/pages/SearchPage")).SearchPage }) },
@@ -32,21 +38,69 @@ export const router = createBrowserRouter([
       { path: "/cart", lazy: async () => ({ Component: (await import("@/pages/CartPage")).CartPage }) },
       {
         path: "/checkout",
-        lazy: async () => ({ Component: (await import("@/pages/CheckoutPage")).CheckoutPage }),
+        lazy: async () => {
+          const { CheckoutPage } = await import("@/pages/CheckoutPage");
+          return {
+            Component: () => (
+              <RequireSignIn>
+                <CheckoutPage />
+              </RequireSignIn>
+            ),
+          };
+        },
       },
-      { path: "/orders", lazy: async () => ({ Component: (await import("@/pages/OrdersPage")).OrdersPage }) },
+      {
+        path: "/orders",
+        lazy: async () => {
+          const { OrdersPage } = await import("@/pages/OrdersPage");
+          return {
+            Component: () => (
+              <RequireSignIn>
+                <OrdersPage />
+              </RequireSignIn>
+            ),
+          };
+        },
+      },
       {
         path: "/orders/:id",
-        lazy: async () => ({ Component: (await import("@/pages/OrderPage")).OrderPage }),
+        lazy: async () => {
+          const { OrderPage } = await import("@/pages/OrderPage");
+          return {
+            Component: () => (
+              <RequireSignIn>
+                <OrderPage />
+              </RequireSignIn>
+            ),
+          };
+        },
       },
       {
         path: "/orders/:id/help",
-        lazy: async () => ({ Component: (await import("@/pages/OrderHelpPage")).OrderHelpPage }),
+        lazy: async () => {
+          const { OrderHelpPage } = await import("@/pages/OrderHelpPage");
+          return {
+            Component: () => (
+              <RequireSignIn>
+                <OrderHelpPage />
+              </RequireSignIn>
+            ),
+          };
+        },
       },
       { path: "/help", lazy: async () => ({ Component: (await import("@/pages/HelpPage")).HelpPage }) },
       {
         path: "/support",
-        lazy: async () => ({ Component: (await import("@/pages/SupportPage")).SupportPage }),
+        lazy: async () => {
+          const { SupportPage } = await import("@/pages/SupportPage");
+          return {
+            Component: () => (
+              <RequireSignIn>
+                <SupportPage />
+              </RequireSignIn>
+            ),
+          };
+        },
       },
       {
         path: "/account",

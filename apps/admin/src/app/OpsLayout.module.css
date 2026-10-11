@@ -29,6 +29,22 @@
   color: var(--kd-ink);
 }
 
+.signOut {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--kd-ink-muted);
+  font: inherit;
+  font-size: var(--kd-text-xs);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.signOut:hover {
+  color: var(--kd-ink);
+}
+
 .avatar {
   flex: none;
   width: 32px;

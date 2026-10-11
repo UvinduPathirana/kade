@@ -1,154 +1,99 @@
-# Gateway template (`@kade/gateway-customer`)
+# Customer gateway (`@kade/gateway-customer`, HTTP 8201)
 
-The starting point for the four backend-for-frontend gateways (`gateway-customer` 8201,
-`gateway-merchant` 8202, `gateway-rider` 8203, `gateway-admin` 8204). Each serves exactly one app.
-The gateway:
+Backend-for-frontend for `apps/customer`. It serves REST/JSON in **exactly the shapes of
+`apps/customer/src/api/types.ts`**, so the app's components work unchanged on live data. Every bit of
+mapping happens here:
 
-- serves REST/JSON and a WebSocket `/ws`;
-- validates Keycloak JWTs and calls services over gRPC, with a deadline and identity metadata on
-  every call;
-- turns gRPC errors into `application/problem+json` and Money into whole rupees;
-- generates an OpenAPI document from its routes, so the apps get typed clients.
+- **ids:** seeded restaurant UUIDs map to the app's numbers (see `src/mappers/ids.ts`). Orders use
+  their number (`KD-4821`) as `id`; the UUID is `ref`.
+- **money:** minor units become whole rupees.
+- **enums:** status, modes and payment kinds become the app's strings.
+- **maps:** WGS84 points become illustrated-map pins, via the linear fit in `src/mappers/geo.ts`.
+- **joins:** ratings (review) and reported issues (support) are joined onto orders, and "ordered
+  before" (order) onto restaurant cards.
+- **ops-only fields are stripped:** notes, real phone numbers and customer contact.
 
-Template defaults: HTTP **8201**, upstream `TEMPLATE_GRPC=template-ts:50100`, profile `templates`.
+It is built from the gateway template: Fastify 5, TypeBox, jose, `@fastify/swagger`. See
+`gateways/_template/README.md` for the design (auth modes, problem+json, idempotency). The OpenAPI
+document is `openapi.json`, also served at `GET /openapi.json`.
 
-## Why Fastify (not NestJS)
+## Endpoints → app functions
 
-A gateway is mostly routes, schemas and upstream calls; it holds no domain state or consumers.
+| Route                                                                                           | Auth                | Upstream                                                       | App function (`apps/customer/src/api`)          |
+| ----------------------------------------------------------------------------------------------- | ------------------- | -------------------------------------------------------------- | ----------------------------------------------- |
+| `GET /v1/categories`, `GET /v1/categories/:id`                                                  | public              | catalog                                                        | `listCategories`, `getCategory`                 |
+| `GET /v1/restaurants?x&y`                                                                       | optional            | catalog (+ order for `orderedBefore`)                          | `listRestaurants`                               |
+| `GET /v1/restaurants/:id`                                                                       | optional            | catalog (+ order)                                              | `getRestaurant`                                 |
+| `GET /v1/restaurants/:id/menu`                                                                  | public              | catalog                                                        | `getMenu`                                       |
+| `GET /v1/restaurants/:id/reviews`                                                               | public              | review                                                         | `listReviews`                                   |
+| `GET /v1/search?q&x&y`, `GET /v1/search/popular`                                                | public              | search                                                         | `search`, `listPopularSearches`                 |
+| `GET /v1/places?q`                                                                              | public              | search                                                         | `searchPlaces`                                  |
+| `GET /v1/promos`                                                                                | optional            | promotion                                                      | `listPromos`                                    |
+| `POST /v1/promos/validate`                                                                      | optional            | promotion                                                      | `checkPromo` (checkout)                         |
+| `GET /v1/me`                                                                                    | required            | profile `EnsureCustomer`                                       | sign-in callback (`getMe`)                      |
+| `PUT /v1/me`                                                                                    | required            | profile                                                        | `saveProfile`                                   |
+| `GET/PUT/DELETE /v1/me/addresses[/:id]`                                                         | required            | profile                                                        | `listAddresses`, `saveAddress`, `removeAddress` |
+| `POST /v1/waitlist`                                                                             | optional            | profile                                                        | `joinWaitlist`                                  |
+| `GET/PUT/DELETE /v1/me/favourites[/:restaurantId]`                                              | required            | profile                                                        | (not used by the app yet)                       |
+| `GET /v1/me/cards`, `POST /v1/me/cards/session`, `POST /v1/me/cards`, `DELETE /v1/me/cards/:id` | required            | payment                                                        | `listCards`, `addCard`, `removeCard`            |
+| `GET /v1/me/credit`                                                                             | required            | profile                                                        | `getCredit`                                     |
+| `GET/POST/DELETE /v1/me/plus`                                                                   | required            | profile                                                        | `getPlus`, `joinPlus`, `cancelPlus`             |
+| `GET/POST /v1/me/gift-cards`, `GET /v1/me/referral`                                             | required            | promotion                                                      | `listGiftCards`, `buyGiftCard`, `getReferral`   |
+| `GET/PUT /v1/cart`                                                                              | required            | cart                                                           | cart sync (`live/cartSync.ts`)                  |
+| `POST /v1/orders`                                                                               | required            | order `PlaceOrder` (+ catalog menu, payment cards, cart clear) | `placeOrder`                                    |
+| `GET /v1/orders`, `GET /v1/orders/active`, `GET /v1/orders/:id`                                 | required            | order + review + support                                       | `listOrders`, `getActiveOrder`, `getOrder`      |
+| `POST /v1/orders/:id/cancel`, `/collected`; `PUT /v1/orders/:id/tip`                            | required            | order                                                          | `cancelOrder`, `markCollected`, `updateTip`     |
+| `POST /v1/orders/:id/rating`                                                                    | required            | review                                                         | `rateOrder`                                     |
+| `POST /v1/orders/:id/issues/preview`, `POST /v1/orders/:id/issues`                              | required            | support                                                        | `reportIssue`                                   |
+| `POST /v1/groups`, `GET /v1/groups/:id`                                                         | required / optional | order                                                          | `createGroup`, `getGroup`                       |
+| `GET /v1/support/conversation`, `GET/POST /v1/support/conversation/:ticketId/messages`          | required            | support                                                        | `sendMessage`                                   |
+| `GET /ws`                                                                                       | first message       | realtime (proxy)                                               | `live/realtime.ts`                              |
 
-- **Fastify 5 + TypeBox:** one schema per route does request validation, response serialisation,
-  TypeScript types (via the type provider) and the OpenAPI document (`@fastify/swagger`). No
-  decorators-to-OpenAPI layer to keep in sync.
-- **Lean:** about 74 MB anonymous memory idle in its 160 MB container (template-ts, with Nest, Drizzle and
-  librdkafka, is about 80 MB). Fastify's per-request overhead is also lower than Nest + Express.
-- **First-party plugins:** `@fastify/websocket`, `@fastify/cors`, and `@fastify/otel` for OTel route spans.
+Notes:
 
-## Layout
+- **Any Keycloak user is a customer.** Every authenticated request runs profile `EnsureCustomer`,
+  cached for 10 minutes per user (30 s after a failure). `GET /v1/me` always upserts it. If profile
+  is down, `/v1/me` answers from the token's claims, so sign-in still works.
+- **Checkout.** The app sends its cart lines with option _names_. The gateway resolves them to
+  `(option_group_id, choice_id)` against catalog's menu, and fails with `OPTION_INVALID` when a name is
+  gone. A card payment's `brand + last4` resolves to the saved card id. `PlaceOrder` gets a 15 s
+  deadline (`PLACE_ORDER_DEADLINE_MS`) because the saga runs synchronously.
+- **Order history** hides `PENDING` and `FAILED` orders: those checkouts never went through.
 
-| File                  | What                                                                                        |
-| --------------------- | ------------------------------------------------------------------------------------------- |
-| `src/config.ts`       | Env validation (zod). Add one `<NAME>_GRPC` per upstream                                    |
-| `src/auth.ts`         | Keycloak JWT verification (JWKS, issuer, `azp`), realm roles → `Identity`, dev bypass       |
-| `src/grpc/clients.ts` | One channel per upstream; retry policy only for idempotent reads                            |
-| `src/grpc/call.ts`    | `unary()` adds deadline + `x-user-id`/`x-roles`/`x-outlet-id`, cancels on client disconnect |
-| `src/problem.ts`      | gRPC status + ErrorInfo reason → HTTP problem; user-facing copy per reason                  |
-| `src/money.ts`        | `toRupees` / `fromRupees`: the only place minor units meet rupees                           |
-| `src/schemas.ts`      | Shared TypeBox schemas (named OpenAPI components), `ref()`, `problems()`                    |
-| `src/routes/*.ts`     | REST routes, `/ws`, health + metrics                                                        |
-| `src/app.ts`          | Fastify assembly: swagger, CORS, websocket, auth hook, error handlers                       |
-| `src/openapi.ts`      | Writes `openapi.json` from the routes without starting a server                             |
-| `openapi.json`        | Generated; committed so Wave 2 can generate clients without running anything                |
+## Live order status
 
-## Auth
-
-Every route requires a valid token unless its config says otherwise:
-`config: { auth: "optional" }` (identity if present), `config: { auth: "public" }`, or
-`config: { roles: ["merchant_owner", "ops"] }` (403 without one of them).
-
-- **Keycloak:** `Authorization: Bearer <access token>`. The checks are signature (JWKS),
-  `iss` = `KEYCLOAK_ISSUER`, and `azp` ∈ `KEYCLOAK_CLIENTS` (each gateway accepts only its own
-  app's client). Identity comes from `sub`, realm roles (Kadé roles only), and an optional
-  `outlet_id` claim.
-- **Issuer vs JWKS URL:** Keycloak signs `iss=http://localhost:8080/realms/kade` (its
-  `KC_HOSTNAME`, the browser's view), but inside Docker the keys come from
-  `KEYCLOAK_JWKS_URL=http://keycloak:8080/...`. That is why there are two variables.
-- **Dev bypass** (`AUTH_DEV_BYPASS=true`, refused unless `DEPLOY_ENV=dev`, logged loudly at start):
-  `Authorization: Bearer dev:<userId>:<role,role>[:<outletId>]`, e.g. `dev:dilini:customer`. Real
-  JWTs keep working alongside it.
-
-## WebSocket protocol (`/ws`)
-
-Browsers cannot set headers on a WebSocket, and tokens in URLs leak into logs, so the token goes in
-the first message:
-
-```jsonc
-→ {"type":"auth","token":"<access token or dev:...>"}   // within 5 s, else close 4401
-← {"type":"ready","userId":"..."}
-→ {"type":"ping"}            ← {"type":"pong"}
-← {"type":"note.created","note":{...}}                  // server pushes, per user
-```
-
-The in-process `Hub` only reaches sockets on this replica. Cross-replica fan-out (kitchen board,
-live tracking) is the Go `realtime` service's job (Redis pub/sub).
-
-## Errors
-
-Every error is `application/problem+json`:
-
-```json
-{
-  "type": "https://kade.lk/problems/note-not-found",
-  "title": "Not found",
-  "status": 404,
-  "detail": "We couldn't find that note.",
-  "code": "NOTE_NOT_FOUND",
-  "instance": "/v1/notes/…",
-  "traceId": "…"
-}
-```
-
-`code` is the service's ErrorInfo reason (stable; apps switch on it). `detail` is safe to show.
-For 5xx it is always generic, so upstream internals never reach the app. Overrides live in
-`USER_MESSAGES` in `src/problem.ts`. Status mapping follows Google's gRPC→HTTP table
-(`DEADLINE_EXCEEDED` → 504, `UNAVAILABLE` → 503, …).
-
-## Adding a route
-
-```ts
-app.get(
-  "/v1/restaurants/:id",
-  {
-    config: { auth: "optional" },
-    schema: {
-      operationId: "getRestaurant", // becomes the client method name
-      params: Type.Object({ id: Type.String({ format: "uuid" }) }),
-      response: { 200: ref(Restaurant), ...problems(404, 503, 504) },
-    },
-  },
-  async (req, reply) => {
-    const res = await unary(
-      catalog.getRestaurant.bind(catalog),
-      { id: req.params.id },
-      callContext(req, reply),
-    );
-    return toRestaurant(res.restaurant); // proto → app shape (rupees, ISO dates)
-  },
-);
-```
-
-Then `pnpm --filter @kade/gateway-customer openapi` and commit `openapi.json`. Mutations take an
-`Idempotency-Key` header and forward it as the RPC's `idempotency_key`.
-
-## Copy checklist (new gateway)
-
-- [ ] `cp -r gateways/_template gateways/<app>` (e.g. `gateways/customer`). In `package.json`, rename
-      to `@kade/gateway-<app>`. In the `Dockerfile`, `compose.yaml` and `.env.example`, replace
-      `gateways/_template`, `gateway-customer` and `8201` with the registry values. Then `pnpm install`.
-- [ ] `KEYCLOAK_CLIENTS` = the app's client (`customer-app`, `merchant-app`, `rider-app`, `admin-app`).
-      `CORS_ORIGINS` = the app's dev origin (5174, 5175, 5176, 5177).
-- [ ] Replace `TEMPLATE_GRPC` / `createTemplateClient` / `routes/notes.ts` with the real upstreams.
-      Add each `<NAME>_GRPC` to config, compose and `depends_on`.
-- [ ] Compose profile: customer → `ordering`; merchant, rider → `fulfilment`; admin → `engagement`.
-      Ask the lead to include the fragment in `deploy/compose/services.yaml`.
-- [ ] Regenerate `openapi.json`.
+- **Polling:** `GET /v1/orders/:id` (the app polls every 4 s while an order is live) and
+  `GET /v1/orders/active`.
+- **WebSocket `/ws`:**
+  - The client sends `{"type":"auth","token":"…"}` first.
+  - The gateway validates the token and connects **lazily** to `REALTIME_WS_URL` with `x-user-id` and
+    `x-roles` headers. It then pipes proto3-JSON `ClientFrame`/`ServerFrame` both ways (for example
+    `{"subscribe":{"channels":["order:<ref>"]}}`).
+  - The gateway answers `{"type":"ping"}` itself with a pong.
+  - If realtime is down, the client still gets `{"type":"ready","realtime":false}` and keeps polling.
+  - If realtime drops mid-session, the socket closes with `1013` and the client reconnects with backoff.
 
 ## Run
 
 ```sh
-pnpm infra:up                                         # shared stack
-cp gateways/_template/.env.example gateways/_template/.env
+pnpm infra:up                                   # shared stack (Keycloak on :8080)
+cp gateways/customer/.env.example gateways/customer/.env
 pnpm --filter @kade/proto build
-pnpm --filter @kade/gateway-customer dev              # needs template-ts on :50100
+pnpm --filter @kade/gateway-customer dev         # :8201; upstreams on localhost:501xx
 
-curl -s -X POST localhost:8201/v1/notes -H 'Authorization: Bearer dev:dilini:customer' \
-  -H 'Content-Type: application/json' -H 'Idempotency-Key: k1' -d '{"text":"hi","amount":1150}'
+TOKEN=$(curl -s -d grant_type=password -d client_id=customer-app -d username=dilini -d password=kade123 \
+  http://localhost:8080/realms/kade/protocol/openid-connect/token | jq -r .access_token)
+curl -s localhost:8201/v1/orders -H "Authorization: Bearer $TOKEN"
+curl -s localhost:8201/v1/orders -H 'Authorization: Bearer dev:00000000-0000-7000-8005-000000000001:customer'
 ```
 
-Docker: `docker compose -f deploy/compose/compose.yaml --profile templates up -d --build gateway-customer`
-(once the fragment is included). Image: `docker build -f gateways/_template/Dockerfile .` from the repo root.
+A missing upstream only affects its own routes, which answer `503` problem+json.
+
+Docker: `docker compose -f deploy/compose/compose.yaml --profile ordering up -d --build gateway-customer`.
 
 ## Test
 
 ```sh
-pnpm --filter @kade/gateway-customer test   # routes via inject/injectWS with a fake gRPC client, JWT with a local JWKS
+pnpm --filter @kade/gateway-customer test      # routes via inject/injectWS with fake gRPC clients; mappers
+pnpm --filter @kade/gateway-customer openapi   # regenerate openapi.json after changing routes
 ```

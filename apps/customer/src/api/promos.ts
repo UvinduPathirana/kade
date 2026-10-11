@@ -1,5 +1,9 @@
-// Promo codes. Later: POST /promos/validate on the promotions service.
+// Promo codes. Live mode: the promotion service through the customer gateway (checkPromo, listPromos).
+// Mock mode: the rules below. validatePromo stays synchronous for the mock order service.
 import { formatRs } from "@kade/ui";
+import { IS_LIVE } from "./config";
+import * as live from "./live/promos";
+import type { OrderMode } from "./types";
 
 export type PromoResult =
   { ok: true; code: string; label: string; discount: number } | { ok: false; error: string };
@@ -40,7 +44,7 @@ export function validatePromo(raw: string, subtotal: number, restaurantId: numbe
 }
 
 /** Codes anyone can use right now, for the offers page. */
-export function listPromos(): Promise<{ code: string; label: string; detail: string }[]> {
+function mockListPromos(): Promise<{ code: string; label: string; detail: string }[]> {
   return Promise.resolve(
     rules.map((r) => ({
       code: r.code,
@@ -53,3 +57,16 @@ export function listPromos(): Promise<{ code: string; label: string; detail: str
     })),
   );
 }
+
+export const listPromos = IS_LIVE ? live.listPromos : mockListPromos;
+
+/** Checks a code for this basket: the promotion service in live mode, the rules above in mock mode. */
+export const checkPromo = (
+  code: string,
+  subtotal: number,
+  restaurantId: number,
+  mode: OrderMode = "delivery",
+): Promise<PromoResult> =>
+  IS_LIVE
+    ? live.checkPromo(code, subtotal, restaurantId, mode)
+    : Promise.resolve(validatePromo(code, subtotal, restaurantId));

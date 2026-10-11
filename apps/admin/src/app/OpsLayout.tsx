@@ -2,6 +2,7 @@ import { AppShell, SearchField } from "@kade/ui";
 import { useState, type FormEvent } from "react";
 import { Outlet, ScrollRestoration, useLocation, useNavigate } from "react-router";
 import { ME } from "@/api/client";
+import { isLive } from "@/api/config";
 import { useLive, useTickets } from "@/api/queries";
 import { formatClock, formatDay } from "@/lib/format";
 import { useNow } from "@/lib/useNow";
@@ -51,7 +52,16 @@ export function OpsLayout() {
             </span>
             <span>
               <strong>{ME.name}</strong>
-              <span>Ops lead</span>
+              <span>{ME.title}</span>
+              {isLive && (
+                <button
+                  type="button"
+                  className={styles.signOut}
+                  onClick={() => void import("@/api/gateway/auth").then((a) => a.signOut())}
+                >
+                  Sign out
+                </button>
+              )}
             </span>
           </div>
         }
