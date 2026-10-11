@@ -17,6 +17,8 @@ SERVICE_DBS=(
   payment:payment
   merchant:merchant
   dispatch:dispatch
+  location:location
+  realtime:realtime
   ledger:ledger
   notification:notification
   review:review

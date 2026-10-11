@@ -2,4 +2,8 @@ go 1.25.0
 
 use (
 	./gen/go
+	./services/_templates/go
+	./services/dispatch
+	./services/location
+	./services/realtime
 )

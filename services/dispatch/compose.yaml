@@ -1,0 +1,49 @@
+# Compose fragment, included from deploy/compose/services.yaml. Paths are relative to this file.
+#   docker compose -f deploy/compose/compose.yaml --profile templates up -d --build dispatch
+services:
+  dispatch:
+    build:
+      context: ../..
+      dockerfile: services/dispatch/Dockerfile
+    image: kade/dispatch:dev
+    profiles: [CHANGE_ME] # ordering, fulfilment, money or engagement
+    environment:
+      SERVICE_NAME: dispatch
+      GRPC_PORT: "50110"
+      HTTP_PORT: "8110"
+      DATABASE_URL: postgres://dispatch:dispatch@postgres:5432/dispatch
+      KAFKA_BROKERS: kafka:9092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      REDIS_URL: redis://redis:6379
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel:4318
+      STREAM_TOPIC: kade.note.views
+      LOG_LEVEL: info
+      GOMEMLIMIT: 48MiB # soft limit below the 64 MB cap: the GC works harder instead of OOM-killing
+      GOMAXPROCS: "2"
+    ports:
+      - "50110:50110"
+      - "8110:8110"
+    healthcheck:
+      test: ["CMD", "/app/server", "healthcheck"] # GET /health/ready (no curl in distroless)
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    stop_grace_period: 25s # > SHUTDOWN_TIMEOUT (20s default)
+    depends_on:
+      postgres: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+      kafka-init: { condition: service_completed_successfully }
+      schema-registry: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    restart: unless-stopped
+    deploy: { resources: { limits: { memory: 64m } } }
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: "2" }
+    networks: [kade]
+
+networks:
+  kade:
+    name: kade
+    external: true

@@ -1,0 +1,49 @@
+# Compose fragment, included from deploy/compose/services.yaml. Paths are relative to this file.
+#   docker compose -f deploy/compose/compose.yaml --profile templates up -d --build template-go
+services:
+  template-go:
+    build:
+      context: ../../..
+      dockerfile: services/_templates/go/Dockerfile
+    image: kade/template-go:dev
+    profiles: [templates]
+    environment:
+      SERVICE_NAME: template-go
+      GRPC_PORT: "50192"
+      HTTP_PORT: "8192"
+      DATABASE_URL: postgres://template_go:template_go@postgres:5432/template_go
+      KAFKA_BROKERS: kafka:9092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      REDIS_URL: redis://redis:6379
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel:4318
+      STREAM_TOPIC: kade.note.views
+      LOG_LEVEL: info
+      GOMEMLIMIT: 48MiB # soft limit below the 64 MB cap: the GC works harder instead of OOM-killing
+      GOMAXPROCS: "2"
+    ports:
+      - "50192:50192"
+      - "8192:8192"
+    healthcheck:
+      test: ["CMD", "/app/server", "healthcheck"] # GET /health/ready (no curl in distroless)
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    stop_grace_period: 25s # > SHUTDOWN_TIMEOUT (20s default)
+    depends_on:
+      postgres: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+      kafka-init: { condition: service_completed_successfully }
+      schema-registry: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    restart: unless-stopped
+    deploy: { resources: { limits: { memory: 64m } } }
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: "2" }
+    networks: [kade]
+
+networks:
+  kade:
+    name: kade
+    external: true
