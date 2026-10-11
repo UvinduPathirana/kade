@@ -25,6 +25,41 @@ const schema = z.object({
   OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
   SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
+
+  // ---- profile-specific ----
+  // Keycloak admin REST (demo-user lookup at startup, phone sign-in user provisioning + tokens).
+  // Unset KEYCLOAK_URL = those features are off (phone verify fails UNAVAILABLE; demo seed is lazy).
+  KEYCLOAK_URL: z.url().optional(),
+  KEYCLOAK_REALM: z.string().min(1).default("kade"),
+  KEYCLOAK_ADMIN_REALM: z.string().min(1).default("master"),
+  KEYCLOAK_ADMIN_CLIENT_ID: z.string().min(1).default("admin-cli"),
+  KEYCLOAK_ADMIN_USER: z.string().min(1).default("admin"),
+  KEYCLOAK_ADMIN_PASSWORD: z.string().min(1).default("admin"),
+  // Phone OTP. "dev": no SMS, every challenge's code is OTP_DEV_CODE. "sms": random code sent through
+  // notification.SendNotification (NOTIFICATION_GRPC).
+  OTP_MODE: z.enum(["dev", "sms"]).default("dev"),
+  OTP_DEV_CODE: z
+    .string()
+    .regex(/^\d{6}$/, "six digits")
+    .default("123456"),
+  NOTIFICATION_GRPC: z.string().min(1).optional(),
+  // SaveAddress resolves zone_id through pricing.ResolveZone when set.
+  PRICING_GRPC: z.string().min(1).optional(),
+  // Demo data (docs in README). "false" turns every seed off.
+  SEED_DEMO_DATA: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((v) => v === "true"),
+  // Catalog's seed ids (CONVENTIONS: app restaurant N -> 00000000-0000-7000-8000-<N, 12 digits>).
+  SEED_FAVOURITE_RESTAURANT_IDS: z
+    .string()
+    .default("00000000-0000-7000-8000-000000000002,00000000-0000-7000-8000-000000000012")
+    .transform((s) =>
+      s
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean),
+    ),
 });
 
 export type Config = z.infer<typeof schema>;
@@ -40,7 +75,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       const key = i.path.join(".");
       const value = env[key];
       // Never echo secrets back: DATABASE_URL carries a password.
-      const shown = value === undefined ? "unset" : key.includes("URL") ? "set" : JSON.stringify(value);
+      const shown =
+        value === undefined
+          ? "unset"
+          : key.includes("URL") || key.includes("PASSWORD")
+            ? "set"
+            : JSON.stringify(value);
       return `  - ${key} (${shown}): ${i.message}`;
     });
     throw new ConfigError(`Invalid configuration:\n${lines.join("\n")}`);

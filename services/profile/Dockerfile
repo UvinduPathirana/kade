@@ -22,8 +22,10 @@ RUN pnpm --filter @kade/proto build && pnpm --filter @kade/profile build
 # Production-only node_modules + dist + drizzle/ into /out (workspace deps copied, not symlinked).
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
     pnpm --filter @kade/profile deploy --prod --legacy /out \
- # @kade/proto has no "files" field and git-ignores dist/, so deploy skips its build output.
- && cp -R gen/ts/dist "$(readlink -f /out/node_modules/@kade/proto)/" \
+ # Copy @kade/proto's build output only if deploy left it out (older package.json without "files";
+ # with "files": ["dist"] it is already there and cp would fail on "same file").
+ && PROTO="$(readlink -f /out/node_modules/@kade/proto)" \
+ && { [ -f "$PROTO/dist/kade/profile/v1/profile_service.js" ] || cp -R gen/ts/dist "$PROTO/"; } \
  # librdkafka sources and object files (~27 MB) are only needed to compile the binding.
  && (cd "$(readlink -f /out/node_modules/@confluentinc/kafka-javascript)" && rm -rf deps src build/Release/obj.target) \
  # Fail the build, not the boot, if the native binding is missing (pnpm onlyBuiltDependencies).

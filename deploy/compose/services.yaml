@@ -15,8 +15,5 @@
 #   templates   the three service templates (profile `templates`)
 #
 # Paths are relative to this file.
-include: []
-  # Templates (wave 0) - uncomment when the template agents have committed their fragments:
-  # - ../../services/_templates/ts/compose.yaml
-  # - ../../services/_templates/go/compose.yaml
-  # - ../../services/_templates/java/compose.yaml
+include:
+  - ../../services/profile/compose.yaml
