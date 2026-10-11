@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"google.golang.org/protobuf/proto"
 )
@@ -16,17 +15,11 @@ type Delivery struct {
 	EventID   uuid.UUID
 	EventType string
 	Record    *kgo.Record
-
-	afterCommit []func(context.Context)
 }
-
-// AfterCommit registers fn to run once the handler's transaction has committed (e.g. publish to
-// Redis, call a non-transactional API). It runs at most once per successfully handled event.
-func (d *Delivery) AfterCommit(fn func(context.Context)) { d.afterCommit = append(d.afterCommit, fn) }
 
 type route struct {
 	decode func([]byte) (proto.Message, error)
-	handle func(context.Context, pgx.Tx, *Delivery, proto.Message) error
+	handle func(context.Context, *Delivery, proto.Message) error
 }
 
 // Router maps eventType (fully-qualified proto name) to a typed handler.
@@ -34,11 +27,11 @@ type Router struct{ routes map[string]route }
 
 func NewRouter() *Router { return &Router{routes: map[string]route{}} }
 
-// Handle registers fn for events of type T. Side effects must use tx: it is the same transaction
-// that records the event id in processed_events, so a redelivery is a no-op.
+// Handle registers fn for events of type T. The consumer claims the event id first (Deduper), so
+// a redelivery of a handled event is a no-op.
 //
-//	kafka.Handle(router, func(ctx context.Context, tx pgx.Tx, d *kafka.Delivery, e *orderv1.OrderPlaced) error { ... })
-func Handle[T proto.Message](r *Router, fn func(context.Context, pgx.Tx, *Delivery, T) error) {
+//	kafka.Handle(router, func(ctx context.Context, d *kafka.Delivery, e *orderv1.OrderPlaced) error { ... })
+func Handle[T proto.Message](r *Router, fn func(context.Context, *Delivery, T) error) {
 	var zero T
 	name := string(proto.MessageName(zero))
 	r.routes[name] = route{
@@ -46,8 +39,8 @@ func Handle[T proto.Message](r *Router, fn func(context.Context, pgx.Tx, *Delive
 			m := zero.ProtoReflect().Type().New().Interface()
 			return m, proto.Unmarshal(b, m)
 		},
-		handle: func(ctx context.Context, tx pgx.Tx, d *Delivery, m proto.Message) error {
-			return fn(ctx, tx, d, m.(T))
+		handle: func(ctx context.Context, d *Delivery, m proto.Message) error {
+			return fn(ctx, d, m.(T))
 		},
 	}
 }
@@ -89,4 +82,26 @@ func (r *Router) prepare(rec *kgo.Record) (route, *Delivery, proto.Message, bool
 		return rt, nil, nil, true, Permanent(fmt.Errorf("decode %s: %w", typ, err))
 	}
 	return rt, &Delivery{EventID: id, EventType: typ, Record: rec}, msg, true, nil
+}
+
+// HandleRecord decodes and handles one record without dedup, retries or DLQ (tests and tools).
+// handled=false means no handler is registered for its eventType.
+func (r *Router) HandleRecord(ctx context.Context, rec *kgo.Record) (handled bool, err error) {
+	rt, d, msg, ok, err := r.prepare(rec)
+	if !ok || err != nil {
+		return ok, err
+	}
+	return true, rt.handle(ctx, d, msg)
+}
+
+// NewRecord builds an outbox-style record (headers id + eventType) for msg (tests and tools).
+func NewRecord(topic, key string, eventID uuid.UUID, msg proto.Message) (*kgo.Record, error) {
+	b, err := proto.Marshal(msg)
+	if err != nil {
+		return nil, err
+	}
+	return &kgo.Record{Topic: topic, Key: []byte(key), Value: b, Headers: []kgo.RecordHeader{
+		{Key: HeaderEventID, Value: []byte(eventID.String())},
+		{Key: HeaderEventType, Value: []byte(proto.MessageName(msg))},
+	}}, nil
 }

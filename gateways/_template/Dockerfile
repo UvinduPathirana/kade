@@ -17,9 +17,7 @@ COPY gen/ts gen/ts
 COPY gateways/_template gateways/_template
 RUN pnpm --filter @kade/proto build && pnpm --filter @kade/gateway-template build
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
-    pnpm --filter @kade/gateway-template deploy --prod --legacy /out \
- # @kade/proto has no "files" field and git-ignores dist/, so deploy skips its build output.
- && cp -R gen/ts/dist "$(readlink -f /out/node_modules/@kade/proto)/"
+    pnpm --filter @kade/gateway-template deploy --prod --legacy /out
 
 # Plain Alpine plus the node binary (no npm/corepack/yarn); non-root; code owned by root.
 FROM ${ALPINE_IMAGE}

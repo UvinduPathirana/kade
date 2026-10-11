@@ -12,74 +12,53 @@ import (
 	commonv1 "github.com/UvinduPathirana/kade/gen/go/kade/common/v1"
 	templatev1 "github.com/UvinduPathirana/kade/gen/go/kade/template/v1"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 	"google.golang.org/protobuf/proto"
 )
 
-// fakeTx records processed_events inserts; everything else is delegated to the handler.
-type fakeTx struct {
-	pgx.Tx
-	seen map[any]bool
-}
+// memDedup is an in-memory Deduper.
+type memDedup struct{ seen map[string]bool }
 
-func (f *fakeTx) Exec(_ context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
-	if strings.Contains(sql, "processed_events") {
-		if f.seen[args[0]] {
-			return pgconn.NewCommandTag("INSERT 0 0"), nil
-		}
-		f.seen[args[0]] = true
-		return pgconn.NewCommandTag("INSERT 0 1"), nil
+func (m *memDedup) Claim(_ context.Context, id string) (bool, error) {
+	if m.seen[id] {
+		return false, nil
 	}
-	return pgconn.NewCommandTag("UPDATE 1"), nil
+	m.seen[id] = true
+	return true, nil
 }
+func (m *memDedup) Release(_ context.Context, id string) error { delete(m.seen, id); return nil }
 
 type harness struct {
 	c        *Consumer
+	dedup    *memDedup
 	dlq      []*kgo.Record
-	commits  int
 	handled  int
 	failures int // handler fails this many times before succeeding
 	permErr  bool
-	after    int
+	raw      int
 }
 
 func newHarness(t *testing.T) *harness {
-	h := &harness{}
+	h := &harness{dedup: &memDedup{seen: map[string]bool{}}}
 	r := NewRouter()
-	Handle(r, func(ctx context.Context, tx pgx.Tx, d *Delivery, e *templatev1.NoteCreated) error {
+	Handle(r, func(ctx context.Context, d *Delivery, e *templatev1.NoteCreated) error {
 		if h.permErr {
 			return Permanent(errors.New("bad note"))
 		}
 		if h.failures > 0 {
 			h.failures--
-			return errors.New("db hiccup")
+			return errors.New("redis hiccup")
 		}
 		h.handled++
-		d.AfterCommit(func(context.Context) { h.after++ })
 		return nil
 	})
-	seen := map[any]bool{}
 	h.c = &Consumer{
-		o:      ConsumerOptions{Group: "realtime", Router: r, MaxAttempts: 5, Backoff: ExpBackoff(time.Millisecond, time.Millisecond)},
-		log:    slog.New(slog.NewTextHandler(io.Discard, nil)),
-		tracer: otel.Tracer("test"),
-		inTx: func(ctx context.Context, fn func(pgx.Tx) error) error {
-			// Simulate rollback: a failed tx must not leave the event marked as processed.
-			tx := &fakeTx{seen: map[any]bool{}}
-			for k, v := range seen {
-				tx.seen[k] = v
-			}
-			if err := fn(tx); err != nil {
-				return err
-			}
-			seen = tx.seen
-			h.commits++
-			return nil
-		},
+		o: ConsumerOptions{Group: "realtime", Router: r, Dedup: h.dedup, MaxAttempts: 5, Backoff: ExpBackoff(time.Millisecond, time.Millisecond),
+			Raw: map[string]RawHandler{"kade.rider.locations": func(context.Context, *kgo.Record) error { h.raw++; return nil }}},
+		log:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		tracer:  otel.Tracer("test"),
 		sendDLQ: func(_ context.Context, r *kgo.Record) error { h.dlq = append(h.dlq, r); return nil },
 		sleep:   func(context.Context, time.Duration) error { return nil },
 	}
@@ -105,8 +84,8 @@ func TestConsumerProcessesOnceAndDedups(t *testing.T) {
 			t.Fatalf("delivery %d: outcome %q err %v, want %q", i+1, got, err, want)
 		}
 	}
-	if h.handled != 1 || h.after != 1 {
-		t.Fatalf("handled %d times, after-commit %d times; want 1/1", h.handled, h.after)
+	if h.handled != 1 {
+		t.Fatalf("handled %d times; want 1", h.handled)
 	}
 }
 
@@ -134,7 +113,7 @@ func TestConsumerDeadLettersAfterMaxAttempts(t *testing.T) {
 	}
 	d := h.dlq[0]
 	if d.Topic != "kade.note.events.dlq" || Header(d, HeaderAttempts) != "5" || Header(d, HeaderFailedBy) != "realtime" || Header(d, HeaderOriginalOffset) != "7" ||
-		!strings.Contains(Header(d, HeaderError), "db hiccup") || Header(d, HeaderEventType) == "" || string(d.Value) != string(rec.Value) {
+		!strings.Contains(Header(d, HeaderError), "redis hiccup") || Header(d, HeaderEventType) == "" || string(d.Value) != string(rec.Value) {
 		t.Fatalf("unexpected DLQ record: topic=%s headers=%v", d.Topic, d.Headers)
 	}
 }
@@ -166,8 +145,27 @@ func TestConsumerSkipsUnknownTypes(t *testing.T) {
 	h := newHarness(t)
 	rec := noteRecord(t, uuid.NewString())
 	HeaderCarrier{rec}.Set(HeaderEventType, "kade.template.v1.SomethingNew")
-	if got, _ := h.c.handle(context.Background(), rec); got != "skipped" || h.commits != 0 {
-		t.Fatalf("outcome %q commits %d", got, h.commits)
+	if got, _ := h.c.handle(context.Background(), rec); got != "skipped" || len(h.dedup.seen) != 0 {
+		t.Fatalf("outcome %q claimed %d", got, len(h.dedup.seen))
+	}
+}
+
+func TestConsumerReleasesClaimOnDLQ(t *testing.T) {
+	h := newHarness(t)
+	h.failures = 100
+	if got, _ := h.c.handle(context.Background(), noteRecord(t, uuid.NewString())); got != "dlq" {
+		t.Fatalf("outcome %q", got)
+	}
+	if len(h.dedup.seen) != 0 {
+		t.Fatal("a dead-lettered event must not stay claimed")
+	}
+}
+
+func TestConsumerRawTopics(t *testing.T) {
+	h := newHarness(t)
+	rec := &kgo.Record{Topic: "kade.rider.locations", Value: []byte{0, 1}}
+	if got, _ := h.c.handle(context.Background(), rec); got != "processed" || h.raw != 1 || len(h.dedup.seen) != 0 {
+		t.Fatalf("outcome %q raw %d", got, h.raw)
 	}
 }
 

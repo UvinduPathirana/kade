@@ -8,8 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -18,13 +16,25 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+// Deduper records handled event ids (realtime keeps them in Redis with a TTL: it has no database).
+// Claim returns false when the id was already claimed; Release undoes a claim whose handling failed.
+type Deduper interface {
+	Claim(ctx context.Context, eventID string) (bool, error)
+	Release(ctx context.Context, eventID string) error
+}
+
+// RawHandler handles records of a topic that is not an outbox stream (no id/eventType headers),
+// e.g. kade.rider.locations. Errors are logged and the record skipped: losing a GPS ping is fine.
+type RawHandler func(ctx context.Context, rec *kgo.Record) error
+
 type ConsumerOptions struct {
 	Brokers []string
-	Group   string   // = SERVICE_NAME
+	Group   string   // one group shared by every replica
 	Topics  []string // e.g. kade.order.events
-	Pool    *pgxpool.Pool
+	Dedup   Deduper
 	Router  *Router
-	DLQ     *kgo.Client // producer client used for <topic>.dlq
+	Raw     map[string]RawHandler // topic → handler, bypasses Router/Dedup/DLQ
+	DLQ     *kgo.Client           // producer client used for <topic>.dlq
 	Logger  *slog.Logger
 
 	MaxAttempts int                             // default 5 (CONVENTIONS)
@@ -40,7 +50,6 @@ type Consumer struct {
 	log    *slog.Logger
 	tracer trace.Tracer
 
-	inTx    func(context.Context, func(pgx.Tx) error) error
 	sendDLQ func(context.Context, *kgo.Record) error
 	sleep   func(context.Context, time.Duration) error
 
@@ -49,8 +58,8 @@ type Consumer struct {
 }
 
 func NewConsumer(o ConsumerOptions) (*Consumer, error) {
-	if o.Group == "" || len(o.Topics) == 0 || o.Pool == nil || o.Router == nil || o.DLQ == nil {
-		return nil, errors.New("kafka consumer: group, topics, pool, router and DLQ client are required")
+	if o.Group == "" || len(o.Topics) == 0 || o.Dedup == nil || o.Router == nil || o.DLQ == nil {
+		return nil, errors.New("kafka consumer: group, topics, deduper, router and DLQ client are required")
 	}
 	if o.MaxAttempts <= 0 {
 		o.MaxAttempts = 5
@@ -82,7 +91,6 @@ func NewConsumer(o ConsumerOptions) (*Consumer, error) {
 		return nil, err
 	}
 	c.cl = cl
-	c.inTx = func(ctx context.Context, fn func(pgx.Tx) error) error { return pgx.BeginFunc(ctx, o.Pool, fn) }
 	c.sendDLQ = c.produceDLQ
 	c.sleep = sleepCtx
 	if err := c.initMetrics(); err != nil {
@@ -179,37 +187,41 @@ func (c *Consumer) process(ctx context.Context, rec *kgo.Record) bool {
 
 // handle returns the outcome: processed | duplicate | skipped | dlq (err = the cause) | cancelled.
 func (c *Consumer) handle(ctx context.Context, rec *kgo.Record) (string, error) {
+	if raw, ok := c.o.Raw[rec.Topic]; ok {
+		if err := raw(ctx, rec); err != nil {
+			if ctx.Err() != nil {
+				return "cancelled", ctx.Err()
+			}
+			c.log.DebugContext(ctx, "raw record skipped", "topic", rec.Topic, "offset", rec.Offset, "err", err)
+			return "skipped", nil
+		}
+		return "processed", nil
+	}
 	rt, d, msg, ok, err := c.o.Router.prepare(rec)
 	if !ok {
 		return "skipped", nil
 	}
 	attempt := 0
+	claimed := false
 	for err == nil {
 		attempt++
-		var duplicate bool
-		d.afterCommit = nil
-		err = c.inTx(ctx, func(tx pgx.Tx) error {
-			tag, err := tx.Exec(ctx, `INSERT INTO processed_events (event_id) VALUES ($1) ON CONFLICT DO NOTHING`, d.EventID)
-			if err != nil {
-				return err
+		if !claimed {
+			var fresh bool
+			if fresh, err = c.o.Dedup.Claim(ctx, d.EventID.String()); err == nil {
+				if !fresh {
+					c.log.DebugContext(ctx, "duplicate event skipped", "event_id", d.EventID, "type", d.EventType)
+					return "duplicate", nil
+				}
+				claimed = true
 			}
-			if tag.RowsAffected() == 0 {
-				duplicate = true
-				return nil
-			}
-			return rt.handle(ctx, tx, d, msg)
-		})
+		}
 		if err == nil {
-			if duplicate {
-				c.log.DebugContext(ctx, "duplicate event skipped", "event_id", d.EventID, "type", d.EventType)
-				return "duplicate", nil
+			if err = rt.handle(ctx, d, msg); err == nil {
+				return "processed", nil
 			}
-			for _, fn := range d.afterCommit {
-				fn(ctx)
-			}
-			return "processed", nil
 		}
 		if ctx.Err() != nil {
+			c.release(d)
 			return "cancelled", ctx.Err()
 		}
 		if IsPermanent(err) || attempt >= c.o.MaxAttempts {
@@ -217,9 +229,13 @@ func (c *Consumer) handle(ctx context.Context, rec *kgo.Record) (string, error) 
 		}
 		c.log.WarnContext(ctx, "event handling failed, retrying", "event_id", d.EventID, "type", d.EventType, "attempt", attempt, "err", err)
 		if serr := c.sleep(ctx, c.o.Backoff(attempt)); serr != nil {
+			c.release(d)
 			return "cancelled", serr
 		}
 		err = nil
+	}
+	if claimed {
+		c.release(d) // a replay from the DLQ must be handled again
 	}
 	// Dead-letter: copy the record, add error headers, keep retrying the DLQ write until it lands.
 	if attempt == 0 {
@@ -251,6 +267,14 @@ func (c *Consumer) handle(ctx context.Context, rec *kgo.Record) (string, error) 
 		if serr := c.sleep(ctx, c.o.Backoff(try)); serr != nil {
 			return "cancelled", serr
 		}
+	}
+}
+
+func (c *Consumer) release(d *Delivery) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := c.o.Dedup.Release(ctx, d.EventID.String()); err != nil {
+		c.log.Warn("dedup release failed", "event_id", d.EventID, "err", err)
 	}
 }
 

@@ -12,11 +12,8 @@ func env(m map[string]string) func(string) string { return func(k string) string
 func valid() map[string]string {
 	return map[string]string{
 		"SERVICE_NAME":                "realtime",
-		"GRPC_PORT":                   "50112",
 		"HTTP_PORT":                   "8112",
-		"DATABASE_URL":                "postgres://realtime:realtime@postgres:5432/realtime",
 		"KAFKA_BROKERS":               "kafka:9092, other:9092 ,",
-		"SCHEMA_REGISTRY_URL":         "http://schema-registry:8081",
 		"REDIS_URL":                   "redis://redis:6379",
 		"OTEL_EXPORTER_OTLP_ENDPOINT": "http://otel:4318",
 	}
@@ -27,25 +24,28 @@ func TestLoadValid(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.GRPCPort != 50112 || c.HTTPPort != 8112 {
-		t.Errorf("ports = %d/%d", c.GRPCPort, c.HTTPPort)
+	if c.HTTPPort != 8112 {
+		t.Errorf("port = %d", c.HTTPPort)
 	}
 	if got := strings.Join(c.KafkaBrokers, "|"); got != "kafka:9092|other:9092" {
 		t.Errorf("brokers = %q", got)
 	}
-	if c.NoteEventsTopic != "kade.note.events" || c.RPCTimeout != 5*time.Second || !c.MigrateOnStart || c.LogLevel != slog.LevelInfo {
+	if c.KafkaGroup != "realtime" || c.RedisPrefix != "rt:" || c.SendBuffer != 256 || c.PositionInterval != time.Second ||
+		c.LogLevel != slog.LevelInfo || c.DevBypass || len(c.Topics) != len(DefaultTopics) {
 		t.Errorf("defaults not applied: %+v", c)
 	}
 }
 
-func TestLoadOptionalDependencies(t *testing.T) {
+func TestDevBypassNeedsDevEnv(t *testing.T) {
 	m := valid()
-	delete(m, "KAFKA_BROKERS")
-	delete(m, "SCHEMA_REGISTRY_URL")
-	delete(m, "REDIS_URL")
-	delete(m, "OTEL_EXPORTER_OTLP_ENDPOINT")
-	if _, err := Load(env(m)); err != nil {
-		t.Fatalf("Kafka, Redis and OTLP should be optional: %v", err)
+	m["AUTH_DEV_BYPASS"] = "true"
+	if _, err := Load(env(m)); err == nil || !strings.Contains(err.Error(), "DEPLOY_ENV=dev") {
+		t.Fatalf("err = %v", err)
+	}
+	m["DEPLOY_ENV"] = "dev"
+	c, err := Load(env(m))
+	if err != nil || !c.DevBypass {
+		t.Fatalf("dev bypass not enabled: %v %+v", err, c)
 	}
 }
 
@@ -55,14 +55,14 @@ func TestLoadInvalid(t *testing.T) {
 		want string
 	}{
 		"missing name":       {func(m map[string]string) { delete(m, "SERVICE_NAME") }, "SERVICE_NAME is required"},
-		"bad port":           {func(m map[string]string) { m["GRPC_PORT"] = "70000" }, "GRPC_PORT"},
-		"same ports":         {func(m map[string]string) { m["HTTP_PORT"] = "50112" }, "must differ"},
-		"missing db":         {func(m map[string]string) { delete(m, "DATABASE_URL") }, "DATABASE_URL is required"},
-		"db scheme":          {func(m map[string]string) { m["DATABASE_URL"] = "mysql://u:secret@h/db" }, "DATABASE_URL"},
-		"registry no kafka":  {func(m map[string]string) { delete(m, "KAFKA_BROKERS") }, "KAFKA_BROKERS is empty"},
+		"bad port":           {func(m map[string]string) { m["HTTP_PORT"] = "70000" }, "HTTP_PORT"},
+		"missing kafka":      {func(m map[string]string) { delete(m, "KAFKA_BROKERS") }, "KAFKA_BROKERS is required"},
+		"missing redis":      {func(m map[string]string) { delete(m, "REDIS_URL") }, "REDIS_URL is required"},
+		"redis scheme":       {func(m map[string]string) { m["REDIS_URL"] = "http://u:secret@h:6379" }, "REDIS_URL"},
 		"otlp grpc endpoint": {func(m map[string]string) { m["OTEL_EXPORTER_OTLP_ENDPOINT"] = "otel:4317" }, "OTEL_EXPORTER_OTLP_ENDPOINT"},
 		"log level":          {func(m map[string]string) { m["LOG_LEVEL"] = "loud" }, "LOG_LEVEL"},
-		"timeout":            {func(m map[string]string) { m["RPC_DEFAULT_TIMEOUT"] = "-1s" }, "RPC_DEFAULT_TIMEOUT"},
+		"duration":           {func(m map[string]string) { m["POSITION_MIN_INTERVAL"] = "-1s" }, "POSITION_MIN_INTERVAL"},
+		"buffer":             {func(m map[string]string) { m["WS_SEND_BUFFER"] = "0" }, "WS_SEND_BUFFER"},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {

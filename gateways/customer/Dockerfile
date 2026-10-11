@@ -17,7 +17,7 @@ COPY gen/ts gen/ts
 COPY gateways/customer gateways/customer
 RUN pnpm --filter @kade/proto build && pnpm --filter @kade/gateway-customer build
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
-    pnpm --filter @kade/gateway-customer deploy --prod --legacy /out \
+    pnpm --filter @kade/gateway-customer deploy --prod --legacy /out
 
 # Plain Alpine plus the node binary (no npm/corepack/yarn); non-root; code owned by root.
 FROM ${ALPINE_IMAGE}

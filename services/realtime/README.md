@@ -1,161 +1,210 @@
-# Go service template
+# realtime
 
-Copy-me starting point for Kadé's Go services (`dispatch`, `location`, `realtime`). It implements
-`kade.template.v1.TemplateService` end to end, plus every pattern those services need. Conventions
-live in [`docs/backend/CONVENTIONS.md`](../../../docs/backend/CONVENTIONS.md).
+Turns Kafka events into live WebSocket pushes for the four apps: customer order tracking, the
+restaurant kitchen board, rider offers and jobs, and the admin live dashboard. There is no gRPC
+API and no Publish RPC: every push comes from an event that is already on Kafka, so pushes are
+replayable and there is one path. Clients treat frames as hints and refetch over REST after a
+reconnect.
 
-|            |                                                                                        |
-| ---------- | -------------------------------------------------------------------------------------- |
-| Module     | `github.com/UvinduPathirana/kade/services/realtime` (Go 1.25, in root `go.work`)  |
-| Ports      | gRPC `50112`, HTTP `8112` (`/health/live`, `/health/ready`, `/metrics`, `/ws`)         |
-| Owns       | database `realtime`: `notes`, `outbox`, `processed_events`, `idempotency_keys`      |
-| API        | `CreateNote` (needs `x-user-id`; honours `idempotency_key`), `GetNote`                 |
-| Events out | `NoteCreated` → outbox → Debezium → `kade.note.events`                                 |
-| Events in  | `kade.note.events` (`NoteCreated`), consumer group = `SERVICE_NAME`                    |
-| Stream out | `kade.template.v1.Note` on `STREAM_TOPIC` (`kade.note.views`, one per `GetNote`), Schema Registry encoded; the topic must exist (auto-create is off) |
-| Redis      | GEO helper (`redisx.GeoIndex`), pub/sub for the WebSocket hub                          |
+|            |                                                                                                   |
+| ---------- | ------------------------------------------------------------------------------------------------- |
+| Module     | `github.com/UvinduPathirana/kade/services/realtime` (Go 1.25)                                     |
+| Port       | HTTP `8112`: `/ws`, `/health/live`, `/health/ready` (Kafka + Redis), `/metrics`                   |
+| State      | Redis only (pub/sub fan-out, small projections, dedup). No Postgres.                               |
+| Events in  | `kade.{order,merchant,delivery,rider,restaurant,menu,ticket,ledger}.events`, `kade.rider.locations` |
+| Events out | none                                                                                              |
+| Profile    | `fulfilment`, 64 MB                                                                               |
 
-## New service from the template
+## How the gateways proxy `/ws`
 
-```bash
-services/realtime/new-service.sh dispatch 50110 8110
+Browsers can't set headers on a WebSocket, so the app talks to its gateway's `/ws`, the gateway
+authenticates the token (first message `{"type":"auth","token":…}`), then opens its own WebSocket to
+realtime and pipes frames both ways unchanged. On that upgrade request the gateway sets:
+
+| Header        | Value                                                                                  | Needed for                  |
+| ------------- | -------------------------------------------------------------------------------------- | --------------------------- |
+| `x-user-id`   | Keycloak `sub` (a customer's id **is** their sub). **Required**: without it → HTTP 401 | everything                  |
+| `x-roles`     | realm roles, comma-separated (`customer`, `merchant_staff`, `merchant_owner`, `rider`, `ops`, `support`, `admin`, …) | role checks |
+| `x-outlet-id` | outlet ids from `merchant.OutletStaffService.GetMyOutlets`, comma-separated            | `outlet:<id>`, order/ticket |
+| `x-rider-id`  | rider id from `dispatch.RiderService.GetMyRider`                                        | `rider:<id>`, order/ticket  |
+
+`REALTIME_WS_URL=ws://realtime:8112/ws` in the gateways (in-network). Realtime trusts the internal
+network. The Origin header is not checked by default (identity never comes from cookies), so a
+gateway may forward the browser's Origin; set `WS_ORIGIN_PATTERNS` to restrict it.
+
+Dev only: with `AUTH_DEV_BYPASS=true` and `DEPLOY_ENV=dev`, a socket without headers may pass its
+identity as query parameters (`/ws?user=…&roles=ops&outlet=…&rider=…`) and an anonymous socket may
+watch public channels. It's off in the Compose fragment.
+
+## Protocol
+
+One frame per text message, proto3 JSON (camelCase) of `kade.realtime.v1.ClientFrame` /
+`ServerFrame` (`proto/kade/realtime/v1/realtime_messages.proto`).
+
+```jsonc
+→ {"subscribe":{"channels":["order:0190…","customer:0000…-000000000001"],"since":"2026-10-12T08:00:00Z"}}
+← {"subscribed":{"granted":["order:0190…","customer:0000…"],"denied":[]}}
+← {"message":{"id":"<kafka event id>","channel":"order:0190…","sourceType":"kade.order.v1.OrderAccepted",
+              "occurredAt":"…","order":{"order":{…Order…}}}}
+→ {"unsubscribe":{"channels":["order:0190…"]}}
+→ {"ping":{"nonce":"n1"}}            ← {"pong":{"nonce":"n1"}}
 ```
 
-It copies the folder to `services/<name>`, rewrites the module path, `SERVICE_NAME`, database and
-login (`<name>` with `-` → `_`), ports, the `gen/go` replace path and the Dockerfile/Compose paths,
-and adds `./services/<name>` to `go.work`.
+- `GET /ws?channel=a&channel=b` subscribes at connect time (answered with a `subscribed` frame).
+- `since` replays frames newer than that time from a short buffer (`REPLAY_WINDOW`, 2 min, last
+  50 per channel; rider positions are not buffered). Dedupe on `message.id`.
+- Up to 32 channels per socket. A malformed frame closes the socket with 1003.
+- Heartbeat: the server sends a WebSocket ping every 25 s and drops a peer that doesn't pong
+  within 5 s. Clients may also send `ping` frames.
+- Shutdown closes sockets with **1001**; clients reconnect (to another replica), refetch, resubscribe.
 
-### After copying (checklist)
+## Channels and frames
 
-1. **Compose:** set `profiles:` in `compose.yaml` (`ordering | fulfilment | money | engagement`),
-   trim `depends_on`/env to what you use, then ask the lead to add the include to
-   `deploy/compose/services.yaml`, your database to `deploy/compose/postgres/init`, and your topics
-   to `deploy/compose/kafka/create-topics.sh`.
-2. **Domain:** replace `internal/note` with your package and `migrations/00001_init.sql` with your
-   tables. Keep `outbox` (exact DDL), `processed_events` and `idempotency_keys`.
-3. **API:** register your generated server in `internal/app/app.go` → `registerAPI`.
-4. **Consumers:** set the topics in `app.New` and register handlers in `registerConsumers`.
-5. **Outbox:** once migrations have run, register Debezium:
-   `deploy/compose/connect/register-outbox.sh <db_login> <database>`.
-6. **Drop what you don't need:** no Redis → remove `REDIS_URL`; no registry stream → remove
-   `SCHEMA_REGISTRY_URL` and `a.Stream`; no gRPC (realtime) → remove the gRPC server.
-7. **README:** rewrite this file for your service (owns, API, events in/out, how to run alone).
+| Channel                | Who may subscribe                                                                 | Frames (payload ← source events) |
+| ---------------------- | --------------------------------------------------------------------------------- | -------------------------------- |
+| `order:<order_id>`     | the order's customer (`x-user-id`); staff of its outlet (merchant role + `x-outlet-id`); its assigned rider (`rider` + `x-rider-id`); ops/admin/support | `order` (OrderUpdate, whole Order) ← every `kade.order.v1.Order*` event, `RiderAssigned`/`RiderUnassigned`; `riderPosition` ← `kade.rider.locations` (≤ 1/s per order) |
+| `customer:<id>`        | the customer themself (id = `x-user-id`); ops/admin/support                        | `order` for each of their orders (same frames as `order:`) |
+| `outlet:<outlet_id>`   | `merchant_staff`/`merchant_owner` with the id in `x-outlet-id`; ops/admin/support | `kitchenTicket` (KitchenTicketUpdate, whole Ticket; `isNew` = play the chime) ← `OrderPlaced`/`OrderReleasedToKitchen` (new), `OrderAccepted/Preparing/Ready/PickedUp/Rejected/Cancelled/RiderChanged`, `TicketAccepted/Rejected/Ready/HandedOver`, `RiderAssigned` (rider, ETA), `RiderArrivedAtRestaurant` (`riderAtCounter`), `RiderUnassigned` |
+| `rider:<rider_id>`     | role `rider` with `x-rider-id` = id; ops/admin/support                            | `riderOffer` ← `DeliveryOfferSent` (offer), `DeliveryOfferExpired`/`Declined`, another rider assigned, `DeliveryCancelled` (offer **unset** = withdrawn); `riderJob` (Delivery + notice) ← `RiderAssigned`, `RiderUnassigned` ("Job reassigned", delivery no longer names the rider), `RiderArrivedAtRestaurant`, `DeliveryPickedUp`, `RiderArrivedAtCustomer`, `DeliveryCompleted` ("Delivered"), `DeliveryCancelled` ("Order cancelled"), `OrderReady` ("Food is ready") |
+| `ops:live`             | ops, admin, support                                                               | `opsLive` with `sourceType` `kade.dispatch.v1.LiveSnapshot`: counters (`inProgress`, `waitingForRider`, `late`, `ridersOnline`, `ordersToday`, `cancellationsToday`, `avgDeliveryMinutes`, `ordersByHour`, `attention`), coalesced to ≤ 1/s and only when changed; `opsLive` with `sourceType` `kade.location.v1.RiderLocation`: one rider dot in `dots` (≤ 1/s per rider) |
+| `group:<group_id>`     | the host and members of the group order; ops/admin/support                        | `groupOrder` ← `GroupOrderUpdated` |
+| `restaurant:<id>`      | anyone                                                                             | `restaurantAvailability` ← `RestaurantAvailabilityChanged`; `menuItemAvailability` ← `MenuItemAvailabilityChanged` |
+| `ticket:<ticket_id>`   | the requester (customer `x-user-id`, rider `x-rider-id`, outlet in `x-outlet-id`); support/ops/admin | `supportMessage` ← `TicketMessageAdded` |
+
+Anything else (unknown kinds, `ops:<other>`, malformed names) is denied. Rules live in
+`internal/channel/channel.go`; `channel_test.go` is the matrix.
+
+Notes for the apps and the admin dashboard:
+
+- `ops:live` frames are **deltas**: load the full picture with `dispatch.GetLiveSnapshot` (gateway
+  REST), then apply counter frames (absent numbers are zero, proto3 JSON) and move rider dots.
+- `finance` is not an ops role here. `support` sees `ops:live`, as in the realtime proto comment.
+- Frames on `order:`/`customer:` have ops-only fields removed (order notes, customer/rider/restaurant
+  real phone numbers): the gateways pipe frames through unchanged.
+- `payment.events` aren't consumed: order turns payment outcomes into order events (`OrderFailed`,
+  `OrderRefunded`), which are pushed. `ledger.events` feeds the "rider over the cash limit"
+  attention item.
+
+### Authorising `order:<id>`
+
+Ownership comes from the events realtime consumes (`own:order:<id>` in Redis: customer, outlet,
+assigned rider). If a customer opens tracking before realtime has seen the order, realtime asks
+`order.GetOrder` once, as the caller (`ORDER_GRPC`, identity forwarded as gRPC metadata), and caches
+the answer. Not found / not allowed / order unavailable → denied (the client retries after its REST
+refetch).
+
+## Fan-out design (multiple replicas)
+
+```
+Kafka topics ──(ONE consumer group "realtime", partitions split across replicas)──▶ replica A
+replica A: update Redis views ─▶ PUBLISH rt:order:42 <ServerFrame JSON>
+Redis ─▶ every replica that has a local socket on order:42 (SUBSCRIBE rt:order:42) ─▶ sockets
+```
+
+- Each event is handled by **exactly one** replica (shared group), so views are updated once and
+  each frame is published once. Every replica holds one Redis pub/sub connection and subscribes to
+  a channel only while one of its sockets watches it, so a frame reaches its socket wherever that
+  socket landed. Adding replicas adds socket capacity; Kafka partitions (6 per topic) bound how
+  many replicas share the consuming.
+- The alternative, one consumer group per replica, would make every replica read every event and
+  update the shared views N times; the shared group keeps work O(events).
+- Views are needed because progress events carry only what changed while frames carry whole
+  objects (Order, Ticket, Delivery). They are read-modify-written under Redis `WATCH`, and status
+  only moves forward in the state machine, so events of one order arriving from different topics
+  (order vs delivery partitions, possibly on different replicas) can't regress it.
+- Dedup: the Kafka event id is claimed in Redis (`SET NX`, 24 h) before handling, so redelivery
+  doesn't push twice. Failures retry 5× with backoff, then `<topic>.dlq` (`failed-by: realtime`).
+- A new consumer group starts at the beginning of each topic to rebuild views; events older than
+  `PUSH_STALE_AFTER` (10 min) update views but aren't pushed. GPS fixes older than 30 s are dropped.
+- Throttles are cluster-wide (`SET NX PX` gates): one position per order per second, one rider dot
+  per rider per second; out-of-order fixes (by `sequence`) are dropped. `ops:live` counters are
+  coalesced: handlers mark a dirty flag, every replica ticks each second and the one whose `GETDEL`
+  wins publishes.
+
+## Backpressure
+
+Each socket has a bounded queue (`WS_SEND_BUFFER`, 256 frames) and its own writer with a 5 s write
+timeout. Publishing to a socket never blocks the hub. When the queue is full the socket is
+**closed with 1013** (try again later), not left with gaps: frames are state, and a client that
+silently missed one would show stale state, while a closed client reconnects, refetches and
+resubscribes (with `since`). Counted in `kade_realtime_frames_dropped_total` and
+`kade_realtime_ws_slow_closes_total`.
+
+## Metrics (`/metrics`, also OTLP)
+
+`kade_realtime_ws_connections` (open sockets), `kade_realtime_frames_sent_total`,
+`kade_realtime_frames_dropped_total`, `kade_realtime_ws_slow_closes_total`,
+`kade_realtime_subscriptions_total{result,kind}`, `kade_realtime_frames_published_total{kind}`,
+`kade_consumer_events_total{topic,type,outcome}`, plus Go runtime, HTTP and Redis client metrics.
+
+## Watching channels by hand (`wswatch`)
+
+A small Go client that sets the gateway headers and prints frames. It ships in the image:
+
+```bash
+C=$(docker ps -qf name=realtime)
+# admin dashboard
+docker exec $C /app/wswatch -user 00000000-0000-7000-8005-000000000005 -roles ops ops:live
+# Dilini's order (she owns it once OrderPlaced was seen, or via order.GetOrder)
+docker exec $C /app/wswatch -user 00000000-0000-7000-8005-000000000001 -roles customer \
+  order:<order id> customer:00000000-0000-7000-8005-000000000001
+# kitchen board of Galle Road Kottu House (ruwan)
+docker exec $C /app/wswatch -user 00000000-0000-7000-8005-000000000002 -roles merchant_owner,merchant_staff \
+  -outlet 00000000-0000-7000-8000-000000000001 outlet:00000000-0000-7000-8000-000000000001
+# Nimal's offers and job
+docker exec $C /app/wswatch -user 00000000-0000-7000-8005-000000000004 -roles rider \
+  -rider 00000000-0000-7000-8001-000000000101 rider:00000000-0000-7000-8001-000000000101
+```
+
+Flags: `-url` (default `ws://localhost:8112/ws`), `-since 1m` (replay), `-raw` (print JSON),
+`-n 3 -timeout 30s` (exit 0 after 3 messages, 1 on timeout; handy in scripts). From the repo without
+the image: `cd services/realtime && go run ./cmd/wswatch …` (or in a `golang:1.25` container with
+`--network kade -url ws://realtime:8112/ws`).
+
+## Configuration
+
+`SERVICE_NAME`, `HTTP_PORT`, `KAFKA_BROKERS` and `REDIS_URL` are required;
+`OTEL_EXPORTER_OTLP_ENDPOINT`, `LOG_LEVEL`, `ORDER_GRPC` optional. Extras (defaults):
+`KAFKA_GROUP` (`SERVICE_NAME`), `CONSUME_TOPICS` (all of the above), `LOCATIONS_TOPIC`
+(`kade.rider.locations`), `REDIS_PREFIX` (`rt:`),
+`WS_SEND_BUFFER` (256), `WS_PING_INTERVAL` (25s), `WS_WRITE_TIMEOUT` (5s), `WS_MAX_SUBSCRIPTIONS`
+(32), `WS_ORIGIN_PATTERNS` (none = no Origin check), `POSITION_MIN_INTERVAL` (1s),
+`OPS_PUSH_INTERVAL` (1s), `VIEW_TTL` (48h), `PUSH_STALE_AFTER` (10m), `REPLAY_WINDOW` (2m),
+`SHUTDOWN_TIMEOUT` (20s), `AUTH_DEV_BYPASS` + `DEPLOY_ENV=dev`. Invalid config fails fast.
+
+The scaffold's gRPC port 50112 and `realtime` database are unused.
 
 ## Run and test (Docker only; no local Go needed)
 
 ```bash
-# From the repo root. Named volumes keep module and build caches between runs.
+# Unit tests (Redis is miniredis in-process; no infrastructure)
 docker run --rm -v "$PWD:/repo" -w /repo/services/realtime \
   -v kade-go-mod:/go/pkg/mod -v kade-go-build:/root/.cache/go-build -e GOFLAGS=-buildvcs=false \
-  golang:1.25 sh -c 'go vet ./... && go test -race ./...'   # unit tests: no infrastructure needed
+  golang:1.25 sh -c 'go vet ./... && go test -race ./...'
 
-# Integration tests against the shared stack (pnpm infra:up first). Join the kade network: the
-# Kafka broker advertises localhost:19092 to the host, which is unreachable from a container.
+# Integration tests against the shared stack (pnpm infra:up first): Kafka event → WebSocket frame,
+# unauthorised subscriptions denied, dedup. Own consumer group (realtime-it) and Redis prefix (rtit:);
+# test events go to the template topics (kade.note.events / kade.note.views), never the real ones.
 docker run --rm --network kade -v "$PWD:/repo" -w /repo/services/realtime \
   -v kade-go-mod:/go/pkg/mod -v kade-go-build:/root/.cache/go-build -e GOFLAGS=-buildvcs=false \
   golang:1.25 go test -tags integration -count=1 -v ./integration/...
 
-# Image + container on the stack
+# Image + container
 docker build -f services/realtime/Dockerfile -t kade/realtime:dev .
-docker compose -f deploy/compose/compose.yaml --profile templates up -d realtime   # once included
+docker compose -f deploy/compose/compose.yaml --profile fulfilment up -d realtime   # once included
 ```
-
-Integration tests use their own consumer group (`realtime-it`) and random ports, so they can run
-while the container is up. Override addresses with `IT_DATABASE_URL`, `IT_KAFKA_BROKERS`,
-`IT_SCHEMA_REGISTRY_URL`, `IT_REDIS_URL`; on the host they use `localhost` and the
-`*_HOST_PORT` variables from `deploy/compose/.env`.
-
-Try it by hand (needs `grpcurl`; reflection is on):
-
-```bash
-grpcurl -plaintext -H 'x-user-id: u1' -d '{"text":"hi","idempotency_key":"k1"}' localhost:50112 kade.template.v1.TemplateService/CreateNote
-websocat 'ws://localhost:8112/ws?channel=note:<id>'
-```
-
-## Configuration
-
-Standard variables from CONVENTIONS: `SERVICE_NAME`, `GRPC_PORT`, `HTTP_PORT`, `DATABASE_URL`
-(required), `KAFKA_BROKERS`, `SCHEMA_REGISTRY_URL`, `REDIS_URL`, `OTEL_EXPORTER_OTLP_ENDPOINT`
-(optional: an empty value turns that integration off). Extras: `LOG_LEVEL`, `RPC_DEFAULT_TIMEOUT`
-(5s), `SHUTDOWN_TIMEOUT` (20s), `MIGRATE_ON_START` (true), `NOTE_EVENTS_TOPIC`, `STREAM_TOPIC`.
-Invalid config fails fast with every problem listed.
 
 ## Layout
 
 ```
-cmd/server            main + `server healthcheck` (the distroless image has no curl)
-internal/app          wiring, Run, graceful shutdown       ← registerAPI / registerConsumers
-internal/note         example domain: store, gRPC service, event handler (replace)
-internal/config       env → Config with validation
-internal/platform/    reusable plumbing, normally left as is:
-  telemetry  grpcx  apperr  auth  db  outbox  idempotency  kafka  redisx  ws  health
-migrations            goose SQL files, embedded, run on start under an advisory lock
+cmd/server            main + `server healthcheck` (distroless has no curl)
+cmd/wswatch           WebSocket test client
+internal/app          wiring, Run, graceful shutdown
+internal/channel      channel names + authorisation rules (the matrix test)
+internal/identity     gateway identity headers
+internal/hub          WebSocket protocol, Redis pub/sub fan-out, backpressure, replay buffer
+internal/fanout       event → views → frames (order.go, delivery.go, other.go: locations, ops)
+internal/views        Redis projections, ownership index, dedup, throttles, ops counters
+internal/platform/    telemetry, health, kafka (consumer with Redis dedup), redisx, grpcx client, auth
 integration           tests against the shared stack (build tag `integration`)
 ```
-
-## Patterns
-
-**Errors.** Handlers return `*apperr.Error{Code, Reason}`; one interceptor turns it into a gRPC
-status with `google.rpc.ErrorInfo{reason, domain=SERVICE_NAME}` and logs it. Unknown errors become
-`INTERNAL` without leaking details; panics are recovered. Reasons (`NOTE_NOT_FOUND`) are API.
-
-**Identity and deadlines.** Gateways send `x-user-id`, `x-roles`, `x-outlet-id`;
-`auth.FromContext(ctx)` reads them. `grpcx.Dial` forwards them on outgoing calls, adds the 2 s
-default deadline, and retries only methods you list in `WithRetryableMethods` (idempotent reads).
-The server caps calls that arrive without a deadline (`RPC_DEFAULT_TIMEOUT`).
-
-**Outbox.** Never produce business events from a handler. In one transaction write the change and
-`outbox.Insert(ctx, tx, outbox.Event{AggregateType: "order", AggregateID: id, Message: evt})`. The
-row stores the proto bytes, `type` = full message name and the current `traceparent`; Debezium
-publishes it to `kade.<aggregatetype>.events` with headers `id`, `eventType`, `traceparent`.
-
-**Idempotency keys.** `idempotency.Claim` inserts `(scope, key)` first, in the same tx as the
-work. A concurrent retry blocks on the primary key, then replays the stored response; the same key
-with a different request returns `IDEMPOTENCY_KEY_REUSED`. Keys are scoped per caller.
-
-**Idempotent consumer.** `kafka.Handle(router, func(ctx, tx, d, evt *orderv1.OrderPlaced) error)`.
-The consumer decodes by the `eventType` header (unknown types are skipped), records the event id
-in `processed_events` in the handler's transaction (redelivery = no-op), retries 5 times with
-exponential backoff, then writes to `<topic>.dlq` with `error`, `attempts`, `failed-by` (the
-consumer group: every group of a topic shares its DLQ) and `original-*` headers.
-Return `kafka.Permanent(err)` to dead-letter immediately. Use `d.AfterCommit(fn)` for
-non-transactional effects (Redis publish). Partitions run concurrently, records in a partition
-in order; offsets are committed only for finished records, and rebalances wait for the batch.
-
-**Schema Registry stream producer** (for `location` → `kade.rider.locations`):
-
-```go
-p, _ := kafka.NewStreamProducer[*locationv1.RiderLocation](ctx, a.Kafka, reg, "kade.rider.locations")
-p.Produce(ctx, riderID, loc, onDone) // async; key = rider id keeps each rider ordered
-```
-
-At start-up it registers the message's `.proto` (rendered from the compiled descriptor) under
-`<topic>-value`, with imported kade files as references (well-known types are built into the
-registry), then frames every record as `0x00 | schema id | message index | protobuf`. That is the
-Confluent wire format, so Java and TS Confluent deserializers read it. The producer client lingers
-5 ms, compresses with lz4, is idempotent with acks=all, and uses the Java-compatible murmur2
-partitioner. When 10k records are buffered, `Produce` blocks; that is the backpressure signal.
-Consumers decode with `kafka.DecodeConfluent`. Not an outbox stream: losing a GPS ping is fine.
-
-**Redis GEO** (for `dispatch`): `redisx.NewGeoIndex(rdb, "dispatch:riders:available:colombo")`
-gives `Upsert`, `Remove` and `Nearby(center, radiusMeters, limit)` (GEOSEARCH, nearest first).
-GEO members never expire: pair it with a last-seen sorted set, trimmed on a ticker.
-
-**WebSocket hub** (for `realtime`): `GET /ws?channel=order:42` subscribes a socket. Any instance
-publishes to Redis channel `order:42`; each instance keeps one pub/sub connection and subscribes
-to a channel only while a local client watches it. Slow clients are dropped (they reconnect and
-refetch) instead of buffering without bound; shutdown closes sockets with 1001 so clients
-reconnect elsewhere. Add authorisation through `ws.Options.Authorize`. The template's
-`NoteCreated` consumer publishes to `note:<id>` after commit, so the full path
-outbox → Kafka → consumer → Redis → browser is exercised by the integration tests.
-
-**Observability.** OTel traces, metrics and logs go to `OTEL_EXPORTER_OTLP_ENDPOINT` (OTLP/HTTP).
-`traceparent` travels through gRPC metadata (otelgrpc), the outbox, and Kafka headers (extracted by
-the consumer, injected by the stream producer and DLQ), so one request is one trace across hops.
-Logs are JSON on stdout with `trace_id`/`span_id` (always log with `...Context(ctx, ...)`).
-`/metrics` serves Prometheus: Go runtime, gRPC, pgx pool, Redis, consumer and WebSocket metrics.
-
-**Shutdown.** On SIGTERM: readiness turns 503 and gRPC health NOT_SERVING; gRPC drains in-flight
-calls; WebSockets close with 1001; HTTP stops; the consumer finishes its batch, commits and leaves
-the group; buffered stream records flush; pools close; telemetry flushes. Everything is bounded
-by `SHUTDOWN_TIMEOUT`; Compose's `stop_grace_period` is longer.

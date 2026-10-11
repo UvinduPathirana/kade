@@ -15,11 +15,14 @@ RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY gen/go /src/gen/go
 COPY services/realtime ./
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-    go build -trimpath -ldflags="-s -w" -o /out/server ./cmd/server
+    go build -trimpath -ldflags="-s -w" -o /out/server ./cmd/server && \
+    go build -trimpath -ldflags="-s -w" -o /out/wswatch ./cmd/wswatch
 
 # distroless/static: CA certs + tzdata, no shell, runs as uid 65532.
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /out/server /app/server
+# Test client: docker exec <container> /app/wswatch -user ... -roles ops ops:live
+COPY --from=build /out/wswatch /app/wswatch
 USER nonroot:nonroot
-EXPOSE 50112 8112
+EXPOSE 8112
 ENTRYPOINT ["/app/server"]

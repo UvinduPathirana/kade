@@ -1,27 +1,29 @@
 # Compose fragment, included from deploy/compose/services.yaml. Paths are relative to this file.
-#   docker compose -f deploy/compose/compose.yaml --profile templates up -d --build realtime
+#   docker compose -f deploy/compose/compose.yaml --profile fulfilment up -d --build realtime
+#
+# Stateless apart from Redis: scale with `--scale realtime=N` (drop the host port mapping first).
+# All replicas share ONE consumer group and fan out through Redis pub/sub (see README).
 services:
   realtime:
     build:
       context: ../..
       dockerfile: services/realtime/Dockerfile
     image: kade/realtime:dev
-    profiles: [CHANGE_ME] # ordering, fulfilment, money or engagement
+    profiles: [fulfilment]
     environment:
       SERVICE_NAME: realtime
-      GRPC_PORT: "50112"
       HTTP_PORT: "8112"
-      DATABASE_URL: postgres://realtime:realtime@postgres:5432/realtime
       KAFKA_BROKERS: kafka:9092
-      SCHEMA_REGISTRY_URL: http://schema-registry:8081
       REDIS_URL: redis://redis:6379
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel:4318
-      STREAM_TOPIC: kade.note.views
+      # Ownership fallback for orders realtime hasn't seen an event for yet (optional; when order is
+      # down those subscriptions are denied and the client retries after its REST refetch).
+      ORDER_GRPC: order:50107
       LOG_LEVEL: info
+      DEPLOY_ENV: dev
       GOMEMLIMIT: 48MiB # soft limit below the 64 MB cap: the GC works harder instead of OOM-killing
       GOMAXPROCS: "2"
     ports:
-      - "50112:50112"
       - "8112:8112"
     healthcheck:
       test: ["CMD", "/app/server", "healthcheck"] # GET /health/ready (no curl in distroless)
@@ -31,10 +33,8 @@ services:
       start_period: 20s
     stop_grace_period: 25s # > SHUTDOWN_TIMEOUT (20s default)
     depends_on:
-      postgres: { condition: service_healthy }
       kafka: { condition: service_healthy }
       kafka-init: { condition: service_completed_successfully }
-      schema-registry: { condition: service_healthy }
       redis: { condition: service_healthy }
     restart: unless-stopped
     deploy: { resources: { limits: { memory: 64m } } }

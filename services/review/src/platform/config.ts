@@ -25,6 +25,16 @@ const schema = z.object({
   OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
   SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
+  // order:50107. Fallback when someone rates an order before its OrderDelivered event has arrived;
+  // unset = rely on events only.
+  ORDER_GRPC: z.string().optional(),
+  // Deadline on every outgoing gRPC call.
+  GRPC_CLIENT_TIMEOUT_MS: z.coerce.number().int().positive().default(2_000),
+  // Seeds the apps' demo reviews and rating history on start (idempotent).
+  SEED_DEMO_DATA: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((v) => v === "true"),
 });
 
 export type Config = z.infer<typeof schema>;

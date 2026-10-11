@@ -22,3 +22,7 @@ include:
   - ../../services/merchant/compose.yaml
   - ../../gateways/customer/compose.yaml
   - ../../gateways/admin/compose.yaml
+  - ../../services/realtime/compose.yaml
+  - ../../services/notification/compose.yaml
+  - ../../services/review/compose.yaml
+  - ../../services/support/compose.yaml

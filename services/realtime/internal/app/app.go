@@ -1,5 +1,5 @@
 // Package app wires configuration, infrastructure clients and servers, runs them, and shuts them
-// down in the right order. A new service mostly edits registerAPI and registerConsumers.
+// down in the right order.
 package app
 
 import (
@@ -10,28 +10,29 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
-	templatev1 "github.com/UvinduPathirana/kade/gen/go/kade/template/v1"
-	"github.com/jackc/pgx/v5/pgxpool"
+	orderv1 "github.com/UvinduPathirana/kade/gen/go/kade/order/v1"
 	"github.com/redis/go-redis/v9"
 	"github.com/twmb/franz-go/pkg/kgo"
-	"github.com/twmb/franz-go/pkg/sr"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
-	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
+	"github.com/UvinduPathirana/kade/services/realtime/internal/channel"
 	"github.com/UvinduPathirana/kade/services/realtime/internal/config"
-	"github.com/UvinduPathirana/kade/services/realtime/internal/note"
-	"github.com/UvinduPathirana/kade/services/realtime/internal/platform/db"
+	"github.com/UvinduPathirana/kade/services/realtime/internal/fanout"
+	"github.com/UvinduPathirana/kade/services/realtime/internal/hub"
+	"github.com/UvinduPathirana/kade/services/realtime/internal/identity"
+	"github.com/UvinduPathirana/kade/services/realtime/internal/platform/auth"
 	"github.com/UvinduPathirana/kade/services/realtime/internal/platform/grpcx"
 	"github.com/UvinduPathirana/kade/services/realtime/internal/platform/health"
 	"github.com/UvinduPathirana/kade/services/realtime/internal/platform/kafka"
 	"github.com/UvinduPathirana/kade/services/realtime/internal/platform/redisx"
 	"github.com/UvinduPathirana/kade/services/realtime/internal/platform/telemetry"
-	"github.com/UvinduPathirana/kade/services/realtime/internal/platform/ws"
-	"github.com/UvinduPathirana/kade/services/realtime/migrations"
+	"github.com/UvinduPathirana/kade/services/realtime/internal/views"
 )
 
 // App holds every long-lived dependency. Fields are exported for integration tests.
@@ -39,25 +40,20 @@ type App struct {
 	Cfg    config.Config
 	Log    *slog.Logger
 	Tel    *telemetry.Telemetry
-	Pool   *pgxpool.Pool
-	Redis  *redis.Client // nil without REDIS_URL
-	Geo    redisx.GeoIndex
-	Hub    *ws.Hub
-	Kafka  *kgo.Client // producer client (stream + DLQ); nil without KAFKA_BROKERS
-	Stream *kafka.StreamProducer[*templatev1.Note]
+	Redis  *redis.Client
+	Views  *views.Store
+	Hub    *hub.Hub
+	Fanout *fanout.Service
+	Kafka  *kgo.Client // producer client (DLQ)
 
-	Health  *health.Checker
-	grpcSrv *grpc.Server
-	grpcHS  interface {
-		SetServingStatus(string, healthpb.HealthCheckResponse_ServingStatus)
-	}
+	Health   *health.Checker
 	httpSrv  *http.Server
 	consumer *kafka.Consumer
 	broker   redisx.Broker
 
-	GRPCAddr, HTTPAddr net.Addr // bound addresses (useful when ports are 0 in tests)
-	grpcLis, httpLis   net.Listener
-	closers            []func(context.Context) error
+	HTTPAddr net.Addr // bound address (useful when the port is 0 in tests)
+	httpLis  net.Listener
+	closers  []func(context.Context) error
 }
 
 // New connects to everything and prepares servers, but serves nothing until Run.
@@ -78,179 +74,135 @@ func New(ctx context.Context, cfg config.Config) (a *App, err error) {
 	a.Log = a.Tel.Logger
 	a.closers = append(a.closers, a.Tel.Shutdown)
 
-	// Postgres + migrations.
-	if a.Pool, err = db.Open(ctx, cfg.DatabaseURL); err != nil {
+	// Redis: pub/sub fan-out, views, dedup.
+	if a.Redis, err = redisx.Open(ctx, cfg.RedisURL); err != nil {
 		return a, err
 	}
-	a.closers = append(a.closers, func(context.Context) error { a.Pool.Close(); return nil })
-	a.Health.Add("postgres", a.Pool.Ping)
-	if cfg.MigrateOnStart {
-		if err = db.Migrate(ctx, a.Pool, migrations.FS, a.Log); err != nil {
+	a.closers = append(a.closers, func(context.Context) error { return a.Redis.Close() })
+	a.Health.Add("redis", func(ctx context.Context) error { return a.Redis.Ping(ctx).Err() })
+	a.Views = views.New(a.Redis, cfg.RedisPrefix, cfg.ViewTTL)
+	a.broker = redisx.NewBroker(ctx, a.Redis)
+	a.closers = append(a.closers, func(context.Context) error { return a.broker.Close() })
+
+	// Authorisation: ownership index in Redis, order service as fallback for unseen orders.
+	authz := &channel.Authorizer{Owners: a.Views}
+	if cfg.OrderGRPC != "" {
+		conn, err := grpcx.Dial(cfg.OrderGRPC, grpcx.WithRetryableMethods("kade.order.v1.OrderService/GetOrder"))
+		if err != nil {
 			return a, err
 		}
+		a.closers = append(a.closers, func(context.Context) error { return conn.Close() })
+		authz.Lookup = orderLookup(conn)
+	}
+	if a.Hub, err = hub.New(hub.Options{
+		Broker: a.broker, Redis: a.Redis, Prefix: cfg.RedisPrefix, Logger: a.Log, Authorize: authz.Authorize,
+		DevBypass: cfg.DevBypass, OriginPatterns: cfg.OriginPatterns, SendBuffer: cfg.SendBuffer,
+		WriteTimeout: cfg.WriteTimeout, PingInterval: cfg.PingInterval, MaxSubscriptions: cfg.MaxSubscriptions,
+		ReplayWindow: cfg.ReplayWindow,
+	}); err != nil {
+		return a, err
+	}
+	a.Fanout = fanout.New(fanout.Options{
+		Views: a.Views, Publisher: a.Hub, Logger: a.Log,
+		StaleAfter: cfg.StaleAfter, PositionInterval: cfg.PositionInterval,
+	})
+
+	// Kafka: ONE consumer group shared by all replicas; Redis pub/sub does the fan-out.
+	if a.Kafka, err = kafka.NewProducerClient(cfg.KafkaBrokers, cfg.ServiceName, a.Log); err != nil {
+		return a, err
+	}
+	a.closers = append(a.closers, func(ctx context.Context) error {
+		err := a.Kafka.Flush(ctx)
+		a.Kafka.Close()
+		return err
+	})
+	a.Health.Add("kafka", a.Kafka.Ping)
+	router := kafka.NewRouter()
+	a.Fanout.Register(router)
+	if a.consumer, err = kafka.NewConsumer(kafka.ConsumerOptions{
+		Brokers: cfg.KafkaBrokers, Group: cfg.KafkaGroup, Topics: cfg.Topics,
+		Dedup: a.Views, Router: router, DLQ: a.Kafka, Logger: a.Log,
+		Raw: map[string]kafka.RawHandler{cfg.LocationsTopic: a.Fanout.HandleLocation},
+	}); err != nil {
+		return a, err
 	}
 
-	// Redis: GEO index + WebSocket hub over pub/sub.
-	if cfg.RedisURL != "" {
-		if a.Redis, err = redisx.Open(ctx, cfg.RedisURL); err != nil {
-			return a, err
-		}
-		a.closers = append(a.closers, func(context.Context) error { return a.Redis.Close() })
-		a.Health.Add("redis", func(ctx context.Context) error { return a.Redis.Ping(ctx).Err() })
-		a.Geo = redisx.NewGeoIndex(a.Redis, cfg.ServiceName+":geo:example")
-		a.broker = redisx.NewBroker(ctx, a.Redis)
-		a.closers = append(a.closers, func(context.Context) error { return a.broker.Close() })
-		if a.Hub, err = ws.NewHub(ws.Options{Broker: a.broker, Logger: a.Log}); err != nil {
-			return a, err
-		}
-	}
-
-	// Kafka: producer client (stream + DLQ), optional registry stream, idempotent consumer.
-	if len(cfg.KafkaBrokers) > 0 {
-		if a.Kafka, err = kafka.NewProducerClient(cfg.KafkaBrokers, cfg.ServiceName, a.Log); err != nil {
-			return a, err
-		}
-		a.closers = append(a.closers, func(ctx context.Context) error {
-			err := a.Kafka.Flush(ctx) // deliver buffered stream records before exit
-			a.Kafka.Close()
-			return err
-		})
-		a.Health.Add("kafka", a.Kafka.Ping)
-
-		if cfg.SchemaRegistryURL != "" {
-			reg, err := sr.NewClient(sr.URLs(cfg.SchemaRegistryURL))
-			if err != nil {
-				return a, err
-			}
-			if a.Stream, err = retry(ctx, a.Log, "schema registry", func() (*kafka.StreamProducer[*templatev1.Note], error) {
-				return kafka.NewStreamProducer[*templatev1.Note](ctx, a.Kafka, reg, cfg.StreamTopic)
-			}); err != nil {
-				return a, err
-			}
-			a.Log.InfoContext(ctx, "stream producer ready", "topic", cfg.StreamTopic, "schema_id", a.Stream.SchemaID())
-		}
-
-		router := kafka.NewRouter()
-		a.registerConsumers(router)
-		if a.consumer, err = kafka.NewConsumer(kafka.ConsumerOptions{
-			Brokers: cfg.KafkaBrokers, Group: cfg.ServiceName, Topics: []string{cfg.NoteEventsTopic},
-			Pool: a.Pool, Router: router, DLQ: a.Kafka, Logger: a.Log,
-		}); err != nil {
-			return a, err
-		}
-	}
-
-	// gRPC.
-	a.grpcSrv, a.grpcHS = grpcx.NewServer(grpcx.ServerOptions{Domain: cfg.ServiceName, Logger: a.Log, DefaultTimeout: cfg.RPCTimeout})
-	a.registerAPI()
-
-	// HTTP: health, metrics, WebSocket.
+	// HTTP: WebSocket, health, metrics.
 	mux := http.NewServeMux()
 	mux.Handle("GET /health/live", a.Health.LiveHandler())
 	mux.Handle("GET /health/ready", a.Health.ReadyHandler())
 	mux.Handle("GET /metrics", a.Tel.MetricsHandler)
-	if a.Hub != nil {
-		mux.Handle("GET /ws", otelhttp.NewHandler(a.Hub, "GET /ws"))
-	}
+	mux.Handle("GET /ws", otelhttp.NewHandler(a.Hub, "GET /ws"))
 	a.httpSrv = &http.Server{Handler: mux, ReadHeaderTimeout: 5 * time.Second}
 
 	lc := net.ListenConfig{}
-	if a.grpcLis, err = lc.Listen(ctx, "tcp", ":"+strconv.Itoa(cfg.GRPCPort)); err != nil {
-		return a, err
-	}
 	if a.httpLis, err = lc.Listen(ctx, "tcp", ":"+strconv.Itoa(cfg.HTTPPort)); err != nil {
-		_ = a.grpcLis.Close()
 		return a, err
 	}
-	a.GRPCAddr, a.HTTPAddr = a.grpcLis.Addr(), a.httpLis.Addr()
+	a.HTTPAddr = a.httpLis.Addr()
 	return a, nil
 }
 
-// registerAPI registers gRPC services. Add yours here.
-func (a *App) registerAPI() {
-	var views note.ViewSink
-	if a.Stream != nil {
-		views = func(ctx context.Context, n *templatev1.Note) {
-			a.Stream.Produce(ctx, n.GetId(), n, func(_ *kgo.Record, err error) {
-				if err != nil {
-					a.Log.WarnContext(ctx, "stream produce failed", "topic", a.Stream.Topic(), "err", err)
-				}
-			})
+// orderLookup asks order.GetOrder as the caller; the order service applies its own authorisation.
+func orderLookup(conn *grpc.ClientConn) channel.OrderLookup {
+	client := orderv1.NewOrderServiceClient(conn)
+	return func(ctx context.Context, id identity.Identity, orderID string) (channel.OrderAccess, bool, error) {
+		caller := auth.Identity{UserID: id.UserID, Roles: id.Roles}
+		if len(id.OutletIDs) > 0 {
+			caller.OutletID = id.OutletIDs[0]
 		}
+		res, err := client.GetOrder(auth.WithIdentity(ctx, caller), &orderv1.GetOrderRequest{OrderId: orderID})
+		switch status.Code(err) {
+		case codes.OK:
+		case codes.NotFound, codes.PermissionDenied, codes.InvalidArgument, codes.Unauthenticated:
+			return channel.OrderAccess{}, false, nil
+		default:
+			return channel.OrderAccess{}, false, err
+		}
+		o := res.GetOrder()
+		return channel.OrderAccess{CustomerID: o.GetCustomer().GetId(), OutletID: o.GetRestaurant().GetId(), RiderID: o.GetRider().GetRiderId()}, o.GetId() != "", nil
 	}
-	templatev1.RegisterTemplateServiceServer(a.grpcSrv, note.NewService(note.NewPgStore(a.Pool), views))
-}
-
-// registerConsumers maps event types to handlers. Add yours here.
-func (a *App) registerConsumers(r *kafka.Router) {
-	var pub note.Publisher
-	if a.Hub != nil {
-		pub = a.Hub
-	}
-	note.RegisterHandlers(r, pub, a.Log)
 }
 
 // Run serves until ctx is cancelled (SIGTERM) or a component fails, then shuts down gracefully:
-// readiness fails first, then gRPC drains in-flight calls, HTTP and WebSockets close, the
-// consumer commits and leaves its group, buffered records are flushed, connections close.
+// readiness fails first, sockets close with 1001 (clients reconnect to another replica), HTTP
+// stops, the consumer finishes its batch, commits and leaves the group, connections close.
 func (a *App) Run(ctx context.Context) error {
-	g, gctx := errgroup.WithContext(ctx)
-	g.Go(func() error {
-		if err := a.grpcSrv.Serve(a.grpcLis); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
-			return fmt.Errorf("grpc: %w", err)
-		}
-		return nil
-	})
-	g.Go(func() error {
+	errc := make(chan error, 1)
+	go func() {
 		if err := a.httpSrv.Serve(a.httpLis); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			return fmt.Errorf("http: %w", err)
+			errc <- fmt.Errorf("http: %w", err)
 		}
-		return nil
-	})
-	consumerCtx, stopConsumer := context.WithCancel(context.WithoutCancel(gctx))
+	}()
+	bg, stopBg := context.WithCancel(context.WithoutCancel(ctx))
+	defer stopBg()
+	consumerCtx, stopConsumer := context.WithCancel(bg)
 	defer stopConsumer()
 	consumerDone := make(chan struct{})
-	if a.consumer != nil {
-		go func() { defer close(consumerDone); _ = a.consumer.Run(consumerCtx) }()
-	} else {
-		close(consumerDone)
-	}
-	hubCtx, stopHub := context.WithCancel(context.WithoutCancel(gctx))
-	defer stopHub()
-	if a.Hub != nil {
-		go func() { _ = a.Hub.Run(hubCtx) }()
-	}
-	a.grpcHS.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
-	a.Log.InfoContext(ctx, "service started", "grpc", a.GRPCAddr.String(), "http", a.HTTPAddr.String(), "version", a.Cfg.Version)
+	go func() { defer close(consumerDone); _ = a.consumer.Run(consumerCtx) }()
+	go func() { _ = a.Hub.Run(bg) }()
+	go a.Fanout.RunOps(bg, a.Cfg.OpsInterval)
+	a.Log.InfoContext(ctx, "service started", "http", a.HTTPAddr.String(), "group", a.Cfg.KafkaGroup,
+		"topics", strings.Join(a.Cfg.Topics, ","), "dev_bypass", a.Cfg.DevBypass, "version", a.Cfg.Version)
 
-	g.Go(func() error {
-		<-gctx.Done()
-		sctx, cancel := context.WithTimeout(context.Background(), a.Cfg.ShutdownTimeout)
-		defer cancel()
-		a.Log.InfoContext(sctx, "shutting down")
-		a.Health.SetDraining()
-		a.grpcHS.SetServingStatus("", healthpb.HealthCheckResponse_NOT_SERVING)
-
-		stopped := make(chan struct{})
-		go func() { a.grpcSrv.GracefulStop(); close(stopped) }()
-		select {
-		case <-stopped:
-		case <-sctx.Done():
-			a.grpcSrv.Stop()
-		}
-		if a.Hub != nil {
-			_ = a.Hub.Shutdown(sctx)
-		}
-		_ = a.httpSrv.Shutdown(sctx)
-		stopConsumer()
-		select {
-		case <-consumerDone:
-		case <-sctx.Done():
-		}
-		stopHub()
-		return a.close(sctx)
-	})
-	err := g.Wait()
+	var runErr error
+	select {
+	case <-ctx.Done():
+	case runErr = <-errc:
+	}
+	sctx, cancel := context.WithTimeout(context.Background(), a.Cfg.ShutdownTimeout)
+	defer cancel()
+	a.Log.InfoContext(sctx, "shutting down")
+	a.Health.SetDraining()
+	_ = a.Hub.Shutdown(sctx)
+	_ = a.httpSrv.Shutdown(sctx)
+	stopConsumer()
+	select {
+	case <-consumerDone:
+	case <-sctx.Done():
+	}
+	stopBg()
+	err := errors.Join(runErr, a.close(sctx))
 	a.Log.Info("stopped", "err", err)
 	return err
 }
@@ -262,24 +214,4 @@ func (a *App) close(ctx context.Context) error {
 	}
 	a.closers = nil
 	return errors.Join(errs...)
-}
-
-// retry calls fn until it succeeds (dependencies may still be starting), up to ~30s.
-func retry[T any](ctx context.Context, log *slog.Logger, what string, fn func() (T, error)) (T, error) {
-	var zero T
-	for attempt := 1; ; attempt++ {
-		v, err := fn()
-		if err == nil {
-			return v, nil
-		}
-		if attempt == 15 || ctx.Err() != nil {
-			return zero, fmt.Errorf("%s: %w", what, err)
-		}
-		log.WarnContext(ctx, "dependency not ready, retrying", "dependency", what, "attempt", attempt, "err", err)
-		select {
-		case <-ctx.Done():
-			return zero, ctx.Err()
-		case <-time.After(2 * time.Second):
-		}
-	}
 }

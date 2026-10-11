@@ -146,7 +146,7 @@ Debezium routes each row to `kade.<aggregatetype>.events` with headers `id`, `ev
 ## Auth
 
 - Keycloak realm `kade` with clients `customer-app`, `merchant-app`, `rider-app`, `admin-app`; roles `customer`, `merchant_staff`, `merchant_owner`, `rider`, `ops`, `finance`, `support`, `admin`.
-- Gateways validate the JWT and pass identity to services as gRPC metadata: `x-user-id`, `x-roles`, `x-outlet-id` (merchant staff). Services trust the internal network and authorise from that metadata.
+- Gateways validate the JWT and pass identity to services as gRPC metadata: `x-user-id`, `x-roles`, `x-outlet-id` (merchant staff, comma-separated), `x-rider-id` (riders, from `GetMyRider`). The same headers go on the `/ws` upgrade gateways proxy to `ws://realtime:8112/ws`. Services trust the internal network and authorise from that metadata.
 
 ## Observability
 

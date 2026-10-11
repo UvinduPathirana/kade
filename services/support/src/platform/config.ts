@@ -25,6 +25,18 @@ const schema = z.object({
   OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
   SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
+  // Order (GetOrder, RefundOrder) and profile (ChangeCredit for goodwill credit) gRPC addresses.
+  ORDER_GRPC: z.string().min(1).default("order:50107"),
+  PROFILE_GRPC: z.string().min(1).default("profile:50103"),
+  // Deadline on every outgoing gRPC call.
+  GRPC_CLIENT_TIMEOUT_MS: z.coerce.number().int().positive().default(2_000),
+  // How often unanswered tickets are checked against their SLA (TicketSlaBreached).
+  SLA_CHECK_INTERVAL_MS: z.coerce.number().int().positive().default(30_000),
+  // Seeds the admin console's demo tickets and macros on start (idempotent).
+  SEED_DEMO_DATA: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((v) => v === "true"),
 });
 
 export type Config = z.infer<typeof schema>;

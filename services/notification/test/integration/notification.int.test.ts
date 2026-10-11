@@ -1,21 +1,24 @@
-// Integration test against the SHARED stack (pnpm infra:up): Postgres notification, Kafka and the
-// Debezium connector outbox-notification (deploy/compose/connect/register-outbox.sh notification notification).
-// Override addresses with DATABASE_URL / KAFKA_BROKERS when your host ports differ.
+// Integration test against the SHARED stack (pnpm infra:up): Postgres `notification` and Kafka.
+// Notification publishes no events, so no outbox connector is needed. Defaults use this laptop's host
+// ports (Postgres 15432, see docs/backend/RUNBOOK.md); override with DATABASE_URL / KAFKA_BROKERS.
 import { credentials, Metadata, status, type ServiceError } from "@grpc/grpc-js";
 import { KafkaJS } from "@confluentinc/kafka-javascript";
 import type { INestApplication } from "@nestjs/common";
 import {
-  NoteCreated,
-  TemplateServiceClient,
-  type CreateNoteRequest,
-  type CreateNoteResponse,
-  type GetNoteResponse,
-} from "@kade/proto/kade/template/v1/template";
+  Channel,
+  NotificationServiceClient,
+  NotificationStatus,
+  RecipientKind,
+  type ListNotificationsResponse,
+  type SendNotificationRequest,
+  type SendNotificationResponse,
+} from "@kade/proto/kade/notification/v1/notification_service";
+import { OrderPickedUp, OrderPlaced } from "@kade/proto/kade/order/v1/order_events";
+import { OrderStatus } from "@kade/proto/kade/order/v1/order_service";
 import pg from "pg";
 import { v7 as uuidv7 } from "uuid";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startApp } from "../../src/app.js";
-import { NOTE_CREATED } from "../../src/notes/notes.grpc.js";
 import { loadConfig } from "../../src/platform/config.js";
 import { decodeErrorInfo, STATUS_DETAILS_KEY } from "../../src/platform/grpc/error-details.js";
 import { GrpcServer } from "../../src/platform/grpc/grpc-server.js";
@@ -23,7 +26,7 @@ import { createLogger } from "../../src/platform/logger.js";
 
 const config = loadConfig({
   SERVICE_NAME: "notification",
-  DATABASE_URL: "postgres://notification:notification@localhost:5432/notification",
+  DATABASE_URL: "postgres://notification:notification@localhost:15432/notification",
   KAFKA_BROKERS: "localhost:19092",
   LOG_LEVEL: "warn",
   ...process.env,
@@ -31,21 +34,22 @@ const config = loadConfig({
   HTTP_PORT: "0",
   OTEL_EXPORTER_OTLP_ENDPOINT: undefined,
 });
-const TOPIC = "kade.note.events";
 
 let app: INestApplication;
-let client: TemplateServiceClient;
+let client: NotificationServiceClient;
 let pool: pg.Pool;
-let kafka: KafkaJS.Kafka;
 let producer: KafkaJS.Producer;
 
 beforeAll(async () => {
   app = await startApp(config, createLogger(config));
-  const port = app.get(GrpcServer).port;
-  client = new TemplateServiceClient(`localhost:${port}`, credentials.createInsecure());
+  client = new NotificationServiceClient(
+    `localhost:${app.get(GrpcServer).port}`,
+    credentials.createInsecure(),
+  );
   pool = new pg.Pool({ connectionString: config.DATABASE_URL, max: 2 });
-  kafka = new KafkaJS.Kafka({ kafkaJS: { brokers: config.KAFKA_BROKERS, logLevel: KafkaJS.logLevel.ERROR } });
-  producer = kafka.producer();
+  producer = new KafkaJS.Kafka({
+    kafkaJS: { brokers: config.KAFKA_BROKERS, logLevel: KafkaJS.logLevel.ERROR },
+  }).producer();
   await producer.connect();
 });
 
@@ -56,37 +60,44 @@ afterAll(async () => {
   await app?.close();
 });
 
-function identity(userId = "user-it-1", roles = "customer"): Metadata {
+function staff(): Metadata {
   const md = new Metadata();
-  md.set("x-user-id", userId);
-  md.set("x-roles", roles);
+  md.set("x-user-id", "support-it");
+  md.set("x-roles", "support");
   return md;
 }
 
-function createNote(req: Partial<CreateNoteRequest>, md = identity()): Promise<CreateNoteResponse> {
-  const request: CreateNoteRequest = { text: "", idempotencyKey: "", ...req };
-  return new Promise((resolve, reject) =>
-    client.createNote(request, md, { deadline: Date.now() + 5_000 }, (err, res) =>
-      err ? reject(err) : resolve(res),
-    ),
-  );
-}
+const call =
+  <Req, Res>(
+    method: (req: Req, md: Metadata, opts: object, cb: (e: ServiceError | null, r: Res) => void) => void,
+  ) =>
+  (req: Req, md = new Metadata()): Promise<Res> =>
+    new Promise((resolve, reject) =>
+      method.call(client, req, md, { deadline: Date.now() + 5_000 }, (err, res) =>
+        err ? reject(err) : resolve(res),
+      ),
+    );
 
-function getNote(id: string): Promise<GetNoteResponse> {
-  return new Promise((resolve, reject) =>
-    client.getNote({ id }, new Metadata(), { deadline: Date.now() + 2_000 }, (err, res) =>
-      err ? reject(err) : resolve(res),
-    ),
-  );
-}
+const send = (req: Partial<SendNotificationRequest>): Promise<SendNotificationResponse> =>
+  call(client.sendNotification)({
+    channel: Channel.CHANNEL_UNSPECIFIED,
+    template: "",
+    params: {},
+    referenceId: "",
+    transactional: false,
+    idempotencyKey: "",
+    ...req,
+  } as SendNotificationRequest);
+const list = (userId: string, md = staff()): Promise<ListNotificationsResponse> =>
+  call(client.listNotifications)({ userId, referenceId: "", page: { pageSize: 10, pageToken: "" } }, md);
 
-async function grpcError(promise: Promise<unknown>): Promise<{ code: status; reason: string | undefined }> {
+async function reasonOf(promise: Promise<unknown>): Promise<[status, string | undefined]> {
   const err = (await promise.then(
     () => expect.unreachable("expected the call to fail"),
     (e: unknown) => e,
   )) as ServiceError;
   const details = err.metadata.get(STATUS_DETAILS_KEY)[0];
-  return { code: err.code, reason: details ? decodeErrorInfo(details as Buffer)?.reason : undefined };
+  return [err.code, details ? decodeErrorInfo(details as Buffer)?.reason : undefined];
 }
 
 async function eventually<T>(fn: () => Promise<T | undefined>, timeoutMs = 30_000): Promise<T> {
@@ -99,153 +110,120 @@ async function eventually<T>(fn: () => Promise<T | undefined>, timeoutMs = 30_00
   }
 }
 
-async function projection(noteId: string): Promise<{ applied_count: number } | undefined> {
-  const { rows } = await pool.query("select applied_count from note_projections where note_id = $1", [
-    noteId,
-  ]);
-  return rows[0];
-}
-
-describe("TemplateService over gRPC", () => {
-  it("CreateNote writes the note and one outbox row in the same transaction", async () => {
-    const { note } = await createNote({
-      text: "  hello kadé  ",
-      amount: { amountMinor: 115_000, currency: "LKR" },
+describe("NotificationService over gRPC", () => {
+  it("sends an OTP by SMS once per idempotency key and logs it for the user", async () => {
+    const userId = uuidv7();
+    const req = {
+      channel: Channel.CHANNEL_SMS,
+      recipient: {
+        kind: RecipientKind.RECIPIENT_KIND_CUSTOMER,
+        userId,
+        phone: "+94771234567",
+        email: "",
+        name: "Dilini",
+      },
+      template: "otp",
+      params: { code: "482193" },
+      transactional: true,
+      idempotencyKey: `otp:${userId}`,
+    };
+    const first = await send(req);
+    expect(first.notification).toMatchObject({
+      status: NotificationStatus.NOTIFICATION_STATUS_SENT,
+      body: "482193 is your Kadé code. It expires in 5 minutes. Don't share it with anyone.",
+      attempts: 1,
     });
-    expect(note).toMatchObject({ text: "hello kadé", amount: { amountMinor: 115_000, currency: "LKR" } });
+    const again = await send(req);
+    expect(again.notification?.id).toBe(first.notification?.id);
 
-    const { rows: notes } = await pool.query("select * from notes where id = $1", [note!.id]);
-    expect(notes).toHaveLength(1);
-    expect(notes[0]).toMatchObject({ created_by: "user-it-1", amount_minor: "115000" });
-
-    const { rows: outbox } = await pool.query("select * from outbox where aggregateid = $1", [note!.id]);
-    expect(outbox).toHaveLength(1);
-    expect(outbox[0]).toMatchObject({ aggregatetype: "note", type: NOTE_CREATED });
-    const event = NoteCreated.decode(outbox[0].payload);
-    expect(event).toMatchObject({ noteId: note!.id, text: "hello kadé", amount: { amountMinor: 115_000 } });
-
-    expect((await getNote(note!.id)).note).toEqual(note);
+    const { notifications, page } = await list(userId);
+    expect(notifications).toHaveLength(1);
+    expect(page?.totalSize).toBe(1);
   });
 
-  it("returns the original result when retried with the same idempotency key", async () => {
-    const key = uuidv7();
-    const first = await createNote({ text: "once", idempotencyKey: key });
-    const again = await createNote({ text: "once", idempotencyKey: key });
-    expect(again.note).toEqual(first.note);
-    const { rows } = await pool.query("select count(*)::int as n from outbox where aggregateid = $1", [
-      first.note!.id,
+  it("validates templates, recipients and who may read the log", async () => {
+    const recipient = {
+      kind: RecipientKind.RECIPIENT_KIND_CUSTOMER,
+      userId: "u",
+      phone: "",
+      email: "",
+      name: "",
+    };
+    expect(await reasonOf(send({ recipient, template: "nope" }))).toEqual([
+      status.INVALID_ARGUMENT,
+      "TEMPLATE_UNKNOWN",
     ]);
-    expect(rows[0].n).toBe(1);
-
-    // Concurrent retries serialise on the key's primary key and still yield one note.
-    const key2 = uuidv7();
-    const results = await Promise.all(
-      [1, 2, 3].map(() => createNote({ text: "race", idempotencyKey: key2 })),
-    );
-    expect(new Set(results.map((r) => r.note!.id)).size).toBe(1);
-
-    expect(await grpcError(createNote({ text: "different body", idempotencyKey: key }))).toEqual({
-      code: status.FAILED_PRECONDITION,
-      reason: "IDEMPOTENCY_KEY_REUSED",
-    });
-  });
-
-  it("maps domain errors to status codes with an ErrorInfo reason", async () => {
-    expect(await grpcError(getNote(uuidv7()))).toEqual({ code: status.NOT_FOUND, reason: "NOTE_NOT_FOUND" });
-    expect(await grpcError(getNote("nope"))).toEqual({
-      code: status.INVALID_ARGUMENT,
-      reason: "NOTE_ID_INVALID",
-    });
-    expect(await grpcError(createNote({ text: "x" }, new Metadata()))).toEqual({
-      code: status.UNAUTHENTICATED,
-      reason: "UNAUTHENTICATED",
-    });
-    expect(await grpcError(createNote({ text: " " }))).toEqual({
-      code: status.INVALID_ARGUMENT,
-      reason: "NOTE_TEXT_REQUIRED",
-    });
+    expect(
+      await reasonOf(
+        send({ recipient, template: "otp", channel: Channel.CHANNEL_SMS, params: { code: "1" } }),
+      ),
+    ).toEqual([status.INVALID_ARGUMENT, "RECIPIENT_PHONE_REQUIRED"]);
+    const md = new Metadata();
+    md.set("x-user-id", "someone-else");
+    md.set("x-roles", "customer");
+    expect(await reasonOf(list("u", md))).toEqual([status.PERMISSION_DENIED, "PERMISSION_DENIED"]);
   });
 });
 
-describe("kade.note.events consumer", () => {
-  it("projects a note created over gRPC once, via outbox -> Debezium -> Kafka", async () => {
-    const { note } = await createNote({
-      text: "through the outbox",
-      amount: { amountMinor: 500, currency: "LKR" },
-    });
-    const row = await eventually(() => projection(note!.id), 45_000);
-    expect(row.applied_count).toBe(1);
-  });
-
-  it("handles a replayed event exactly once (processed_events dedup)", async () => {
-    const eventId = uuidv7();
-    const noteId = uuidv7();
-    const message = {
-      key: noteId,
-      value: Buffer.from(
-        NoteCreated.encode({
-          noteId,
-          text: "replayed",
-          amount: { amountMinor: 1, currency: "LKR" },
-        }).finish(),
-      ),
-      headers: { id: eventId, eventType: NOTE_CREATED },
-    };
-    await producer.send({ topic: TOPIC, messages: [message, message, message] });
-
-    await eventually(() => projection(noteId));
-    // Give the duplicates time to arrive and be skipped; they are on the same partition, behind it.
-    const marker = uuidv7();
-    await producer.send({
-      topic: TOPIC,
-      messages: [{ ...message, headers: { id: marker, eventType: NOTE_CREATED } }],
-    });
-    await eventually(async () => {
-      const { rows } = await pool.query("select 1 from processed_events where event_id = $1", [marker]);
-      return rows[0];
-    });
-    expect((await projection(noteId))?.applied_count).toBe(2); // the original + the distinct marker event
-    const { rows } = await pool.query("select count(*)::int as n from processed_events where event_id = $1", [
-      eventId,
-    ]);
-    expect(rows[0].n).toBe(1);
-  });
-
-  it("sends an undecodable event to the DLQ with the error in a header", async () => {
-    const eventId = uuidv7();
-    await producer.send({
-      topic: TOPIC,
-      messages: [
-        {
-          key: "poison",
-          value: Buffer.from([0xff, 0xff, 0xff]),
-          headers: { id: eventId, eventType: NOTE_CREATED },
+describe("order events → customer messages", () => {
+  it("tells the customer who is bringing the food, exactly once per event", async () => {
+    const orderId = uuidv7();
+    const customerId = uuidv7();
+    const placedId = uuidv7();
+    const pickedId = uuidv7();
+    const placed = OrderPlaced.encode(
+      OrderPlaced.fromPartial({
+        orderId,
+        order: {
+          id: orderId,
+          orderNumber: "KD-4821",
+          status: OrderStatus.ORDER_STATUS_PLACED,
+          customer: { id: customerId, name: "Dilini Perera", phone: "+94771234567" },
+          restaurant: { id: "00000000-0000-7000-8000-000000000001", name: "Galle Road Kottu House" },
+          rider: {
+            riderId: "00000000-0000-7000-8001-000000000101",
+            name: "Nimal Fernando",
+            firstName: "Nimal",
+          },
         },
+      }),
+    ).finish();
+    const picked = OrderPickedUp.encode(
+      OrderPickedUp.fromPartial({ orderId, orderNumber: "KD-4821", customerId }),
+    ).finish();
+    const msg = (id: string, type: string, value: Uint8Array) => ({
+      key: orderId,
+      value: Buffer.from(value),
+      headers: { id, eventType: type },
+    });
+    await producer.send({
+      topic: "kade.order.events",
+      messages: [
+        msg(placedId, "kade.order.v1.OrderPlaced", placed),
+        msg(pickedId, "kade.order.v1.OrderPickedUp", picked),
+        msg(pickedId, "kade.order.v1.OrderPickedUp", picked), // redelivery
       ],
     });
 
-    const dlq = kafka.consumer({
-      kafkaJS: { groupId: `notification-it-dlq-${eventId}`, fromBeginning: true },
-    });
-    await dlq.connect();
-    await dlq.subscribe({ topics: [`${TOPIC}.dlq`] });
-    const found = new Promise<KafkaJS.IHeaders>((resolve) => {
-      void dlq.run({
-        eachMessage: async ({ message }) => {
-          if (message.headers?.id?.toString() === eventId) resolve(message.headers);
-        },
-      });
-    });
-    try {
-      const headers = await Promise.race([
-        found,
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("no DLQ message")), 45_000)),
-      ]);
-      expect(headers.error?.toString()).toMatch(/Error/);
-      expect(headers["original-topic"]?.toString()).toBe(TOPIC);
-      expect(headers["failed-by"]?.toString()).toBe("notification");
-    } finally {
-      await dlq.disconnect();
-    }
+    const bodies = await eventually(async () => {
+      const { rows } = await pool.query<{ body: string; channel: number; template: string }>(
+        "select body, channel, template from notifications where reference_id = $1 order by id",
+        [orderId],
+      );
+      return rows.length >= 2 ? rows : undefined;
+    }, 45_000);
+    // Let the duplicate land behind them on the same partition before counting.
+    await new Promise((r) => setTimeout(r, 1_500));
+    const { rows } = await pool.query(
+      "select count(*)::int as n from notifications where reference_id = $1",
+      [orderId],
+    );
+    expect(rows[0].n).toBe(2);
+    expect(bodies.map((b) => b.body)).toEqual([
+      "We've sent order KD-4821 to Galle Road Kottu House. We'll let you know as soon as they accept.",
+      "Nimal is on the way with your order from Galle Road Kottu House.",
+    ]);
+    // No push device registered: falls back to SMS on the order's phone number.
+    expect(bodies.every((b) => b.channel === Channel.CHANNEL_SMS)).toBe(true);
   });
 });
