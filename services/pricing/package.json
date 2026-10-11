@@ -1,0 +1,60 @@
+{
+  "name": "@kade/pricing",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Kadé pricing service.",
+  "files": [
+    "dist",
+    "drizzle"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node --enable-source-maps --import ./dist/instrumentation.js dist/main.js",
+    "dev": "tsc -p tsconfig.build.json && sh -c 'tsc -p tsconfig.build.json --watch --preserveWatchOutput & node --watch-path=dist --env-file-if-exists=.env --enable-source-maps --import ./dist/instrumentation.js dist/main.js'",
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "2.16.0",
+    "@confluentinc/kafka-javascript": "^1.11.0",
+    "@grpc/grpc-js": "1.14.6",
+    "@kade/proto": "workspace:*",
+    "@nestjs/common": "^11.2.7",
+    "@nestjs/core": "^11.2.7",
+    "@nestjs/platform-express": "^11.2.7",
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/core": "^2.12.0",
+    "@opentelemetry/exporter-logs-otlp-proto": "^0.223.0",
+    "@opentelemetry/exporter-metrics-otlp-proto": "^0.223.0",
+    "@opentelemetry/exporter-prometheus": "^0.223.0",
+    "@opentelemetry/exporter-trace-otlp-proto": "^0.223.0",
+    "@opentelemetry/instrumentation-grpc": "^0.223.0",
+    "@opentelemetry/instrumentation-http": "^0.223.0",
+    "@opentelemetry/instrumentation-pg": "^0.75.0",
+    "@opentelemetry/instrumentation-pino": "^0.69.0",
+    "@opentelemetry/resources": "^2.12.0",
+    "@opentelemetry/sdk-logs": "^0.223.0",
+    "@opentelemetry/sdk-metrics": "^2.12.0",
+    "@opentelemetry/sdk-node": "^0.223.0",
+    "@opentelemetry/sdk-trace-base": "^2.12.0",
+    "@opentelemetry/semantic-conventions": "^1.43.0",
+    "drizzle-orm": "^0.45.4",
+    "import-in-the-middle": "^3.5.2",
+    "pg": "^8.23.1",
+    "pino": "^10.4.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "uuid": "^14.0.3",
+    "zod": "^4.6.6"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@types/pg": "^8.23.1",
+    "drizzle-kit": "^0.31.11",
+    "typescript": "6.0.3",
+    "vitest": "^5.0.3"
+  }
+}

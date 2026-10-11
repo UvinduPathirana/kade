@@ -40,6 +40,8 @@ Ports are fixed so services, gateways and Compose agree. gRPC listens on the gRP
 | notification | TS | 50114 | 8114 | `notification` | — |
 | review | TS | 50115 | 8115 | `review` | review → `kade.review.events` |
 | support | TS | 50116 | 8116 | `support` | ticket → `kade.ticket.events` |
+| cart (note) | | | | `cart` DB also exists for the template wiring; carts themselves live in Redis | |
+| _template ts / gateway | TS | 50100 | 8100 / 8200 | `template_ts` | note → `kade.note.events` (templates only) |
 
 | Gateway | App | HTTP | Notes |
 | --- | --- | --- | --- |
@@ -74,6 +76,8 @@ Ports are fixed so services, gateways and Compose agree. gRPC listens on the gRP
 | `REDIS_URL` | `redis://redis:6379` | |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://otel:4318` | traces, metrics, logs |
 | `KEYCLOAK_ISSUER` | `http://localhost:8080/realms/kade` | gateways only; must equal the token `iss` (Keycloak's fixed hostname) |
+| `KEYCLOAK_CLIENTS` | `customer-app` | gateways: accepted `azp` client ids |
+| `AUTH_DEV_BYPASS` | `true` (only with `DEPLOY_ENV=dev`) | gateways accept `Bearer dev:<userId>:<role,role>` for local testing |
 | `KEYCLOAK_JWKS_URL` | `http://keycloak:8080/realms/kade/protocol/openid-connect/certs` | gateways fetch keys in-network |
 | `<NAME>_GRPC` | `CATALOG_GRPC=catalog:50101` | address of each dependency |
 
@@ -106,7 +110,7 @@ CREATE TABLE outbox (
 
   Debezium routes each row to `kade.<aggregatetype>.events` with headers `id`, `eventType` (= `type`) and `traceparent`; the value is the raw protobuf bytes.
 - **Consuming:** consumer group = service name. Decode by the `eventType` header. Every consumer is idempotent: record handled event ids in its own `processed_events(event_id uuid primary key, handled_at timestamptz)` table in the same transaction as its side effects.
-- **Failures:** retry with backoff; after 5 attempts send to `<topic>.dlq` with the error in a header.
+- **Failures:** retry with backoff; after 5 attempts send to `<topic>.dlq` with headers `error`, `original-topic`, `original-partition`, `original-offset`, `attempts`, `failed-by` (same names in every language).
 - **High-volume streams** (`kade.rider.locations`) are produced directly (not outbox) with the Confluent Protobuf serializer and the Schema Registry.
 
 ## Synchronous calls

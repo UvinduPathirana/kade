@@ -1,0 +1,13 @@
+# BuildKit uses <Dockerfile>.dockerignore; patterns are relative to the build context (repo root).
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+!**/.env.example
+.git
+apps
+packages
+prototype
+screenshots
+docs
+deploy

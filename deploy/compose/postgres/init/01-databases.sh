@@ -11,6 +11,7 @@ SERVICE_DBS=(
   search:search
   profile:profile
   pricing:pricing
+  cart:cart
   promotion:promotion
   order:orders
   payment:payment

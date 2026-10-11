@@ -1,0 +1,55 @@
+{
+  "name": "@kade/gateway-admin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Kadé gateway (backend-for-frontend) template: Fastify REST + WebSocket, Keycloak JWT, gRPC upstreams, problem+json, OpenAPI.",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node --enable-source-maps --import ./dist/instrumentation.js dist/main.js",
+    "dev": "tsc -p tsconfig.build.json && sh -c 'tsc -p tsconfig.build.json --watch --preserveWatchOutput & node --watch-path=dist --env-file-if-exists=.env --enable-source-maps --import ./dist/instrumentation.js dist/main.js'",
+    "test": "vitest run",
+    "openapi": "pnpm build && node dist/openapi.js openapi.json && prettier --write openapi.json"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "2.16.0",
+    "@fastify/cors": "^11.3.1",
+    "@fastify/otel": "^0.21.2",
+    "@fastify/swagger": "^9.9.2",
+    "@fastify/type-provider-typebox": "^6.2.0",
+    "@fastify/websocket": "^11.3.4",
+    "@grpc/grpc-js": "1.14.6",
+    "@kade/proto": "workspace:*",
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/exporter-logs-otlp-proto": "^0.223.0",
+    "@opentelemetry/exporter-metrics-otlp-proto": "^0.223.0",
+    "@opentelemetry/exporter-prometheus": "^0.223.0",
+    "@opentelemetry/exporter-trace-otlp-proto": "^0.223.0",
+    "@opentelemetry/instrumentation-grpc": "^0.223.0",
+    "@opentelemetry/instrumentation-http": "^0.223.0",
+    "@opentelemetry/instrumentation-pino": "^0.69.0",
+    "@opentelemetry/resources": "^2.12.0",
+    "@opentelemetry/sdk-logs": "^0.223.0",
+    "@opentelemetry/sdk-metrics": "^2.12.0",
+    "@opentelemetry/sdk-node": "^0.223.0",
+    "@opentelemetry/sdk-trace-base": "^2.12.0",
+    "@opentelemetry/semantic-conventions": "^1.43.0",
+    "fastify": "^5.12.5",
+    "import-in-the-middle": "^3.5.2",
+    "jose": "^6.2.12",
+    "pino": "^10.4.0",
+    "typebox": "^1.3.36",
+    "zod": "^4.6.6"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@types/ws": "^8.18.2",
+    "prettier": "3.9.9",
+    "typescript": "6.0.3",
+    "vitest": "^5.0.3"
+  }
+}

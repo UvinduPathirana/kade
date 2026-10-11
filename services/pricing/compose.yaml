@@ -1,0 +1,47 @@
+# Compose fragment for pricing. Included from deploy/compose/services.yaml;
+# paths are relative to this file. Start it with the shared stack:
+#   docker compose -f deploy/compose/compose.yaml --profile ordering up -d --build pricing
+services:
+  pricing:
+    image: kade/pricing:dev
+    build:
+      context: ../..
+      dockerfile: services/pricing/Dockerfile
+    profiles: [ordering]
+    environment:
+      SERVICE_NAME: pricing
+      GRPC_PORT: "50105"
+      HTTP_PORT: "8105"
+      DATABASE_URL: postgres://pricing:pricing@postgres:5432/pricing
+      KAFKA_BROKERS: kafka:9092
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel:4318
+      LOG_LEVEL: info
+      # V8 sizes its heap from the host's RAM, not the cgroup; cap it well under the 192 MB limit
+      # so GC kicks in before the OOM killer does (native librdkafka + buffers live outside it).
+      NODE_OPTIONS: --max-old-space-size=96
+    ports:
+      - "50105:50105"
+      - "8105:8105"
+    depends_on:
+      postgres: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+      kafka-init: { condition: service_completed_successfully }
+    healthcheck:
+      # busybox wget: no extra Node process (~40 MB) inside a 192 MB container every 10 s.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8105/health/ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 20s
+    # main.ts drains within SHUTDOWN_TIMEOUT_MS (10 s); give it that before SIGKILL.
+    stop_grace_period: 15s
+    deploy: { resources: { limits: { memory: 192m } } }
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: "2" }
+    networks: [kade]
+
+networks:
+  kade:
+    name: kade
+    external: true

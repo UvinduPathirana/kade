@@ -1,0 +1,26 @@
+{
+  // Standalone (not tsconfig.base.json): that one targets Vite apps (DOM, bundler resolution, noEmit).
+  "compilerOptions": {
+    "target": "ES2024",
+    "lib": ["ES2024"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": ["node"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    // Nest needs legacy decorators. We deliberately do NOT use emitDecoratorMetadata: every
+    // constructor parameter uses an explicit @Inject(Token), which also works under Vitest
+    // (whose transformer cannot emit decorator metadata) and with `import type`.
+    "experimentalDecorators": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "outDir": "dist",
+    "rootDir": "."
+  },
+  "include": ["src", "*.config.ts"]
+}

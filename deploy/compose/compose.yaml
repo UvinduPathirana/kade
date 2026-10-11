@@ -30,6 +30,7 @@ x-logging: &logging
 services:
   # ---------------------------------------------------------------- data
   postgres:
+    restart: unless-stopped
     image: postgres:17.11-alpine
     command:
       - postgres
@@ -66,6 +67,7 @@ services:
     networks: [kade]
 
   redis:
+    restart: unless-stopped
     image: redis:7.4.11-alpine
     command: ["redis-server", "--appendonly", "yes", "--maxmemory", "96mb", "--maxmemory-policy", "noeviction"]
     ports: ["${REDIS_HOST_PORT:-6379}:6379"]
@@ -81,6 +83,7 @@ services:
 
   # ---------------------------------------------------------------- kafka
   kafka:
+    restart: unless-stopped
     image: apache/kafka:4.3.1
     hostname: kafka
     environment:
@@ -133,6 +136,7 @@ services:
     networks: [kade]
 
   schema-registry:
+    restart: unless-stopped
     image: confluentinc/cp-schema-registry:8.2.4
     hostname: schema-registry
     environment:
@@ -155,6 +159,7 @@ services:
     networks: [kade]
 
   connect:
+    restart: unless-stopped
     image: quay.io/debezium/connect:3.7.0.Final
     hostname: connect
     environment:
@@ -186,6 +191,7 @@ services:
 
   # ---------------------------------------------------------------- temporal
   temporal:
+    restart: unless-stopped
     # auto-setup is the last image line that creates schema + namespace on boot (1.29.x).
     image: temporalio/auto-setup:1.29.7
     hostname: temporal
@@ -217,6 +223,7 @@ services:
     networks: [kade]
 
   temporal-admin-tools:
+    restart: unless-stopped
     # CLI box: docker compose -f deploy/compose/compose.yaml exec temporal-admin-tools temporal ...
     image: temporalio/admin-tools:1.29.7-tctl-1.18.4-cli-1.7.2
     environment:
@@ -231,6 +238,7 @@ services:
     networks: [kade]
 
   temporal-ui:
+    restart: unless-stopped
     image: temporalio/ui:2.55.0
     environment:
       TEMPORAL_ADDRESS: temporal:7233
@@ -245,6 +253,7 @@ services:
 
   # ---------------------------------------------------------------- identity
   keycloak:
+    restart: unless-stopped
     image: quay.io/keycloak/keycloak:26.8.0
     command: ["start-dev", "--import-realm"]
     environment:
@@ -278,6 +287,7 @@ services:
 
   # ---------------------------------------------------------------- observability
   otel:
+    restart: unless-stopped
     # Grafana + OTel Collector + Tempo + Loki + Prometheus in one container. The OTLP endpoint
     # every service sends to (http://otel:4318), so it is part of the default stack.
     image: grafana/otel-lgtm:0.36.0
