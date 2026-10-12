@@ -1,0 +1,135 @@
+# Every setting comes from the CONVENTIONS environment variables; defaults are for running on the host against
+# the shared Compose stack (localhost ports). Nothing here is secret: dev credentials are user = password = db.
+kade:
+  service-name: ${SERVICE_NAME:payment}
+  database-url: ${DATABASE_URL:postgres://payment:payment@localhost:5432/payment}
+  grpc:
+    default-deadline: 2s
+    max-deadline: 10s
+  kafka:
+    attempts: 5
+    initial-backoff: 200ms
+    max-backoff: 5s
+    health-timeout: 3s
+    topics:
+      note-events: kade.note.events
+  otel:
+    endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}
+
+spring:
+  application:
+    name: ${kade.service-name}
+  main:
+    banner-mode: off
+  threads:
+    virtual:
+      enabled: true # Tomcat, @Async and Kafka listener threads on virtual threads: fewer platform stacks
+  # spring.datasource.url/username/password are derived from DATABASE_URL (DatabaseUrlEnvironmentPostProcessor)
+  datasource:
+    hikari:
+      maximum-pool-size: 5 # one Postgres serves every service in dev; keep connections few
+      minimum-idle: 1
+      connection-timeout: 2000 # ms (Hikari binds raw longs)
+      pool-name: ${kade.service-name}-db
+  flyway:
+    enabled: true # migrations run on start (CONVENTIONS checklist)
+  kafka:
+    bootstrap-servers: ${KAFKA_BROKERS:localhost:19092}
+    client-id: ${kade.service-name}
+    consumer:
+      group-id: ${kade.service-name}
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
+      properties:
+        isolation.level: read_committed
+    producer: # only the dead-letter publisher produces; events go through the outbox
+      key-serializer: org.apache.kafka.common.serialization.ByteArraySerializer
+      value-serializer: org.apache.kafka.common.serialization.ByteArraySerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+    listener:
+      ack-mode: record
+      observation-enabled: true # continue the trace from the record's traceparent header
+      missing-topics-fatal: false
+    template:
+      observation-enabled: true
+    admin:
+      fail-fast: false
+  grpc:
+    server:
+      port: ${GRPC_PORT:50108}
+      servlet:
+        enabled: false # serve gRPC from its own Netty server on GRPC_PORT, not through Tomcat
+      shutdown-grace-period: 10s
+      health:
+        actuator:
+          health-indicator-paths: [db, kafka] # grpc.health.v1 reports SERVING only when DB + Kafka are up
+          update-overall-health: true
+
+server:
+  port: ${HTTP_PORT:8108}
+  shutdown: graceful
+  tomcat:
+    threads:
+      max: 16
+      min-spare: 1
+
+management:
+  endpoints:
+    web:
+      base-path: /
+      exposure:
+        include: health, prometheus
+      path-mapping:
+        prometheus: metrics # GET /metrics
+  endpoint:
+    health:
+      show-components: always
+      group:
+        live: # GET /health/live: the process is up (never checks dependencies)
+          include: ping
+        ready: # GET /health/ready: can serve traffic
+          include: db, kafka
+  health:
+    defaults:
+      enabled: true
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: ${kade.otel.endpoint}/v1/traces
+    logging:
+      endpoint: ${kade.otel.endpoint}/v1/logs
+    metrics:
+      export:
+        url: ${kade.otel.endpoint}/v1/metrics
+        step: 30s
+  observations:
+    key-values:
+      service: ${kade.service-name}
+  metrics:
+    tags:
+      service: ${kade.service-name}
+
+jdbc:
+  datasource-proxy:
+    include-parameter-values: false # never put money amounts or PII on spans
+  includes: connection, query
+
+logging:
+  structured:
+    format:
+      console: logstash
+    json:
+      rename:
+        traceId: trace_id
+        spanId: span_id
+      add:
+        service: ${kade.service-name}
+  level:
+    org.apache.kafka: warn
+    io.grpc.netty: info

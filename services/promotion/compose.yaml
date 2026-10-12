@@ -1,0 +1,42 @@
+# Compose fragment for the Java service template. The lead includes it from deploy/compose/services.yaml;
+# it also runs on its own against the shared stack:
+#   docker compose -f services/promotion/compose.yaml --profile templates up -d --build
+# Paths are relative to this file.
+
+services:
+  promotion:
+    build:
+      context: .
+      additional_contexts:
+        proto: ../../proto
+    image: kade/promotion:dev
+    profiles: [templates]
+    environment:
+      SERVICE_NAME: promotion
+      GRPC_PORT: "50106"
+      HTTP_PORT: "8106"
+      DATABASE_URL: postgres://promotion:promotion@postgres:5432/promotion
+      KAFKA_BROKERS: kafka:9092
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel:4318
+    ports:
+      - "50106:50106"
+      - "8106:8106"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8106/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    # No depends_on so the fragment also works stand-alone; the app exits if Postgres is unreachable at start
+    # (Flyway) and Compose restarts it.
+    restart: unless-stopped
+    deploy: { resources: { limits: { memory: 256m } } }
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: "2" }
+    networks: [kade]
+
+networks:
+  kade:
+    name: kade
+    external: true
