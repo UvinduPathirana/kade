@@ -12,7 +12,7 @@ kade:
     max-backoff: 5s
     health-timeout: 3s
     topics:
-      note-events: kade.note.events
+      delivery-events: kade.delivery.events
   otel:
     endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}
 

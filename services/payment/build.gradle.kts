@@ -34,7 +34,7 @@ val protoRoot: File = (findProperty("protoRoot") as String?)?.let(::file)
     ?: error("Cannot find the repo's proto/ directory (looked for proto/buf.yaml above $projectDir); pass -PprotoRoot=...")
 
 // Only the packages this service uses. A new service adds its own package (and any it calls) here.
-val protoPackages = listOf("kade/common/v1", "kade/template/v1", "kade/payment/v1")
+val protoPackages = listOf("kade/common/v1", "kade/payment/v1", "kade/dispatch/v1")
 
 // The protobuf plugin compiles every .proto under its source dirs (include/exclude filters are ignored), so stage
 // just the packages we need. Imports between them resolve inside the staged copy.
