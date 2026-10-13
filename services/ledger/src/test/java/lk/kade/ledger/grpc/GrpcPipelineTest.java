@@ -23,9 +23,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import lk.kade.ledger.config.KadeProperties;
 import lk.kade.ledger.error.ErrorReasons;
 import lk.kade.ledger.error.ServiceException;
-import lk.kade.template.v1.GetNoteRequest;
-import lk.kade.template.v1.GetNoteResponse;
-import lk.kade.template.v1.TemplateServiceGrpc;
+import lk.kade.ledger.v1.GetAccountRequest;
+import lk.kade.ledger.v1.GetAccountResponse;
+import lk.kade.ledger.v1.LedgerServiceGrpc;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,18 +44,18 @@ class GrpcPipelineTest {
         KadeProperties props = new KadeProperties("svc", "",
                 new KadeProperties.Grpc(Duration.ofSeconds(2), Duration.ofSeconds(10)),
                 new KadeProperties.Kafka(5, Duration.ofMillis(200), Duration.ofSeconds(5), Duration.ofSeconds(3)));
-        var service = new TemplateServiceGrpc.TemplateServiceImplBase() {
+        var service = new LedgerServiceGrpc.LedgerServiceImplBase() {
             @Override
-            public void getNote(GetNoteRequest request, StreamObserver<GetNoteResponse> response) {
+            public void getAccount(GetAccountRequest request, StreamObserver<GetAccountResponse> response) {
                 seenCaller.set(Caller.current());
                 seenDeadline.set(io.grpc.Context.current().getDeadline());
-                switch (request.getId()) {
+                switch (request.getAccountId()) {
                     case "missing" -> throw ServiceException.notFound("NOTE_NOT_FOUND", "nope");
                     case "boom" -> throw new IllegalStateException("secret internals");
                     case "admin" -> Caller.current().requireAnyRole("admin");
                     default -> { }
                 }
-                response.onNext(GetNoteResponse.getDefaultInstance());
+                response.onNext(GetAccountResponse.getDefaultInstance());
                 response.onCompleted();
             }
         };
@@ -75,31 +75,31 @@ class GrpcPipelineTest {
         server.shutdownNow().awaitTermination(5, TimeUnit.SECONDS);
     }
 
-    private TemplateServiceGrpc.TemplateServiceBlockingStub stub(String user, String roles) {
+    private LedgerServiceGrpc.LedgerServiceBlockingStub stub(String user, String roles) {
         Metadata md = new Metadata();
         if (user != null) md.put(IdentityInterceptor.USER_ID, user);
         if (roles != null) md.put(IdentityInterceptor.ROLES, roles);
-        return TemplateServiceGrpc.newBlockingStub(channel).withInterceptors(MetadataUtils.newAttachHeadersInterceptor(md));
+        return LedgerServiceGrpc.newBlockingStub(channel).withInterceptors(MetadataUtils.newAttachHeadersInterceptor(md));
     }
 
     @Test
     void readsIdentityMetadata() {
-        stub("u-1", "customer, ops").getNote(GetNoteRequest.newBuilder().setId("ok").build());
+        stub("u-1", "customer, ops").getAccount(GetAccountRequest.newBuilder().setAccountId("ok").build());
         assertThat(seenCaller.get()).isEqualTo(new Caller("u-1", Set.of("customer", "ops"), ""));
     }
 
     @Test
     void appliesDefaultDeadlineAndClampsLongOnes() {
-        stub("u", null).getNote(GetNoteRequest.newBuilder().setId("ok").build());
+        stub("u", null).getAccount(GetAccountRequest.newBuilder().setAccountId("ok").build());
         assertThat(seenDeadline.get().timeRemaining(TimeUnit.MILLISECONDS)).isBetween(1_000L, 2_000L);
 
-        stub("u", null).withDeadlineAfter(60, TimeUnit.SECONDS).getNote(GetNoteRequest.newBuilder().setId("ok").build());
+        stub("u", null).withDeadlineAfter(60, TimeUnit.SECONDS).getAccount(GetAccountRequest.newBuilder().setAccountId("ok").build());
         assertThat(seenDeadline.get().timeRemaining(TimeUnit.MILLISECONDS)).isBetween(9_000L, 10_000L);
     }
 
     @Test
     void mapsServiceExceptionToStatusWithErrorInfo() {
-        assertThatThrownBy(() -> stub("u", null).getNote(GetNoteRequest.newBuilder().setId("missing").build()))
+        assertThatThrownBy(() -> stub("u", null).getAccount(GetAccountRequest.newBuilder().setAccountId("missing").build()))
                 .isInstanceOfSatisfying(StatusRuntimeException.class, e -> {
                     assertThat(e.getStatus().getCode()).isEqualTo(Status.Code.NOT_FOUND);
                     assertThat(errorInfo(e).getReason()).isEqualTo("NOTE_NOT_FOUND");
@@ -109,7 +109,7 @@ class GrpcPipelineTest {
 
     @Test
     void hidesUnexpectedErrors() {
-        assertThatThrownBy(() -> stub("u", null).getNote(GetNoteRequest.newBuilder().setId("boom").build()))
+        assertThatThrownBy(() -> stub("u", null).getAccount(GetAccountRequest.newBuilder().setAccountId("boom").build()))
                 .isInstanceOfSatisfying(StatusRuntimeException.class, e -> {
                     assertThat(e.getStatus().getCode()).isEqualTo(Status.Code.INTERNAL);
                     assertThat(e.getStatus().getDescription()).doesNotContain("secret");
@@ -119,10 +119,10 @@ class GrpcPipelineTest {
 
     @Test
     void enforcesRoles() {
-        assertThatThrownBy(() -> stub("u", "customer").getNote(GetNoteRequest.newBuilder().setId("admin").build()))
+        assertThatThrownBy(() -> stub("u", "customer").getAccount(GetAccountRequest.newBuilder().setAccountId("admin").build()))
                 .isInstanceOfSatisfying(StatusRuntimeException.class, e ->
                         assertThat(e.getStatus().getCode()).isEqualTo(Status.Code.PERMISSION_DENIED));
-        stub("u", "admin").getNote(GetNoteRequest.newBuilder().setId("admin").build());
+        stub("u", "admin").getAccount(GetAccountRequest.newBuilder().setAccountId("admin").build());
     }
 
     static ErrorInfo errorInfo(StatusRuntimeException e) {
